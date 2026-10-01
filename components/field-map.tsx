@@ -47,26 +47,27 @@ export function FieldMap({
     [mode],
   );
   const marked = activeIds ?? (selectedId ? [selectedId] : []);
-  const selected = plots.find((plot) => plot.id === selectedId) ?? null;
+  const drawn = useMemo(() => plots.filter((plot) => plot.polygon.length >= 4), [plots]);
+  const selected = drawn.find((plot) => plot.id === selectedId) ?? null;
   const selectedPoint = selected ? centroid(selected.polygon) : null;
 
   const data = useMemo(
     () => ({
       type: "FeatureCollection" as const,
-      features: plots.map((plot) => ({
+      features: drawn.map((plot) => ({
         type: "Feature" as const,
         properties: { id: plot.id, color: plot.color },
         geometry: { type: "Polygon" as const, coordinates: [plot.polygon] },
       })),
     }),
-    [plots],
+    [drawn],
   );
 
   function fit() {
     const map = mapRef.current;
-    if (!map || plots.length === 0) return;
-    const lngs = plots.flatMap((plot) => plot.polygon.map((point) => point[0]));
-    const lats = plots.flatMap((plot) => plot.polygon.map((point) => point[1]));
+    if (!map || drawn.length === 0) return;
+    const lngs = drawn.flatMap((plot) => plot.polygon.map((point) => point[0]));
+    const lats = drawn.flatMap((plot) => plot.polygon.map((point) => point[1]));
     map.fitBounds(
       [
         [Math.min(...lngs), Math.min(...lats)],
@@ -80,7 +81,7 @@ export function FieldMap({
     fit();
     // Refit when the plotted set changes, not on every selection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plots.map((plot) => plot.id).join("|"), mode]);
+  }, [drawn.map((plot) => plot.id).join("|"), mode]);
 
   function selectFromMap(event: MapLayerMouseEvent) {
     const id = event.features?.[0]?.properties?.id;

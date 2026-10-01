@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useMill } from "@/components/store";
 import { Dialog, FarmerSelect, PageHeader, Pagination, PrimaryButton, SecondaryButton, StatusTab, ConfirmAlert, ResultAlert, inputClass, usePagination } from "@/components/ui";
-import { farmerName, formatBaht, formatKg, formatThaiDate, type Farmer, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { daysUntil, farmerName, formatBaht, formatKg, formatThaiDate, openPlanting, plantingsOf, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void }
@@ -44,7 +44,7 @@ export function GroupsScreen() {
 }
 
 export function GroupManageScreen() {
-  const { groups, farmers, plots, createGroup } = useMill();
+  const { groups, farmers, plots, plantings, createGroup } = useMill();
   const router = useRouter();
   const requestedId = useSearchParams().get("group");
   const requested = groups.some((group) => group.id === requestedId) ? requestedId : null;
@@ -156,7 +156,7 @@ export function GroupManageScreen() {
                   const leader = farmers.find((farmer) => farmer.id === group.leaderId);
                   const people = farmers.filter((farmer) => farmer.groupId === group.id);
                   const ids = new Set(people.map((farmer) => farmer.id));
-                  const expected = plots.filter((plot) => ids.has(plot.farmerId) && !plot.delivered).reduce((sum, plot) => sum + plot.estKg, 0);
+                  const expected = plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
                   const received = people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
                   return (
                     <tr key={group.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
@@ -193,12 +193,13 @@ export function GroupManageScreen() {
 
 export function MemberManageScreen() {
   const { groups, farmers, assignFarmer } = useMill();
-  const [tab, setTab] = useState<"listing" | "detail">("listing");
+  const [tab, setTab] = useState<"listing" | "detail" | "plan">("listing");
   const [draftName, setDraftName] = useState("");
   const [draftGroup, setDraftGroup] = useState("");
   const [name, setName] = useState("");
   const [groupId, setGroupId] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [planPlotId, setPlanPlotId] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const detail = farmers.find((farmer) => farmer.id === detailId) ?? null;
@@ -217,12 +218,19 @@ export function MemberManageScreen() {
 
   function openMember(id: string) {
     setDetailId(id);
+    setPlanPlotId(null);
     setTab("detail");
   }
 
   function closeDetail() {
     setDetailId(null);
+    setPlanPlotId(null);
     setTab("listing");
+  }
+
+  function openPlan(plotId: string | null) {
+    setPlanPlotId(plotId);
+    setTab("plan");
   }
 
   return (
@@ -230,8 +238,11 @@ export function MemberManageScreen() {
       <PageHeader current="จัดการสมาชิก" />
       <div className="flex items-end gap-1">
         <StatusTab label="จัดการสมาชิก" active={tab === "listing"} onClick={closeDetail} />
-        {tab === "detail" && detail && (
-          <span className="flex h-10 items-center rounded-t-[6px] bg-bar px-4 text-[14px] font-bold text-white">รายละเอียดสมาชิก</span>
+        {detail && (
+          <>
+            <StatusTab label="รายละเอียดสมาชิก" active={tab === "detail"} onClick={() => setTab("detail")} />
+            <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
+          </>
         )}
       </div>
       {tab === "listing" && (
@@ -346,7 +357,8 @@ export function MemberManageScreen() {
             />
           </>
         )}
-        {tab === "detail" && detail && <MemberDetail farmer={detail} onClose={closeDetail} />}
+        {tab === "detail" && detail && <MemberDetail farmer={detail} onClose={closeDetail} onAddRound={(plotId) => openPlan(plotId)} />}
+        {tab === "plan" && detail && <MemberPlan key={`${detail.id}:${planPlotId ?? "list"}`} farmer={detail} initialPlotId={planPlotId} onClose={closeDetail} />}
       </div>
       {moving && assignGroupId && <MoveFarmer groupId={assignGroupId} onClose={() => setMoving(false)} onAssign={assignFarmer} />}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
@@ -355,7 +367,7 @@ export function MemberManageScreen() {
 }
 
 function GroupDirectory() {
-  const { groups, farmers, plots } = useMill();
+  const { groups, farmers, plots, plantings } = useMill();
   const page = usePagination(groups);
 
   return (
@@ -386,7 +398,7 @@ function GroupDirectory() {
             const leader = farmers.find((farmer) => farmer.id === group.leaderId);
             const people = farmers.filter((farmer) => farmer.groupId === group.id);
             const ids = new Set(people.map((farmer) => farmer.id));
-            const expected = plots.filter((plot) => ids.has(plot.farmerId) && !plot.delivered).reduce((sum, plot) => sum + plot.estKg, 0);
+            const expected = plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
             const received = people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
             return (
               <tr key={group.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
@@ -538,8 +550,8 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
   );
 }
 
-function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void }) {
-  const { groups, plots, updateFarmer } = useMill();
+function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose: () => void; onAddRound: (plotId: string) => void }) {
+  const { groups, plots, plantings, updateFarmer } = useMill();
   const varieties: Variety[] = ["หอมมะลิ", "ขาว", "เหนียว"];
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState(farmer.firstName);
@@ -636,7 +648,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
           </label>
           <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
             กลุ่ม
-            <select value={groupId} disabled={!editing} onChange={(event) => setGroupId(event.target.value)} className={fieldClass}>
+            <select value={groupId} disabled={!editing || leads != null} onChange={(event) => setGroupId(event.target.value)} className={fieldClass}>
               <option value="">ไม่มีกลุ่ม</option>
               {groups.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -660,30 +672,78 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             )}
           </div>
         </form>
-      <div className="grid gap-6 p-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="space-y-4 text-[14px]">
-          {leads && <Fact label="หน้าที่" value={`หัวหน้า ${leads.name}`} />}
-          <Fact label="รับเข้าแล้ว" value={formatKg(farmer.deliveredKg)} />
-          <Fact label="คงค้างจ่าย" value={farmer.unpaidBaht === 0 ? "จ่ายแล้ว" : formatBaht(farmer.unpaidBaht)} />
-          <Link href={`/map?farmer=${farmer.id}`} className="inline-block font-bold text-link underline">
-            ดูบนแผนที่
-          </Link>
-        </div>
-        <PlotTable plots={fields} />
-      </div>
+      <MemberStanding farmer={farmer} plots={fields} plantings={plantings} leads={leads} />
+      <PlotTable plots={fields} plantings={plantings} farmerId={farmer.id} onAddRound={onAddRound} />
+      <ReceivedRounds plots={fields} plantings={plantings} />
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
 }
-function PlotTable({ plots }: { plots: Plot[] }) {
+function MemberStanding({ farmer, plots, plantings, leads }: { farmer: Farmer; plots: Plot[]; plantings: Planting[]; leads: SupplierGroup | null }) {
+  const { groups } = useMill();
+  const group = groups.find((item) => item.id === farmer.groupId) ?? null;
+  const area = plots.reduce((sum, plot) => sum + plot.areaRai, 0);
+  const plotIds = new Set(plots.map((plot) => plot.id));
+  const waiting = plantings.filter((planting) => plotIds.has(planting.plotId) && !planting.delivered).reduce((sum, planting) => sum + planting.estKg, 0);
+
   return (
-    <div className="overflow-hidden rounded-[8px] border border-frame">
-      <div className="bg-table px-5 py-3 text-[14px] font-bold">แปลงของสมาชิก</div>
+    <div className="border-b border-frame">
+      <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">สถานะรับซื้อ</div>
+      <div className="grid gap-4 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4">
+        <Fact label="รับเข้าแล้ว" value={formatKg(farmer.deliveredKg)} />
+        <Fact label="คงค้างจ่าย" value={farmer.unpaidBaht === 0 ? "จ่ายแล้ว" : formatBaht(farmer.unpaidBaht)} />
+        <Fact label="พื้นที่" value={plots.length === 0 ? "ยังไม่มีแปลง" : `${area} ไร่ · ${plots.length} แปลง`} />
+        <Fact label="ยังไม่เข้า" value={formatKg(waiting)} />
+      </div>
+      {!leads && (
+        <div className="border-t border-frame px-6 py-4 text-[14px]">
+          {group ? (
+            <span className="font-bold">สมาชิก {group.name}</span>
+          ) : (
+            <>
+              <span className="font-bold">ยังไม่ได้จัดกลุ่ม</span>
+              <span> เลือกกลุ่มในแบบฟอร์มด้านบนแล้วบันทึก</span>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function plotHarvest(planting: Planting | null) {
+  if (!planting) return { label: "ยังไม่มีแผน", className: "text-ink/60" };
+  if (planting.delivered) return { label: "รับแล้ว", className: "text-ok" };
+  const left = daysUntil(planting.harvestOn);
+  if (left <= 0) return { label: "ถึงกำหนด", className: "text-brand" };
+  if (left <= 7) return { label: "ใกล้เก็บเกี่ยว", className: "text-brand" };
+  return { label: `อีก ${left} วัน`, className: "" };
+}
+
+function PlotTable({
+  plots,
+  plantings,
+  farmerId,
+  onAddRound,
+}: {
+  plots: Plot[];
+  plantings: Planting[];
+  farmerId: string;
+  onAddRound: (plotId: string) => void;
+}) {
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+        <div className="text-[16px] font-bold">แปลงของสมาชิก</div>
+        <Link href={`/map?farmer=${farmerId}`} className="text-[14px] font-bold underline">
+          ดูบนแผนที่
+        </Link>
+      </div>
       <table className="w-full border-collapse text-left text-[14px]">
-        <thead>
+        <thead className="bg-table">
           <tr>
-            {["แปลง", "พื้นที่", "วันปลูก", "กำหนดเก็บ", "ที่คาด"].map((label) => (
-              <th key={label} className="border-t border-white bg-table px-5 py-3 font-bold">
+            {["แปลง", "พื้นที่", "วันปลูก", "กำหนดเก็บ", "ที่คาด", "สถานะ", ""].map((label) => (
+              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
                 {label}
               </th>
             ))}
@@ -692,23 +752,457 @@ function PlotTable({ plots }: { plots: Plot[] }) {
         <tbody>
           {plots.length === 0 && (
             <tr>
-              <td colSpan={5} className="px-5 py-6 text-ink/60">
+              <td colSpan={7} className="px-5 py-6 text-ink/60">
                 ยังไม่มีแปลง
               </td>
             </tr>
           )}
-          {plots.map((plot, index) => (
-            <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-              <td className="px-5 py-3 font-bold">{plot.name}</td>
-              <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-              <td className="px-5 py-3">{formatThaiDate(plot.plantedOn)}</td>
-              <td className="px-5 py-3">{formatThaiDate(plot.harvestOn)}</td>
-              <td className="px-5 py-3">{plot.delivered ? "รับแล้ว" : formatKg(plot.estKg)}</td>
+          {plots.map((plot, index) => {
+            const round = openPlanting(plantings, plot.id);
+            const harvest = plotHarvest(round);
+            return (
+              <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                <td className="px-5 py-3 font-bold">{plot.name}</td>
+                <td className="px-5 py-3">{plot.areaRai} ไร่</td>
+                <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
+                <td className="px-5 py-3">{round ? formatThaiDate(round.harvestOn) : "—"}</td>
+                <td className="px-5 py-3">{round ? formatKg(round.estKg) : "—"}</td>
+                <td className={`px-5 py-3 font-bold ${harvest.className}`}>{harvest.label}</td>
+                <td className="px-5 py-3 text-right">
+                  {!round && (
+                    <button type="button" className="font-bold text-link underline" onClick={() => onAddRound(plot.id)}>
+                      เพิ่มรอบ
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ReceivedRounds({ plots, plantings }: { plots: Plot[]; plantings: Planting[] }) {
+  const plotNames = new Map(plots.map((plot) => [plot.id, plot.name]));
+  const rows = plantings
+    .filter((planting) => planting.delivered && plotNames.has(planting.plotId))
+    .slice()
+    .sort((a, b) => b.harvestOn.localeCompare(a.harvestOn));
+
+  return (
+    <div>
+      <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">รอบที่รับแล้ว</div>
+      <table className="w-full border-collapse text-left text-[14px]">
+        <thead className="bg-table">
+          <tr>
+            {["แปลง", "วันปลูก", "กำหนดเก็บ", "ที่คาด"].map((label) => (
+              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={4} className="px-5 py-6 text-ink/60">
+                ยังไม่มีรอบที่รับแล้ว
+              </td>
+            </tr>
+          )}
+          {rows.map((round, index) => (
+            <tr key={round.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+              <td className="px-5 py-3 font-bold">{plotNames.get(round.plotId)}</td>
+              <td className="px-5 py-3">{formatThaiDate(round.plantedOn)}</td>
+              <td className="px-5 py-3">{formatThaiDate(round.harvestOn)}</td>
+              <td className="px-5 py-3">{formatKg(round.estKg)}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function plantingMark(planting: Planting) {
+  if (planting.delivered) return { label: "รับแล้ว", className: "text-ok" };
+  if (daysUntil(planting.plantedOn) > 0) return { label: "วางแผน", className: "" };
+  return { label: "ปลูกแล้ว", className: "text-brand" };
+}
+
+function MemberPlan({ farmer, initialPlotId, onClose }: { farmer: Farmer; initialPlotId: string | null; onClose: () => void }) {
+  const { plots, plantings, addPlot } = useMill();
+  const owned = plots.filter((plot) => plot.farmerId === farmer.id).slice().sort((a, b) => a.name.localeCompare(b.name, "th"));
+  const fields = owned.filter((plot) => openPlanting(plantings, plot.id));
+  const [plotId, setPlotId] = useState<string | null>(initialPlotId);
+  const [adding, setAdding] = useState(false);
+  const selected = owned.find((plot) => plot.id === plotId) ?? null;
+
+  if (selected) {
+    return <PlotWorkspace plot={selected} onBack={() => setPlotId(null)} onClose={onClose} />;
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+        <div className="text-[16px] font-bold">แผนการปลูก · {farmerName(farmer)}</div>
+        <div className="flex items-center gap-3">
+          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+            เพิ่มแปลง
+          </SecondaryButton>
+          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+            ปิด
+          </button>
+        </div>
+      </div>
+      <table className="w-full border-collapse text-left text-[14px]">
+        <thead className="bg-table">
+          <tr>
+            {["แปลง", "พื้นที่", "สถานะ", "วันปลูก", "กำหนดเก็บ", "ที่คาด"].map((label) => (
+              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {fields.length === 0 && (
+            <tr>
+              <td colSpan={6} className="px-5 py-6 text-ink/60">
+                {owned.length === 0 ? "ยังไม่มีแปลง" : "ไม่มีรอบที่กำลังปลูก"}
+              </td>
+            </tr>
+          )}
+          {fields.map((plot, index) => {
+            const round = openPlanting(plantings, plot.id);
+            const mark = round ? plantingMark(round) : { label: "ยังไม่มีแผน", className: "text-ink/60" };
+            return (
+              <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                <td className="px-5 py-3">
+                  <button type="button" className="font-bold text-link underline" onClick={() => setPlotId(plot.id)}>
+                    {plot.name}
+                  </button>
+                </td>
+                <td className="px-5 py-3">{plot.areaRai} ไร่</td>
+                <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
+                <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
+                <td className="px-5 py-3">{round ? formatThaiDate(round.harvestOn) : "—"}</td>
+                <td className="px-5 py-3">{round ? formatKg(round.estKg) : "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {adding && (
+        <PlotDialog
+          title="เพิ่มแปลง"
+          name=""
+          area=""
+          onClose={() => setAdding(false)}
+          onSave={(name, areaRai, schedule) => addPlot(farmer.id, { name, areaRai, ...schedule })}
+        />
+      )}
+    </>
+  );
+}
+
+function PlotWorkspace({ plot, onBack, onClose }: { plot: Plot; onBack: () => void; onClose: () => void }) {
+  const { plantings, savePlot, removePlot, savePlanting, removePlanting } = useMill();
+  const history = plantingsOf(plantings, plot.id);
+  const rounds = history.filter((round) => !round.delivered);
+  const current = openPlanting(plantings, plot.id);
+  const locked = history.some((round) => round.delivered);
+  const [name, setName] = useState(plot.name);
+  const [area, setArea] = useState(String(plot.areaRai));
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [roundEditor, setRoundEditor] = useState<Planting | null | false>(false);
+  const fieldClass = `${inputClass} mt-1`;
+
+  useEffect(() => {
+    setName(plot.name);
+    setArea(String(plot.areaRai));
+  }, [plot.id, plot.name, plot.areaRai]);
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+        <div className="text-[16px] font-bold">{plot.name}</div>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={onBack} className="text-[14px] font-bold underline">
+            รายการแปลง
+          </button>
+          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+            ปิด
+          </button>
+        </div>
+      </div>
+      <form
+        className="grid gap-4 border-b border-frame px-6 py-5 sm:grid-cols-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const areaRai = parseAmount(area);
+          if (!name.trim()) {
+            setNotice({ tone: "error", message: "กรอกชื่อแปลง" });
+            return;
+          }
+          if (!Number.isFinite(areaRai) || areaRai <= 0) {
+            setNotice({ tone: "error", message: "พื้นที่ต้องมากกว่า 0" });
+            return;
+          }
+          setNotice({
+            tone: "confirm",
+            message: `ยืนยันบันทึกแปลง ${name.trim()}`,
+            accept: () => setNotice(reported(savePlot(plot.id, { name, areaRai }), "บันทึกแปลงแล้ว")),
+          });
+        }}
+      >
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          ชื่อแปลง
+          <input value={name} onChange={(event) => setName(event.target.value)} className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          พื้นที่ (ไร่)
+          <input value={area} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
+        </label>
+        {locked && <p className="text-[14px] sm:col-span-2">รอบที่รับแล้วอยู่ที่รายละเอียดสมาชิก</p>}
+        <div className="flex flex-wrap gap-3 sm:col-span-2">
+          <PrimaryButton type="submit">บันทึกแปลง</PrimaryButton>
+          {!locked && (
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setNotice({
+                  tone: "confirm",
+                  message: `ยืนยันลบแปลง ${plot.name}`,
+                  accept: () => setNotice(reported(removePlot(plot.id), "ลบแปลงแล้ว", onBack)),
+                })
+              }
+            >
+              ลบแปลง
+            </SecondaryButton>
+          )}
+        </div>
+      </form>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+        <div className="text-[16px] font-bold">รอบปลูก</div>
+        {!current && <SecondaryButton className="h-9" onClick={() => setRoundEditor(null)}>เพิ่มรอบ</SecondaryButton>}
+      </div>
+      <table className="w-full border-collapse text-left text-[14px]">
+        <thead className="bg-table">
+          <tr>
+            {["สถานะ", "วันปลูก", "กำหนดเก็บ", "ที่คาด", ""].map((label) => (
+              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rounds.length === 0 && (
+            <tr>
+              <td colSpan={5} className="px-5 py-6 text-ink/60">
+                ยังไม่มีแผน
+              </td>
+            </tr>
+          )}
+          {rounds.map((round, index) => {
+            const mark = plantingMark(round);
+            return (
+              <tr key={round.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
+                <td className="px-5 py-3">{formatThaiDate(round.plantedOn)}</td>
+                <td className="px-5 py-3">{formatThaiDate(round.harvestOn)}</td>
+                <td className="px-5 py-3">{formatKg(round.estKg)}</td>
+                <td className="px-5 py-3 text-right">
+                  {!round.delivered && (
+                    <span className="inline-flex gap-3">
+                      <button type="button" className="font-bold text-link underline" onClick={() => setRoundEditor(round)}>
+                        แก้แผน
+                      </button>
+                      <button
+                        type="button"
+                        className="font-bold text-link underline"
+                        onClick={() =>
+                          setNotice({
+                            tone: "confirm",
+                            message: `ยืนยันลบแผนรอบ ${formatThaiDate(round.plantedOn)}`,
+                            accept: () => setNotice(reported(removePlanting(round.id), "ลบแผนแล้ว")),
+                          })
+                        }
+                      >
+                        ลบแผน
+                      </button>
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {roundEditor !== false && (
+        <RoundDialog
+          title={roundEditor ? `แก้แผน · ${plot.name}` : `เพิ่มรอบ · ${plot.name}`}
+          planting={roundEditor}
+          onClose={() => setRoundEditor(false)}
+          onSave={(schedule) => savePlanting(plot.id, { plantingId: roundEditor?.id ?? null, ...schedule })}
+        />
+      )}
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+    </>
+  );
+}
+
+function parseAmount(value: string) {
+  const amount = Number(value.trim());
+  return Number.isFinite(amount) ? amount : Number.NaN;
+}
+
+function PlotDialog({
+  title,
+  name,
+  area,
+  schedule = true,
+  onClose,
+  onSave,
+}: {
+  title: string;
+  name: string;
+  area: string;
+  schedule?: boolean;
+  onClose: () => void;
+  onSave: (name: string, areaRai: number, schedule: { plantedOn: string; harvestOn: string; estKg: number }) => string | null;
+}) {
+  const [plotName, setPlotName] = useState(name);
+  const [areaRai, setAreaRai] = useState(area);
+  const [plantedOn, setPlantedOn] = useState("");
+  const [harvestOn, setHarvestOn] = useState("");
+  const [estKg, setEstKg] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
+
+  return (
+    <>
+      <Dialog title={title} onClose={onClose}>
+        <form
+          className="grid gap-4 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const nextArea = parseAmount(areaRai);
+            const nextKg = parseAmount(estKg);
+            if (!plotName.trim()) {
+              setNotice({ tone: "error", message: "กรอกชื่อแปลง" });
+              return;
+            }
+            if (!Number.isFinite(nextArea) || nextArea <= 0) {
+              setNotice({ tone: "error", message: "พื้นที่ต้องมากกว่า 0" });
+              return;
+            }
+            if (schedule && (!Number.isInteger(nextKg) || nextKg <= 0)) {
+              setNotice({ tone: "error", message: "ที่คาดต้องเป็นจำนวนเต็มมากกว่า 0" });
+              return;
+            }
+            setNotice({
+              tone: "confirm",
+              message: `ยืนยัน${title}`,
+              accept: () =>
+                setNotice(
+                  reported(onSave(plotName, nextArea, { plantedOn, harvestOn, estKg: nextKg }), schedule ? "บันทึกแปลงแล้ว" : "แก้แปลงแล้ว", onClose),
+                ),
+            });
+          }}
+        >
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ชื่อแปลง
+            <input value={plotName} onChange={(event) => setPlotName(event.target.value)} className={`${inputClass} mt-1`} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            พื้นที่ (ไร่)
+            <input value={areaRai} inputMode="decimal" onChange={(event) => setAreaRai(event.target.value)} className={`${inputClass} mt-1`} />
+          </label>
+          {schedule && (
+            <>
+              <label className="block text-[14px] font-bold leading-[1.4]">
+                วันปลูก
+                <input type="date" value={plantedOn} onChange={(event) => setPlantedOn(event.target.value)} className={`${inputClass} mt-1`} required />
+              </label>
+              <label className="block text-[14px] font-bold leading-[1.4]">
+                กำหนดเก็บ
+                <input type="date" value={harvestOn} onChange={(event) => setHarvestOn(event.target.value)} className={`${inputClass} mt-1`} required />
+              </label>
+              <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+                ที่คาด (กก.)
+                <input value={estKg} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={`${inputClass} mt-1`} />
+              </label>
+            </>
+          )}
+          <div className="flex justify-end gap-3 sm:col-span-2">
+            <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
+            <PrimaryButton type="submit">บันทึก</PrimaryButton>
+          </div>
+        </form>
+      </Dialog>
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+    </>
+  );
+}
+
+function RoundDialog({
+  title,
+  planting,
+  onClose,
+  onSave,
+}: {
+  title: string;
+  planting: Planting | null;
+  onClose: () => void;
+  onSave: (schedule: { plantedOn: string; harvestOn: string; estKg: number }) => string | null;
+}) {
+  const [plantedOn, setPlantedOn] = useState(planting?.plantedOn ?? "");
+  const [harvestOn, setHarvestOn] = useState(planting?.harvestOn ?? "");
+  const [estKg, setEstKg] = useState(planting ? String(planting.estKg) : "");
+  const [notice, setNotice] = useState<Notice | null>(null);
+
+  return (
+    <>
+      <Dialog title={title} onClose={onClose}>
+        <form
+          className="grid gap-4 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const nextKg = parseAmount(estKg);
+            if (!Number.isInteger(nextKg) || nextKg <= 0) {
+              setNotice({ tone: "error", message: "ที่คาดต้องเป็นจำนวนเต็มมากกว่า 0" });
+              return;
+            }
+            setNotice({
+              tone: "confirm",
+              message: `ยืนยัน${title}`,
+              accept: () => setNotice(reported(onSave({ plantedOn, harvestOn, estKg: nextKg }), "บันทึกแผนแล้ว", onClose)),
+            });
+          }}
+        >
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            วันปลูก
+            <input type="date" value={plantedOn} onChange={(event) => setPlantedOn(event.target.value)} className={`${inputClass} mt-1`} required />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            กำหนดเก็บ
+            <input type="date" value={harvestOn} onChange={(event) => setHarvestOn(event.target.value)} className={`${inputClass} mt-1`} required />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+            ที่คาด (กก.)
+            <input value={estKg} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={`${inputClass} mt-1`} />
+          </label>
+          <div className="flex justify-end gap-3 sm:col-span-2">
+            <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
+            <PrimaryButton type="submit">บันทึก</PrimaryButton>
+          </div>
+        </form>
+      </Dialog>
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+    </>
   );
 }
 

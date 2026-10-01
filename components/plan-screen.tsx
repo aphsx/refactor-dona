@@ -6,21 +6,25 @@ import { useMill } from "@/components/store";
 import { Kpi, PageHeader, Pagination, inputClass, usePagination } from "@/components/ui";
 import { farmerName, formatKg, formatThaiDate, formatThaiMonth, type Plot } from "@/lib/mill";
 
+type SeasonRow = Plot & { plantingId: string; plantedOn: string; harvestOn: string; estKg: number };
+
 export function PlanScreen() {
-  const { plots, farmers, groups } = useMill();
+  const { plots, plantings, farmers, groups } = useMill();
   const [groupId, setGroupId] = useState("all");
 
   const rows = useMemo(() => {
-    return plots
-      .filter((plot) => {
+    return plantings
+      .filter((planting) => !planting.delivered)
+      .flatMap((planting) => {
+        const plot = plots.find((item) => item.id === planting.plotId);
+        if (!plot) return [];
         const farmer = farmers.find((item) => item.id === plot.farmerId);
-        if (groupId === "all") return true;
-        if (groupId === "none") return farmer?.groupId == null;
-        return farmer?.groupId === groupId;
+        if (groupId === "none" && farmer?.groupId != null) return [];
+        if (groupId !== "all" && groupId !== "none" && farmer?.groupId !== groupId) return [];
+        return [{ ...plot, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
       })
-      .slice()
       .sort((a, b) => a.plantedOn.localeCompare(b.plantedOn));
-  }, [plots, farmers, groupId]);
+  }, [plantings, plots, farmers, groupId]);
 
   const months = useMemo(() => groupByMonth(rows), [rows]);
   const page = usePagination(months, groupId);
@@ -68,8 +72,8 @@ export function PlanScreen() {
   );
 }
 
-function groupByMonth(plots: Plot[]) {
-  const grouped = new Map<string, Plot[]>();
+function groupByMonth(plots: SeasonRow[]) {
+  const grouped = new Map<string, SeasonRow[]>();
   for (const plot of plots) {
     const key = plot.plantedOn.slice(0, 7);
     const list = grouped.get(key) ?? [];
@@ -81,7 +85,7 @@ function groupByMonth(plots: Plot[]) {
     .map(([key, items]) => ({ key, plots: items }));
 }
 
-function MonthBlock({ month, plots }: { month: string; plots: Plot[] }) {
+function MonthBlock({ month, plots }: { month: string; plots: SeasonRow[] }) {
   const { farmers, groups } = useMill();
   const area = plots.reduce((sum, plot) => sum + plot.areaRai, 0);
   return (
@@ -106,7 +110,7 @@ function MonthBlock({ month, plots }: { month: string; plots: Plot[] }) {
           {plots.map((plot, index) => {
             const farmer = farmers.find((item) => item.id === plot.farmerId);
             return (
-              <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+              <tr key={plot.plantingId} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{formatThaiDate(plot.plantedOn)}</td>
                 <td className="px-5 py-3">{plot.name}</td>
                 <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>

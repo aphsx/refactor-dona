@@ -5,14 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { useMill } from "@/components/store";
-import { farmerColor, farmerName, formatKg, formatThaiDate } from "@/lib/mill";
+import { currentPlanting, farmerColor, farmerName, formatKg, formatThaiDate } from "@/lib/mill";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
 export function MapScreen() {
   const params = useSearchParams();
   const requested = params.get("farmer");
-  const { plots, farmers, groups } = useMill();
+  const { plots, plantings, farmers, groups } = useMill();
   const [query, setQuery] = useState("");
   const [groupId, setGroupId] = useState("all");
   const [farmerId, setFarmerId] = useState<string | null>(requested);
@@ -40,12 +40,14 @@ export function MapScreen() {
 
   const mapPlots = useMemo(
     () =>
-      visiblePlots.map((plot) => ({
-        id: plot.id,
-        name: plot.name,
-        color: farmerId && plot.farmerId !== farmerId ? "#D5E3DC" : farmerColor(plot.farmerId),
-        polygon: plot.polygon,
-      })),
+      visiblePlots
+        .filter((plot) => plot.polygon.length >= 4)
+        .map((plot) => ({
+          id: plot.id,
+          name: plot.name,
+          color: farmerId && plot.farmerId !== farmerId ? "#D5E3DC" : farmerColor(plot.farmerId),
+          polygon: plot.polygon,
+        })),
     [visiblePlots, farmerId],
   );
 
@@ -140,20 +142,24 @@ export function MapScreen() {
                 <div>
                   <div className="font-bold leading-[1.4]">แปลงของคนนี้</div>
                   <ul className="mt-2 space-y-2">
-                    {farmerPlots.map((plot) => (
-                      <li key={plot.id}>
-                        <button
-                          type="button"
-                          onClick={() => setPlotId(plot.id)}
-                          className={`w-full rounded-[8px] border px-3 py-2 text-left ${plot.id === plotId ? "border-brand bg-pick" : "border-frame"}`}
-                        >
-                          <span className="block font-bold">{plot.name}</span>
-                          <span className="mt-1 block text-[12px] text-ink/70">
-                            {plot.areaRai} ไร่ · เก็บ {formatThaiDate(plot.harvestOn)} · {plot.delivered ? "รับแล้ว" : formatKg(plot.estKg)}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
+                    {farmerPlots.map((plot) => {
+                      const round = currentPlanting(plantings, plot.id);
+                      return (
+                        <li key={plot.id}>
+                          <button
+                            type="button"
+                            onClick={() => setPlotId(plot.id)}
+                            className={`w-full rounded-[8px] border px-3 py-2 text-left ${plot.id === plotId ? "border-brand bg-pick" : "border-frame"}`}
+                          >
+                            <span className="block font-bold">{plot.name}</span>
+                            <span className="mt-1 block text-[12px] text-ink/70">
+                              {plot.areaRai} ไร่
+                              {round ? ` · เก็บ ${formatThaiDate(round.harvestOn)} · ${round.delivered ? "รับแล้ว" : formatKg(round.estKg)}` : " · ยังไม่มีแผน"}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               </div>

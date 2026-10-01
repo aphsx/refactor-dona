@@ -45,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function ShellFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { tickets, plots, farmers } = useMill();
+  const { tickets, plots, plantings, farmers } = useMill();
   const [collapsed, setCollapsed] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
@@ -57,7 +57,12 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const waiting = tickets.filter((ticket) => ticket.status === "รอชั่ง");
-  const duePlots = plots.filter((plot) => !plot.delivered && daysUntil(plot.harvestOn) <= 7);
+  const duePlots = plantings
+    .filter((planting) => !planting.delivered && daysUntil(planting.harvestOn) <= 7)
+    .flatMap((planting) => {
+      const plot = plots.find((item) => item.id === planting.plotId);
+      return plot ? [{ ...planting, name: plot.name }] : [];
+    });
   const notices = waiting.length + duePlots.length;
 
   return (

@@ -6,21 +6,25 @@ import { useMill } from "@/components/store";
 import { Kpi, PageHeader, Pagination, StatusTab, inputClass, usePagination } from "@/components/ui";
 import { daysUntil, farmerName, formatKg, formatThaiDate, type Plot } from "@/lib/mill";
 
+type SupplyRow = Plot & { plantingId: string; harvestOn: string; estKg: number; delivered: boolean };
+
 type WindowFilter = "ใกล้เก็บเกี่ยว" | "เดือนนี้" | "ยังไม่เข้า" | "รับแล้ว";
 
 export function SupplyScreen() {
-  const { plots, farmers, groups } = useMill();
+  const { plots, plantings, farmers, groups } = useMill();
   const [filter, setFilter] = useState<WindowFilter>("ใกล้เก็บเกี่ยว");
   const [groupId, setGroupId] = useState("all");
 
   const owned = useMemo(() => {
-    return plots.filter((plot) => {
+    return plantings.flatMap((planting) => {
+      const plot = plots.find((item) => item.id === planting.plotId);
+      if (!plot) return [];
       const farmer = farmers.find((item) => item.id === plot.farmerId);
-      if (groupId === "none") return farmer?.groupId == null;
-      if (groupId !== "all") return farmer?.groupId === groupId;
-      return true;
+      if (groupId === "none" && farmer?.groupId != null) return [];
+      if (groupId !== "all" && groupId !== "none" && farmer?.groupId !== groupId) return [];
+      return [{ ...plot, plantingId: planting.id, harvestOn: planting.harvestOn, estKg: planting.estKg, delivered: planting.delivered }];
     });
-  }, [plots, farmers, groupId]);
+  }, [plantings, plots, farmers, groupId]);
 
   const pending = owned.filter((plot) => !plot.delivered);
   const due = pending.filter((plot) => daysUntil(plot.harvestOn) <= 0);
@@ -86,8 +90,8 @@ export function SupplyScreen() {
   );
 }
 
-function groupByHarvest(plots: Plot[]) {
-  const grouped = new Map<string, Plot[]>();
+function groupByHarvest(plots: SupplyRow[]) {
+  const grouped = new Map<string, SupplyRow[]>();
   for (const plot of plots) {
     const list = grouped.get(plot.harvestOn) ?? [];
     list.push(plot);
@@ -98,7 +102,7 @@ function groupByHarvest(plots: Plot[]) {
     .map(([date, items]) => ({ date, plots: items }));
 }
 
-function queueMark(plots: Plot[]) {
+function queueMark(plots: SupplyRow[]) {
   const open = plots.filter((plot) => !plot.delivered);
   if (open.length === 0) return "รับแล้ว";
   if (open.some((plot) => daysUntil(plot.harvestOn) <= 0)) return "ถึงกำหนด";
@@ -106,7 +110,7 @@ function queueMark(plots: Plot[]) {
   return "";
 }
 
-function DateQueue({ date, plots }: { date: string; plots: Plot[] }) {
+function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
   const { farmers, groups } = useMill();
   const mark = queueMark(plots);
   const kg = plots.reduce((sum, plot) => sum + plot.estKg, 0);
@@ -137,7 +141,7 @@ function DateQueue({ date, plots }: { date: string; plots: Plot[] }) {
             const left = daysUntil(plot.harvestOn);
             const status = plot.delivered ? "รับแล้ว" : left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
             return (
-              <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+              <tr key={plot.plantingId} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
                 <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>

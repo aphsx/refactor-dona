@@ -5,6 +5,7 @@ import {
   FARMERS,
   GROUPS,
   LOTS,
+  PLANTINGS,
   PLOTS,
   SILOS,
   PRICES,
@@ -13,6 +14,7 @@ import {
   splitLot,
   type Farmer,
   type Lot,
+  type Planting,
   type Plot,
   type Silo,
   type SupplierGroup,
@@ -23,6 +25,7 @@ type MillData = {
   farmers: Farmer[];
   groups: SupplierGroup[];
   plots: Plot[];
+  plantings: Planting[];
   tickets: Ticket[];
   silos: Silo[];
   lots: Lot[];
@@ -41,6 +44,17 @@ type Store = MillData & {
     input: { firstName: string; lastName: string; tel: string; variety: Farmer["variety"]; groupId: string | null },
   ) => string | null;
   assignFarmer: (farmerId: string, groupId: string | null) => string | null;
+  addPlot: (
+    farmerId: string,
+    input: { name: string; areaRai: number; plantedOn: string; harvestOn: string; estKg: number },
+  ) => string | null;
+  savePlot: (plotId: string, input: { name: string; areaRai: number }) => string | null;
+  removePlot: (plotId: string) => string | null;
+  savePlanting: (
+    plotId: string,
+    input: { plantingId: string | null; plantedOn: string; harvestOn: string; estKg: number },
+  ) => string | null;
+  removePlanting: (plantingId: string) => string | null;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -49,6 +63,7 @@ const initialData: MillData = {
   farmers: FARMERS,
   groups: GROUPS,
   plots: PLOTS,
+  plantings: PLANTINGS,
   tickets: TICKETS,
   silos: SILOS,
   lots: LOTS,
@@ -242,9 +257,108 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return null;
       });
     },
+    addPlot(farmerId, input) {
+      return commit((draft) => {
+        const farmer = draft.farmers.find((item) => item.id === farmerId);
+        if (!farmer) return "ไม่พบคู่ค้า";
+        const name = input.name.trim();
+        if (!name) return "กรอกชื่อแปลง";
+        if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";
+        const schedule = validSchedule(name, input);
+        if (schedule) return schedule;
+        const plotId = `p-${draft.plots.length + 1}-${name.length}`;
+        draft.plots.push({ id: plotId, farmerId, name, areaRai: input.areaRai, polygon: [] });
+        draft.plantings.push({
+          id: `r-${draft.plantings.length + 1}`,
+          plotId,
+          plantedOn: input.plantedOn,
+          harvestOn: input.harvestOn,
+          estKg: input.estKg,
+          delivered: false,
+        });
+        return null;
+      });
+    },
+    savePlot(plotId, input) {
+      return commit((draft) => {
+        const plot = draft.plots.find((item) => item.id === plotId);
+        if (!plot) return "ไม่พบแปลง";
+        const name = input.name.trim();
+        if (!name) return "กรอกชื่อแปลง";
+        if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";
+        plot.name = name;
+        plot.areaRai = input.areaRai;
+        return null;
+      });
+    },
+    removePlot(plotId) {
+      return commit((draft) => {
+        const plot = draft.plots.find((item) => item.id === plotId);
+        if (!plot) return "ไม่พบแปลง";
+        if (draft.plantings.some((item) => item.plotId === plotId && item.delivered)) return "แปลงนี้มีรอบที่รับแล้ว ลบไม่ได้";
+        draft.plots = draft.plots.filter((item) => item.id !== plotId);
+        draft.plantings = draft.plantings.filter((item) => item.plotId !== plotId);
+        return null;
+      });
+    },
+    savePlanting(plotId, input) {
+      return commit((draft) => {
+        const plot = draft.plots.find((item) => item.id === plotId);
+        if (!plot) return "ไม่พบแปลง";
+        const schedule = validSchedule(plot.name, input);
+        if (schedule) return schedule;
+        if (input.plantingId == null) {
+          if (draft.plantings.some((item) => item.plotId === plotId && !item.delivered)) return "แปลงนี้มีแผนที่ยังไม่รับ";
+          draft.plantings.push({
+            id: `r-${draft.plantings.length + 1}`,
+            plotId,
+            plantedOn: input.plantedOn,
+            harvestOn: input.harvestOn,
+            estKg: input.estKg,
+            delivered: false,
+          });
+          return null;
+        }
+        const planting = draft.plantings.find((item) => item.id === input.plantingId);
+        if (!planting || planting.plotId !== plotId) return "ไม่พบแผน";
+        if (planting.delivered) return "รอบนี้รับเข้าแล้ว แก้ไม่ได้";
+        planting.plantedOn = input.plantedOn;
+        planting.harvestOn = input.harvestOn;
+        planting.estKg = input.estKg;
+        return null;
+      });
+    },
+    removePlanting(plantingId) {
+      return commit((draft) => {
+        const planting = draft.plantings.find((item) => item.id === plantingId);
+        if (!planting) return "ไม่พบแผน";
+        if (planting.delivered) return "รอบนี้รับเข้าแล้ว ลบไม่ได้";
+        draft.plantings = draft.plantings.filter((item) => item.id !== plantingId);
+        return null;
+      });
+    },
   };
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
+}
+
+function isoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+function validArea(areaRai: number) {
+  return Number.isFinite(areaRai) && areaRai > 0;
+}
+
+function validSchedule(name: string, input: { plantedOn: string; harvestOn: string; estKg: number }) {
+  if (!isoDate(input.plantedOn)) return `วันปลูกของ ${name} ไม่ถูกต้อง`;
+  if (!isoDate(input.harvestOn)) return `กำหนดเก็บของ ${name} ไม่ถูกต้อง`;
+  if (input.harvestOn < input.plantedOn) return `กำหนดเก็บของ ${name} ต้องไม่ก่อนวันปลูก`;
+  if (!Number.isInteger(input.estKg) || input.estKg <= 0) return `ที่คาดของ ${name} ต้องมากกว่า 0`;
+  return null;
 }
 
 export function useMill() {
