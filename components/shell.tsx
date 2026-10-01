@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, CalendarDays, ChevronDown, Factory, Layers, Map, Menu, Scale, Sprout, Users, Warehouse, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, Factory, Layers, Map, Menu, Sprout, Users, Warehouse, type LucideIcon } from "lucide-react";
 import { StoreProvider, useMill } from "@/components/store";
-import { daysUntil, farmerName } from "@/lib/mill";
+import { daysUntil } from "@/lib/mill";
 
 type NavChild = { href: string; label: string };
 type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavChild[] };
 
 const NAV: NavItem[] = [
-  { href: "/", label: "รับซื้อวันนี้", icon: Scale },
+  // { href: "/", label: "รับซื้อวันนี้", icon: Scale },
   {
     label: "แผนรอบปลูก",
     icon: Sprout,
@@ -52,7 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function ShellFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { tickets, plots, plantings, farmers } = useMill();
+  const { plots, plantings } = useMill();
   const [collapsed, setCollapsed] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
@@ -63,14 +63,14 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
     if (parent) setOpenMenu(parent.label);
   }, [pathname]);
 
-  const waiting = tickets.filter((ticket) => ticket.status === "รอชั่ง");
+  // const waiting = tickets.filter((ticket) => ticket.status === "รอชั่ง");
   const duePlots = plantings
     .filter((planting) => !planting.delivered && daysUntil(planting.harvestOn) <= 7)
     .flatMap((planting) => {
       const plot = plots.find((item) => item.id === planting.plotId);
       return plot ? [{ ...planting, name: plot.name }] : [];
     });
-  const notices = waiting.length + duePlots.length;
+  const notices = duePlots.length;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white text-ink">
@@ -109,19 +109,6 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
                 <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-[8px] border border-frame bg-white shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
                   <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">สิ่งที่ต้องดู</div>
                   <ul>
-                    {waiting.map((ticket) => {
-                      const farmer = farmers.find((item) => item.id === ticket.farmerId);
-                      return (
-                        <li key={ticket.id} className="border-b border-table">
-                          <Link href="/" onClick={() => setBellOpen(false)} className="block px-5 py-3 hover:bg-sub">
-                            <div className="text-[14px] font-bold">คิว {ticket.queue} รอชั่ง</div>
-                            <div className="mt-1 text-[12px] text-ink/70">
-                              {ticket.plate} · {farmer ? farmerName(farmer) : ""}
-                            </div>
-                          </Link>
-                        </li>
-                      );
-                    })}
                     {duePlots.map((plot) => (
                       <li key={plot.id} className="border-b border-table last:border-b-0">
                         <Link href="/supply" onClick={() => setBellOpen(false)} className="block px-5 py-3 hover:bg-sub">
