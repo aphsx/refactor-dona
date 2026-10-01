@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { useMill } from "@/components/store";
-import { CountBar, Dialog, FarmerSelect, Kpi, PageHeader, PrimaryButton, SecondaryButton, StatusTab, inputClass } from "@/components/ui";
+import { Dialog, FarmerSelect, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, StatusTab, inputClass, usePagination } from "@/components/ui";
 import { farmerName, formatBaht, formatKg, formatTon, settle } from "@/lib/mill";
 
 type TicketFilter = "ทั้งหมด" | "รอชั่ง" | "เข้าไซโล";
@@ -25,6 +25,7 @@ export function IntakeScreen() {
     .filter((ticket) => filter === "ทั้งหมด" || ticket.status === filter)
     .slice()
     .sort((a, b) => a.queue - b.queue);
+  const page = usePagination(rows, filter);
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
@@ -61,7 +62,7 @@ export function IntakeScreen() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((ticket, index) => {
+            {page.rows.map((ticket, index) => {
               const farmer = farmers.find((item) => item.id === ticket.farmerId);
               return (
                 <tr key={ticket.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
@@ -86,7 +87,14 @@ export function IntakeScreen() {
             })}
           </tbody>
         </table>
-        <CountBar count={rows.length} />
+        <Pagination
+          page={page.page}
+          pageCount={page.pageCount}
+          pageSize={page.pageSize}
+          total={page.total}
+          onPageChange={page.setPage}
+          onPageSizeChange={page.setPageSize}
+        />
       </div>
       {creating && <CreateTicket onClose={() => setCreating(false)} onCreate={createTicket} />}
       {weighId && <WeighTicket id={weighId} onClose={() => setWeighId(null)} onWeigh={weighTicket} />}

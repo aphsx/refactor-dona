@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 import { useMill } from "@/components/store";
-import { StatusTab } from "@/components/ui";
+import { Pagination, StatusTab, usePagination } from "@/components/ui";
 import Link from "next/link";
 import { daysUntil, farmerName, formatKg, formatThaiDate, plotColor } from "@/lib/mill";
 
@@ -33,6 +33,7 @@ export function SupplyScreen() {
       .sort((a, b) => a.harvestOn.localeCompare(b.harvestOn));
   }, [plots, filter, focusFarmer]);
 
+  const page = usePagination(visible, `${filter}:${focusFarmer ?? ""}`);
   const mapPlots = useMemo(
     () =>
       visible.map((plot) => ({
@@ -76,8 +77,8 @@ export function SupplyScreen() {
             </div>
           )}
           <ul className="min-h-0 flex-1 overflow-y-auto border-t border-frame">
-            {visible.length === 0 && <li className="px-5 py-6 text-[14px] text-ink/60">ไม่มีแปลงในช่วงนี้</li>}
-            {visible.map((plot, index) => {
+            {page.rows.length === 0 && <li className="px-5 py-6 text-[14px] text-ink/60">ไม่มีแปลงในช่วงนี้</li>}
+            {page.rows.map((plot, index) => {
               const farmer = farmers.find((item) => item.id === plot.farmerId);
               const active = plot.id === selectedId;
               return (
@@ -101,6 +102,14 @@ export function SupplyScreen() {
               );
             })}
           </ul>
+          <Pagination
+            page={page.page}
+            pageCount={page.pageCount}
+            pageSize={page.pageSize}
+            total={page.total}
+            onPageChange={page.setPage}
+            onPageSizeChange={page.setPageSize}
+          />
         </section>
         <section className="relative min-h-0">
           <FieldMap plots={mapPlots} selectedId={selectedId} onSelect={setSelectedId} />

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CloudSun } from "lucide-react";
 import { useMill } from "@/components/store";
-import { CountBar, Dialog, Kpi, PageHeader, PrimaryButton, SecondaryButton, inputClass } from "@/components/ui";
+import { Dialog, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, inputClass, usePagination } from "@/components/ui";
 import { formatKg, formatTon, type Silo } from "@/lib/mill";
 
 export function StockScreen() {
@@ -12,6 +12,7 @@ export function StockScreen() {
   const wetKg = silos.filter((silo) => silo.stage === "ชื้น").reduce((sum, silo) => sum + silo.kg, 0);
   const dryKg = silos.filter((silo) => silo.stage === "แห้ง").reduce((sum, silo) => sum + silo.kg, 0);
   const headKg = silos.filter((silo) => silo.stage === "ต้นข้าว").reduce((sum, silo) => sum + silo.kg, 0);
+  const page = usePagination(silos);
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
@@ -38,7 +39,7 @@ export function StockScreen() {
             </tr>
           </thead>
           <tbody>
-            {silos.map((silo, index) => {
+            {page.rows.map((silo, index) => {
               const ratio = Math.min(100, Math.round((silo.kg / silo.capacityKg) * 100));
               return (
                 <tr key={silo.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
@@ -64,7 +65,14 @@ export function StockScreen() {
             })}
           </tbody>
         </table>
-        <CountBar count={silos.length} />
+        <Pagination
+          page={page.page}
+          pageCount={page.pageCount}
+          pageSize={page.pageSize}
+          total={page.total}
+          onPageChange={page.setPage}
+          onPageSizeChange={page.setPageSize}
+        />
       </div>
       {drying && <DryDialog silo={drying} onClose={() => setDrying(null)} onDry={dryPaddy} />}
     </div>

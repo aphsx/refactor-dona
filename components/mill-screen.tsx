@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMill } from "@/components/store";
-import { CountBar, Dialog, PageHeader, PrimaryButton, SecondaryButton, inputClass } from "@/components/ui";
+import { Dialog, PageHeader, Pagination, PrimaryButton, SecondaryButton, inputClass, usePagination } from "@/components/ui";
 import { MILL_YIELD, formatKg, splitLot } from "@/lib/mill";
 
 export function MillScreen() {
@@ -12,6 +12,7 @@ export function MillScreen() {
   const [closeError, setCloseError] = useState("");
   const drySilos = silos.filter((silo) => silo.stage === "แห้ง");
   const closing = lots.find((lot) => lot.id === closingId) ?? null;
+  const page = usePagination(lots);
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
@@ -35,7 +36,7 @@ export function MillScreen() {
             </tr>
           </thead>
           <tbody>
-            {lots.map((lot, index) => (
+            {page.rows.map((lot, index) => (
               <tr key={lot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{lot.code}</td>
                 <td className="px-5 py-3">{lot.variety}</td>
@@ -57,7 +58,14 @@ export function MillScreen() {
             ))}
           </tbody>
         </table>
-        <CountBar count={lots.length} />
+        <Pagination
+          page={page.page}
+          pageCount={page.pageCount}
+          pageSize={page.pageSize}
+          total={page.total}
+          onPageChange={page.setPage}
+          onPageSizeChange={page.setPageSize}
+        />
       </div>
       {opening && <OpenLot drySilos={drySilos} onClose={() => setOpening(false)} onOpen={openLot} />}
       {closing && (

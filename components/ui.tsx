@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useMill } from "@/components/store";
 import { farmerName } from "@/lib/mill";
@@ -116,10 +117,112 @@ export function StatusTab({
   );
 }
 
-export function CountBar({ count }: { count: number }) {
+const PAGE_SIZES = [10, 20, 50, 100];
+
+export function usePagination<T>(items: T[], resetKey = "") {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const current = Math.min(page, pageCount);
+
+  useEffect(() => {
+    setPage(1);
+  }, [resetKey]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
+  const start = (current - 1) * pageSize;
+  return {
+    page: current,
+    pageSize,
+    pageCount,
+    total: items.length,
+    rows: items.slice(start, start + pageSize),
+    setPage,
+    setPageSize(size: number) {
+      setPageSize(size);
+      setPage(1);
+    },
+  };
+}
+
+export function Pagination({
+  page,
+  pageCount,
+  pageSize,
+  total,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(page));
+
+  useEffect(() => {
+    setDraft(String(page));
+  }, [page]);
+
+  function commitPage(value: string) {
+    const next = Number(value);
+    if (!Number.isInteger(next) || next < 1) {
+      setDraft(String(page));
+      return;
+    }
+    onPageChange(Math.min(next, pageCount));
+  }
+
   return (
-    <div className="flex h-11 items-center justify-end bg-[#F4F4F5] px-5 text-[12px] font-bold text-[#808080]">
-      {count} รายการ
+    <div className="flex min-h-11 flex-wrap items-center justify-end gap-x-4 gap-y-1 bg-[#F4F4F5] px-5 py-2 text-[12px] font-bold text-[#808080]">
+      <span>{total} รายการ</span>
+      <label className="flex items-center gap-2">
+        แสดงต่อหน้า
+        <select
+          aria-label="จำนวนต่อหน้า"
+          value={pageSize}
+          onChange={(event) => onPageSizeChange(Number(event.target.value))}
+          className="h-[27px] border border-[#D0D0D0] bg-white px-1 font-bold text-[#808080] underline"
+        >
+          {PAGE_SIZES.map((size) => (
+            <option key={size} value={size}>
+              {size}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        disabled={page <= 1}
+        onClick={() => onPageChange(page - 1)}
+        className="underline disabled:no-underline disabled:opacity-40"
+      >
+        ก่อนหน้า
+      </button>
+      <input
+        aria-label="หน้า"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => commitPage(draft)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") commitPage(draft);
+        }}
+        className="h-[27px] w-[25px] border border-[#D0D0D0] bg-white text-center font-bold text-[#808080]"
+      />
+      <span>/ {pageCount}</span>
+      <button
+        type="button"
+        disabled={page >= pageCount}
+        onClick={() => onPageChange(page + 1)}
+        className="underline disabled:no-underline disabled:opacity-40"
+      >
+        ถัดไป
+      </button>
     </div>
   );
 }

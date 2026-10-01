@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useMill } from "@/components/store";
-import { CountBar, PageHeader } from "@/components/ui";
+import { PageHeader, Pagination, usePagination } from "@/components/ui";
 import { farmerName, formatBaht, formatKg } from "@/lib/mill";
 
 export function FarmersScreen() {
@@ -17,6 +17,7 @@ export function FarmersScreen() {
       return haystack.includes(needle);
     });
   }, [farmers, query]);
+  const page = usePagination(rows, query);
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
@@ -44,7 +45,7 @@ export function FarmersScreen() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((farmer, index) => {
+            {page.rows.map((farmer, index) => {
               const fieldCount = plots.filter((plot) => plot.farmerId === farmer.id).length;
               return (
                 <tr key={farmer.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
@@ -64,7 +65,14 @@ export function FarmersScreen() {
             })}
           </tbody>
         </table>
-        <CountBar count={rows.length} />
+        <Pagination
+          page={page.page}
+          pageCount={page.pageCount}
+          pageSize={page.pageSize}
+          total={page.total}
+          onPageChange={page.setPage}
+          onPageSizeChange={page.setPageSize}
+        />
       </div>
     </div>
   );
