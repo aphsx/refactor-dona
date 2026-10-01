@@ -2,9 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, CircleAlert, CircleCheck, CircleX, Search, X } from "lucide-react";
+import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleX, Search, X } from "lucide-react";
 import { useMill } from "@/components/store";
-import { farmerName } from "@/lib/mill";
+import { farmerName, formatThaiDate, formatThaiMonth } from "@/lib/mill";
 
 export const inputClass =
   "h-10 w-full rounded-[4px] border border-line bg-white px-3 text-[14px] text-ink placeholder:text-ink/20";
@@ -278,7 +278,7 @@ export function Pagination({
   );
 }
 
-export function SearchSelect({
+export function Select({
   value,
   onChange,
   options,
@@ -287,6 +287,8 @@ export function SearchSelect({
   disabled = false,
   label,
   className = "",
+  search = false,
+  compact = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -296,6 +298,8 @@ export function SearchSelect({
   disabled?: boolean;
   label: string;
   className?: string;
+  search?: boolean;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -311,15 +315,17 @@ export function SearchSelect({
   function place() {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
+    const width = Math.max(rect.width, compact ? 88 : 0);
+    const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
     const roomBelow = window.innerHeight - rect.bottom;
     const top = roomBelow < 280 && rect.top > roomBelow ? Math.max(8, rect.top - 4 - 280) : rect.bottom + 4;
-    setBox({ top, left: rect.left, width: rect.width });
+    setBox({ top, left, width });
   }
 
   useEffect(() => {
     if (!open) return;
     place();
-    searchRef.current?.focus();
+    if (search) searchRef.current?.focus();
     function onPointer(event: MouseEvent) {
       const target = event.target as Node;
       if (rootRef.current?.contains(target)) return;
@@ -342,7 +348,7 @@ export function SearchSelect({
   }, [open]);
 
   return (
-    <div ref={rootRef} className={`relative ${className}`}>
+    <div ref={rootRef} className={`${compact ? "relative inline-flex" : "relative"} ${className}`}>
       <button
         ref={buttonRef}
         type="button"
@@ -355,10 +361,14 @@ export function SearchSelect({
           place();
           setOpen((current) => !current);
         }}
-        className={`${inputClass} flex items-center justify-between gap-2 text-left disabled:bg-[#E7E7E7]`}
+        className={
+          compact
+            ? "inline-flex h-[27px] items-center gap-1 border border-[#D0D0D0] bg-white px-1 text-[12px] font-bold text-[#808080]"
+            : `${inputClass} flex items-center justify-between gap-2 text-left disabled:bg-[#E7E7E7]`
+        }
       >
         <span className={`min-w-0 truncate ${selected ? "" : "text-ink/20"}`}>{selected?.label ?? placeholder}</span>
-        <ChevronDown size={16} strokeWidth={1.75} className="shrink-0 text-ink/50" />
+        <ChevronDown size={compact ? 14 : 16} strokeWidth={1.75} className={`shrink-0 ${compact ? "" : "text-ink/50"}`} />
       </button>
       {open &&
         box &&
@@ -368,19 +378,21 @@ export function SearchSelect({
             style={{ position: "fixed", top: box.top, left: box.left, width: box.width, zIndex: 80 }}
             className="overflow-hidden rounded-[4px] border border-line bg-white shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
           >
-            <div className="border-b border-frame p-2">
-              <div className="relative">
-                <Search size={14} strokeWidth={1.75} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink/40" />
-                <input
-                  ref={searchRef}
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="ค้นหา"
-                  aria-label={`ค้นหา${label}`}
-                  className="h-9 w-full rounded-[4px] border border-line bg-white pl-8 pr-2 text-[14px] placeholder:text-ink/20"
-                />
+            {search && (
+              <div className="border-b border-frame p-2">
+                <div className="relative">
+                  <Search size={14} strokeWidth={1.75} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink/40" />
+                  <input
+                    ref={searchRef}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="ค้นหา"
+                    aria-label={`ค้นหา${label}`}
+                    className="h-9 w-full rounded-[4px] border border-line bg-white pl-8 pr-2 text-[14px] placeholder:text-ink/20"
+                  />
+                </div>
               </div>
-            </div>
+            )}
             <ul id={listId} role="listbox" className="max-h-60 overflow-y-auto py-1">
               {shown.length === 0 ? (
                 <li className="px-3 py-2 text-[14px] text-ink/50">{emptyLabel}</li>
@@ -397,15 +409,189 @@ export function SearchSelect({
                           onChange(option.value);
                           setOpen(false);
                         }}
-                        className={`block w-full truncate px-3 py-2 text-left text-[14px] hover:bg-pick ${picked ? "bg-pick font-bold" : ""}`}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] hover:bg-pick ${picked ? "bg-pick font-bold" : ""}`}
                       >
-                        {option.label}
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        {picked && <Check size={14} strokeWidth={2} className="shrink-0 text-brand" />}
                       </button>
                     </li>
                   );
                 })
               )}
             </ul>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+export function SearchSelect(props: Omit<Parameters<typeof Select>[0], "search" | "compact">) {
+  return <Select search {...props} />;
+}
+
+const WEEKDAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+
+function isoDate(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function parseIso(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function DateField({
+  value,
+  onChange,
+  label,
+  min,
+  max,
+  placeholder = "เลือกวันที่",
+  className = "",
+  disabled = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  min?: string;
+  max?: string;
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+  const [cursor, setCursor] = useState(() => parseIso(value) ?? new Date());
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  function place() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = 288;
+    const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+    const roomBelow = window.innerHeight - rect.bottom;
+    const top = roomBelow < 340 && rect.top > roomBelow ? Math.max(8, rect.top - 4 - 320) : rect.bottom + 4;
+    setBox({ top, left });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    setCursor(parseIso(value) ?? parseIso(min ?? "") ?? new Date());
+    place();
+    function onPointer(event: MouseEvent) {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest("[data-date-field]")) return;
+      setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const first = new Date(year, month, 1).getDay();
+  const count = new Date(year, month + 1, 0).getDate();
+  const days: Array<Date | null> = [...Array(first).fill(null), ...Array.from({ length: count }, (_, index) => new Date(year, month, index + 1))];
+  const today = isoDate(new Date());
+
+  return (
+    <div ref={rootRef} className={`relative ${className}`}>
+      <button
+        ref={buttonRef}
+        type="button"
+        disabled={disabled}
+        aria-label={label}
+        aria-expanded={open}
+        onClick={() => {
+          place();
+          setOpen((current) => !current);
+        }}
+        className={`${inputClass} flex items-center justify-between gap-2 text-left disabled:bg-[#E7E7E7]`}
+      >
+        <span className={`min-w-0 truncate ${value ? "" : "text-ink/20"}`}>{value ? formatThaiDate(value) : placeholder}</span>
+        <Calendar size={16} strokeWidth={1.75} className="shrink-0 text-ink/50" />
+      </button>
+      {open &&
+        box &&
+        createPortal(
+          <div
+            data-date-field
+            style={{ position: "fixed", top: box.top, left: box.left, width: 288, zIndex: 80 }}
+            className="rounded-[8px] border border-line bg-white p-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <button
+                type="button"
+                aria-label="เดือนก่อน"
+                onClick={() => setCursor(new Date(year, month - 1, 1))}
+                className="flex h-8 w-8 items-center justify-center rounded-[4px] hover:bg-pick"
+              >
+                <ChevronLeft size={16} strokeWidth={1.75} />
+              </button>
+              <div className="text-[14px] font-bold">{formatThaiMonth(isoDate(new Date(year, month, 1)))}</div>
+              <button
+                type="button"
+                aria-label="เดือนถัดไป"
+                onClick={() => setCursor(new Date(year, month + 1, 1))}
+                className="flex h-8 w-8 items-center justify-center rounded-[4px] hover:bg-pick"
+              >
+                <ChevronRight size={16} strokeWidth={1.75} />
+              </button>
+            </div>
+            <div className="grid grid-cols-7 text-center text-[12px] font-bold text-ink/50">
+              {WEEKDAYS.map((day) => (
+                <div key={day} className="py-1">
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {days.map((day, index) => {
+                if (!day) return <div key={`pad-${index}`} />;
+                const iso = isoDate(day);
+                const blocked = (min != null && min !== "" && iso < min) || (max != null && max !== "" && iso > max);
+                const picked = iso === value;
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    disabled={blocked}
+                    onClick={() => {
+                      onChange(iso);
+                      setOpen(false);
+                    }}
+                    className={`mx-auto flex h-8 w-8 items-center justify-center rounded-[4px] text-[14px] ${
+                      picked
+                        ? "bg-brand font-bold text-white"
+                        : blocked
+                          ? "cursor-not-allowed text-ink/20"
+                          : iso === today
+                            ? "font-bold text-brand hover:bg-pick"
+                            : "hover:bg-pick"
+                    }`}
+                  >
+                    {day.getDate()}
+                  </button>
+                );
+              })}
+            </div>
           </div>,
           document.body,
         )}
