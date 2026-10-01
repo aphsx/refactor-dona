@@ -1167,7 +1167,7 @@ function parseAmount(value: string) {
   return Number.isFinite(amount) ? amount : Number.NaN;
 }
 
-function PlotDialog({
+export function PlotDialog({
   title,
   name,
   area,

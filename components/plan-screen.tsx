@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { MemberPlan, PlotWorkspace } from "@/components/groups-screen";
+import { useEffect, useMemo, useState } from "react";
+import { PlotDialog, PlotWorkspace } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
-import { Calendar, RotateCcw, Search } from "lucide-react";
-import { DateField, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, Select, inputClass, openRow, rowTone, usePagination } from "@/components/ui";
-import { VARIETIES, daysUntil, farmerName, formatKg, formatThaiDate, type Farmer, type Plot } from "@/lib/mill";
+import { Calendar, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, X } from "lucide-react";
+import { ConfirmAlert, DateField, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, ResultAlert, SearchSelect, SecondaryButton, Select, inputClass, openRow, rowTone, usePagination } from "@/components/ui";
+import { VARIETIES, daysUntil, farmerName, formatKg, formatThaiDate, type Farmer, type Plot, type Variety } from "@/lib/mill";
 
 type SeasonRow = Plot & { plantingId: string; plantedOn: string; harvestOn: string; estKg: number };
 type HarvestQuery = { from: string; to: string; groupId: string; variety: string };
@@ -171,16 +171,18 @@ export function PlanScreen() {
 }
 
 export function MemberSeasonScreen() {
-  const { plantings, plots, farmers, groups } = useMill();
+  const { plantings, plots, farmers, groups, addPlot } = useMill();
   const [draft, setDraft] = useState<MemberQuery>(emptyMemberQuery);
   const [applied, setApplied] = useState<MemberQuery>(emptyMemberQuery);
-  const [farmerId, setFarmerId] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
+  const [plotId, setPlotId] = useState<string | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
   const groupOptions = [
     { value: "all", label: "ทุกกลุ่ม" },
     { value: "none", label: "ไม่มีกลุ่ม" },
     ...[...groups].sort((a, b) => a.name.localeCompare(b.name, "th")).map((group) => ({ value: group.id, label: group.name })),
   ];
-  const rows = useMemo(() => {
+  const rounds = useMemo(() => {
     return plantings
       .filter((planting) => !planting.delivered)
       .flatMap((planting) => {
@@ -203,19 +205,28 @@ export function MemberSeasonScreen() {
         if (applied.groupId !== "all" && applied.groupId !== "none" && farmer.groupId !== applied.groupId) return false;
         if (name && !farmerName(farmer).toLocaleLowerCase("th").includes(name)) return false;
         if (tel && !farmer.tel.replace(/\D/g, "").includes(tel)) return false;
-        if (plotFilter && !rows.some((row) => row.farmerId === farmer.id)) return false;
+        if (plotFilter && !rounds.some((row) => row.farmerId === farmer.id)) return false;
         return true;
       })
       .slice()
       .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"));
-  }, [farmers, applied, plotFilter, rows]);
-  const page = usePagination(people, JSON.stringify(applied));
-  const selected = people.some((farmer) => farmer.id === farmerId) ? (farmers.find((farmer) => farmer.id === farmerId) ?? null) : null;
+  }, [farmers, applied, plotFilter, rounds]);
+  const adding = people.find((farmer) => farmer.id === addingId) ?? null;
 
   function search(next: MemberQuery) {
     setDraft(next);
     setApplied(next);
-    setFarmerId(null);
+    setSearched(true);
+    setPlotId(null);
+    setAddingId(null);
+  }
+
+  function clear() {
+    setDraft(emptyMemberQuery);
+    setApplied(emptyMemberQuery);
+    setSearched(false);
+    setPlotId(null);
+    setAddingId(null);
   }
 
   return (
@@ -311,29 +322,84 @@ export function MemberSeasonScreen() {
               <Glyph icon={Search} />
               ค้นหา
             </PrimaryButton>
-            <SecondaryButton type="button" onClick={() => search(emptyMemberQuery)}>
+            <SecondaryButton type="button" onClick={clear}>
               <Glyph icon={RotateCcw} />
               ล้าง
             </SecondaryButton>
           </div>
         </form>
       </div>
-      <div className="overflow-hidden rounded-[8px] border border-frame">
-        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">สมาชิก</div>
-        <MemberRoundTable farmers={page.rows} rows={rows} selectedId={selected?.id ?? null} onSelect={setFarmerId} />
-        <Pagination
-          page={page.page}
-          pageCount={page.pageCount}
-          pageSize={page.pageSize}
-          total={page.total}
-          onPageChange={page.setPage}
-          onPageSizeChange={page.setPageSize}
+      {!searched && <p className="text-[14px] text-ink/60">ค้นหาสมาชิก แล้วจะแสดงแปลงของคนนั้น</p>}
+      {searched && people.length === 0 && <p className="text-[14px] text-ink/60">ไม่พบสมาชิก</p>}
+      {searched &&
+        people.map((farmer) => {
+          const mine = rounds.filter((row) => row.farmerId === farmer.id).sort(byHarvest);
+          const group = groups.find((item) => item.id === farmer.groupId);
+          const open = mine.find((row) => row.id === plotId) ?? null;
+          return (
+            <section key={farmer.id} className="mb-6 overflow-hidden rounded-[8px] border border-frame">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+                <div>
+                  <div className="text-[16px] font-bold">{farmerName(farmer)}</div>
+                  <div className="text-[14px]">
+                    {group?.name ?? "ไม่มีกลุ่ม"} · {farmer.tel}
+                  </div>
+                </div>
+                <SecondaryButton className="h-9" onClick={() => setAddingId(farmer.id)}>
+                  <Glyph icon={Plus} />
+                  เพิ่มแปลง
+                </SecondaryButton>
+              </div>
+              <table className="w-full border-collapse text-left text-[14px]">
+                <thead className="bg-table">
+                  <tr>
+                    {["แปลง", "พื้นที่", "พันธุ์", "วันปลูก", "กำหนดเก็บ", "ที่คาด", "สถานะ"].map((label) => (
+                      <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {mine.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-6 text-ink/60">
+                        ยังไม่มีรอบที่กำลังปลูก
+                      </td>
+                    </tr>
+                  )}
+                  {mine.map((plot, index) => {
+                    const mark = harvestMark(plot.harvestOn);
+                    return (
+                      <tr
+                        key={plot.plantingId}
+                        onClick={(event) => openRow(event, () => setPlotId(plot.id === plotId ? null : plot.id))}
+                        className={rowTone(index, plot.id === plotId)}
+                      >
+                        <td className="px-5 py-3 font-bold">{plot.name}</td>
+                        <td className="px-5 py-3">{plot.areaRai} ไร่</td>
+                        <td className="px-5 py-3">{plot.variety}</td>
+                        <td className="px-5 py-3">{formatThaiDate(plot.plantedOn)}</td>
+                        <td className="px-5 py-3">{formatThaiDate(plot.harvestOn)}</td>
+                        <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
+                        <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {open && <PlanEditor key={open.plantingId} plot={open} onClose={() => setPlotId(null)} />}
+            </section>
+          );
+        })}
+      {adding && (
+        <PlotDialog
+          title={`เพิ่มแปลง · ${farmerName(adding)}`}
+          name=""
+          area=""
+          onClose={() => setAddingId(null)}
+          onSave={(name, areaRai, variety, schedule) => addPlot(adding.id, { name, areaRai, variety, ...schedule })}
         />
-      </div>
-      {selected && (
-        <div className="mt-6 overflow-hidden rounded-[8px] border border-frame">
-          <MemberPlan farmer={selected} />
-        </div>
       )}
     </div>
   );
@@ -444,57 +510,240 @@ function PlotRoundTable({
   );
 }
 
-function MemberRoundTable({
-  farmers,
-  rows,
-  selectedId,
-  onSelect,
-}: {
-  farmers: Farmer[];
-  rows: SeasonRow[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-}) {
-  const { groups } = useMill();
+function PlanEditor({ plot, onClose }: { plot: SeasonRow; onClose: () => void }) {
+  const { plantings, savePlot, savePlanting, removePlot, removePlanting } = useMill();
+  const current = plantings.find((item) => item.id === plot.plantingId && !item.delivered) ?? null;
+  const locked = plantings.some((item) => item.plotId === plot.id && item.delivered);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(plot.name);
+  const [area, setArea] = useState(String(plot.areaRai));
+  const [variety, setVariety] = useState<Variety>(plot.variety);
+  const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? plot.plantedOn);
+  const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? plot.harvestOn);
+  const [estKg, setEstKg] = useState(String(current?.estKg ?? plot.estKg));
+  const [notice, setNotice] = useState<null | { tone: "confirm"; message: string; accept: () => void } | { tone: "success" | "error"; message: string; done?: () => void }>(null);
+  const fieldClass = `${inputClass} mt-1`;
+  const savedKg = String(current?.estKg ?? plot.estKg);
+  const dirty =
+    name !== plot.name ||
+    area !== String(plot.areaRai) ||
+    variety !== plot.variety ||
+    plantedOn !== (current?.plantedOn ?? plot.plantedOn) ||
+    harvestOn !== (current?.harvestOn ?? plot.harvestOn) ||
+    estKg !== savedKg;
+
+  useEffect(() => {
+    setEditing(false);
+    setName(plot.name);
+    setArea(String(plot.areaRai));
+    setVariety(plot.variety);
+    setPlantedOn(current?.plantedOn ?? plot.plantedOn);
+    setHarvestOn(current?.harvestOn ?? plot.harvestOn);
+    setEstKg(String(current?.estKg ?? plot.estKg));
+  }, [plot.id, plot.name, plot.areaRai, plot.variety, plot.plantedOn, plot.harvestOn, plot.estKg, current?.plantedOn, current?.harvestOn, current?.estKg]);
+
+  function undo() {
+    setName(plot.name);
+    setArea(String(plot.areaRai));
+    setVariety(plot.variety);
+    setPlantedOn(current?.plantedOn ?? plot.plantedOn);
+    setHarvestOn(current?.harvestOn ?? plot.harvestOn);
+    setEstKg(savedKg);
+    if (!dirty) setEditing(false);
+  }
+
+  function finish(error: string | null, success: string, done?: () => void) {
+    setNotice(error ? { tone: "error", message: error } : { tone: "success", message: success, done });
+  }
+
   return (
-    <table className="w-full border-collapse text-left text-[14px]">
-      <thead className="bg-table">
-        <tr>
-          {["สมาชิก", "กลุ่ม", "แปลงในรอบ", "พื้นที่", "ที่คาด"].map((label) => (
-            <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-              {label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {farmers.length === 0 && (
-          <tr>
-            <td colSpan={5} className="px-5 py-6 text-ink/60">
-              ไม่มีสมาชิก
-            </td>
-          </tr>
+    <div className="border-t border-frame">
+      <div className="flex items-center justify-between gap-3 bg-table px-6 py-4">
+        <div>
+          <div className="text-[16px] font-bold">แผนรอบ · {plot.name}</div>
+          <div className="text-[14px]">
+            {plot.areaRai} ไร่ · {plot.variety}
+          </div>
+        </div>
+        <button type="button" onClick={onClose} className="inline-flex h-8 items-center gap-1 rounded-full bg-white px-3 text-[12px] font-bold text-bar">
+          <X size={14} strokeWidth={1.75} aria-hidden />
+          ปิด
+        </button>
+      </div>
+      <form
+        className="px-6 py-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!editing) return;
+          const areaRai = Number(area.trim());
+          const nextKg = Number(estKg.trim());
+          if (!name.trim()) {
+            setNotice({ tone: "error", message: "กรอกชื่อแปลง" });
+            return;
+          }
+          if (!Number.isFinite(areaRai) || areaRai <= 0) {
+            setNotice({ tone: "error", message: "พื้นที่ต้องมากกว่า 0" });
+            return;
+          }
+          if (!plantedOn || !harvestOn) {
+            setNotice({ tone: "error", message: "กรอกวันปลูกและกำหนดเก็บ" });
+            return;
+          }
+          if (harvestOn < plantedOn) {
+            setNotice({ tone: "error", message: "กำหนดเก็บต้องไม่ก่อนวันปลูก" });
+            return;
+          }
+          if (!Number.isInteger(nextKg) || nextKg <= 0) {
+            setNotice({ tone: "error", message: "ที่คาดต้องเป็นจำนวนเต็มมากกว่า 0" });
+            return;
+          }
+          setNotice({
+            tone: "confirm",
+            message: `ยืนยันบันทึกแผน ${name.trim()}`,
+            accept: () => {
+              const plotError = savePlot(plot.id, { name, areaRai, variety });
+              if (plotError) {
+                setNotice({ tone: "error", message: plotError });
+                return;
+              }
+              finish(savePlanting(plot.id, { plantingId: current?.id ?? plot.plantingId, plantedOn, harvestOn, estKg: nextKg }), "บันทึกแผนแล้ว", () =>
+                setEditing(false),
+              );
+            },
+          });
+        }}
+      >
+        {editing ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              ชื่อแปลง
+              <input value={name} onChange={(event) => setName(event.target.value)} className={fieldClass} />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              พื้นที่ (ไร่)
+              <input value={area} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              พันธุ์
+              <Select
+                label="พันธุ์"
+                className="mt-1"
+                value={variety}
+                onChange={(next) => setVariety(next as Variety)}
+                options={VARIETIES.map((item) => ({ value: item, label: item }))}
+              />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              วันปลูก
+              <DateField
+                label="วันปลูก"
+                className="mt-1"
+                value={plantedOn}
+                max={harvestOn}
+                onChange={(next) => {
+                  setPlantedOn(next);
+                  if (harvestOn && next && harvestOn < next) setHarvestOn(next);
+                }}
+              />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              กำหนดเก็บ
+              <DateField label="กำหนดเก็บ" className="mt-1" value={harvestOn} min={plantedOn} onChange={setHarvestOn} />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              ที่คาด (กก.)
+              <input value={estKg} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={fieldClass} />
+            </label>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-[8px] border border-frame px-4 py-3">
+              <div className="text-[12px] text-ink/70">วันปลูก</div>
+              <div className="mt-1 text-[16px] font-bold">{formatThaiDate(plot.plantedOn)}</div>
+            </div>
+            <div className="rounded-[8px] border border-frame px-4 py-3">
+              <div className="text-[12px] text-ink/70">กำหนดเก็บ</div>
+              <div className="mt-1 text-[16px] font-bold">{formatThaiDate(plot.harvestOn)}</div>
+            </div>
+            <div className="rounded-[8px] border border-frame px-4 py-3">
+              <div className="text-[12px] text-ink/70">ที่คาด</div>
+              <div className="mt-1 text-[16px] font-bold tabular-nums">{formatKg(plot.estKg)}</div>
+            </div>
+          </div>
         )}
-        {farmers.map((farmer, index) => {
-          const mine = rows.filter((plot) => plot.farmerId === farmer.id);
-          const area = mine.reduce((sum, plot) => sum + plot.areaRai, 0);
-          const expected = mine.reduce((sum, plot) => sum + plot.estKg, 0);
-          const picked = farmer.id === selectedId;
-          return (
-            <tr
-              key={farmer.id}
-              onClick={(event) => openRow(event, () => onSelect(farmer.id))}
-              className={rowTone(index, picked)}
+        {locked && <p className="mt-4 text-[14px]">รอบที่รับแล้วลบแปลงไม่ได้</p>}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {editing ? (
+            <>
+              <SecondaryButton type="button" onClick={undo}>
+                <Glyph icon={Undo2} />
+                {dirty ? "เลิกทำ" : "ยกเลิก"}
+              </SecondaryButton>
+              <PrimaryButton type="submit">
+                <Glyph icon={Save} />
+                บันทึกแผน
+              </PrimaryButton>
+            </>
+          ) : (
+            <SecondaryButton type="button" onClick={() => setEditing(true)}>
+              <Glyph icon={Pencil} />
+              แก้ไขแผน
+            </SecondaryButton>
+          )}
+          {current && (
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setNotice({
+                  tone: "confirm",
+                  message: `ยืนยันลบแผนรอบ ${formatThaiDate(current.plantedOn)}`,
+                  accept: () => finish(removePlanting(current.id), "ลบแผนแล้ว", onClose),
+                })
+              }
             >
-              <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
-              <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>
-              <td className="px-5 py-3">{mine.length}</td>
-              <td className="px-5 py-3">{mine.length === 0 ? "—" : `${area} ไร่`}</td>
-              <td className="px-5 py-3">{mine.length === 0 ? "—" : formatKg(expected)}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+              <Glyph icon={Trash2} />
+              ลบแผน
+            </SecondaryButton>
+          )}
+          {!locked && (
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setNotice({
+                  tone: "confirm",
+                  message: `ยืนยันลบแปลง ${plot.name}`,
+                  accept: () => finish(removePlot(plot.id), "ลบแปลงแล้ว", onClose),
+                })
+              }
+            >
+              <Glyph icon={Trash2} />
+              ลบแปลง
+            </SecondaryButton>
+          )}
+        </div>
+      </form>
+      {notice?.tone === "confirm" && (
+        <ConfirmAlert
+          message={notice.message}
+          onCancel={() => setNotice(null)}
+          onConfirm={() => {
+            const accept = notice.accept;
+            setNotice(null);
+            accept();
+          }}
+        />
+      )}
+      {notice && notice.tone !== "confirm" && (
+        <ResultAlert
+          kind={notice.tone}
+          message={notice.message}
+          onClose={() => {
+            const done = notice.done;
+            setNotice(null);
+            done?.();
+          }}
+        />
+      )}
+    </div>
   );
 }
