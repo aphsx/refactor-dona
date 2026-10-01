@@ -63,7 +63,6 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
     if (parent) setOpenMenu(parent.label);
   }, [pathname]);
 
-  // const waiting = tickets.filter((ticket) => ticket.status === "รอชั่ง");
   const duePlots = plantings
     .filter((planting) => !planting.delivered && daysUntil(planting.harvestOn) <= 7)
     .flatMap((planting) => {

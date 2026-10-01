@@ -457,6 +457,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
   function undo() {
     setDraftName(group.name);
     setDraftLeader(group.leaderId);
+    if (!dirty) setEditing(false);
   }
 
   return (
@@ -504,17 +505,8 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
         <div className="flex flex-wrap gap-3 sm:col-span-2">
           {editing ? (
             <>
-              <SecondaryButton type="button" disabled={!dirty} className="disabled:opacity-40" onClick={undo}>
-                เลิกทำ
-              </SecondaryButton>
-              <SecondaryButton
-                type="button"
-                onClick={() => {
-                  undo();
-                  setEditing(false);
-                }}
-              >
-                ยกเลิก
+              <SecondaryButton type="button" onClick={undo}>
+                {dirty ? "เลิกทำ" : "ยกเลิก"}
               </SecondaryButton>
               <PrimaryButton type="submit">บันทึก</PrimaryButton>
             </>
@@ -625,6 +617,7 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
     setLastName(farmer.lastName);
     setTel(farmer.tel);
     setGroupId(farmer.groupId ?? "");
+    if (!dirty) setEditing(false);
   }
 
   return (
@@ -693,17 +686,8 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
           <div className="flex flex-wrap gap-3 sm:col-span-2">
             {editing ? (
               <>
-                <SecondaryButton type="button" disabled={!dirty} className="disabled:opacity-40" onClick={undo}>
-                  เลิกทำ
-                </SecondaryButton>
-                <SecondaryButton
-                  type="button"
-                  onClick={() => {
-                    undo();
-                    setEditing(false);
-                  }}
-                >
-                  ยกเลิก
+                <SecondaryButton type="button" onClick={undo}>
+                  {dirty ? "เลิกทำ" : "ยกเลิก"}
                 </SecondaryButton>
                 <PrimaryButton type="submit">บันทึก</PrimaryButton>
               </>
@@ -1001,6 +985,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
+    if (!dirty) setEditing(false);
   }
 
   return (
@@ -1101,17 +1086,8 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
         <div className="flex flex-wrap gap-3 sm:col-span-2">
           {editing ? (
             <>
-              <SecondaryButton type="button" disabled={!dirty} className="disabled:opacity-40" onClick={undo}>
-                เลิกทำ
-              </SecondaryButton>
-              <SecondaryButton
-                type="button"
-                onClick={() => {
-                  undo();
-                  setEditing(false);
-                }}
-              >
-                ยกเลิก
+              <SecondaryButton type="button" onClick={undo}>
+                {dirty ? "เลิกทำ" : "ยกเลิก"}
               </SecondaryButton>
               <PrimaryButton type="submit">บันทึก</PrimaryButton>
             </>
