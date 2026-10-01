@@ -832,7 +832,15 @@ function plantingMark(planting: Planting) {
   return { label: "ปลูกแล้ว", className: "text-brand" };
 }
 
-function MemberPlan({ farmer, initialPlotId, onClose }: { farmer: Farmer; initialPlotId: string | null; onClose: () => void }) {
+export function MemberPlan({
+  farmer,
+  initialPlotId = null,
+  onClose,
+}: {
+  farmer: Farmer;
+  initialPlotId?: string | null;
+  onClose?: () => void;
+}) {
   const { plots, plantings, addPlot } = useMill();
   const owned = plots.filter((plot) => plot.farmerId === farmer.id).slice().sort((a, b) => a.name.localeCompare(b.name, "th"));
   const [plotId, setPlotId] = useState<string | null>(initialPlotId);
@@ -848,9 +856,11 @@ function MemberPlan({ farmer, initialPlotId, onClose }: { farmer: Farmer; initia
           <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
             เพิ่มแปลง
           </SecondaryButton>
-          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
-            ปิด
-          </button>
+          {onClose && (
+            <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+              ปิด
+            </button>
+          )}
         </div>
       </div>
       <table className="w-full border-collapse text-left text-[14px]">
@@ -906,7 +916,7 @@ function MemberPlan({ farmer, initialPlotId, onClose }: { farmer: Farmer; initia
   );
 }
 
-function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void }) {
+export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void }) {
   const { plantings, savePlot, removePlot, savePlanting, removePlanting } = useMill();
   const history = plantingsOf(plantings, plot.id);
   const current = openPlanting(plantings, plot.id);
