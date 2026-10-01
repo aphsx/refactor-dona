@@ -1,0 +1,248 @@
+export type Variety = "หอมมะลิ" | "ขาว" | "เหนียว";
+
+export type Farmer = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  tel: string;
+  variety: Variety;
+  deliveredKg: number;
+  unpaidBaht: number;
+};
+
+export type Plot = {
+  id: string;
+  farmerId: string;
+  name: string;
+  areaRai: number;
+  harvestOn: string;
+  estKg: number;
+  delivered: boolean;
+  polygon: [number, number][];
+};
+
+export type Ticket = {
+  id: string;
+  queue: number;
+  plate: string;
+  farmerId: string;
+  variety: Variety;
+  status: "รอชั่ง" | "เข้าไซโล";
+  grossKg: number | null;
+  moisture: number | null;
+  netKg: number | null;
+  pricePerKg: number;
+  amountBaht: number | null;
+};
+
+export type SiloStage = "ชื้น" | "แห้ง" | "ต้นข้าว" | "ข้าวหัก" | "รำ";
+
+export type Silo = {
+  id: string;
+  name: string;
+  stage: SiloStage;
+  variety: Variety | "รวม";
+  kg: number;
+  capacityKg: number;
+};
+
+export type Lot = {
+  id: string;
+  code: string;
+  variety: Variety;
+  inputKg: number;
+  status: "สีอยู่" | "ปิดแล้ว";
+  headKg: number | null;
+  brokenKg: number | null;
+  branKg: number | null;
+  huskKg: number | null;
+};
+
+export const MOISTURE_STANDARD = 15;
+
+export const MILL_YIELD = [
+  { key: "head", label: "ต้นข้าว", ratio: 0.52 },
+  { key: "broken", label: "ข้าวหัก", ratio: 0.14 },
+  { key: "bran", label: "รำ", ratio: 0.08 },
+  { key: "husk", label: "แกลบ", ratio: 0.21 },
+] as const;
+
+export const PRICES: Record<Variety, number> = {
+  หอมมะลิ: 15.5,
+  ขาว: 11.2,
+  เหนียว: 13,
+};
+
+export function farmerName(farmer: Farmer) {
+  return `${farmer.firstName} ${farmer.lastName}`;
+}
+
+export function daysUntil(iso: string) {
+  const [year, month, day] = iso.split("-").map(Number);
+  const target = Date.UTC(year, month - 1, day);
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((target - today) / 86_400_000);
+}
+
+export function formatThaiDate(iso: string) {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
+
+export function formatKg(kg: number) {
+  return `${new Intl.NumberFormat("th-TH").format(Math.round(kg))} กก.`;
+}
+
+export function formatTon(kg: number) {
+  return `${(kg / 1000).toLocaleString("th-TH", { maximumFractionDigits: 1 })} ตัน`;
+}
+
+export function formatBaht(amount: number) {
+  return new Intl.NumberFormat("th-TH", {
+    style: "currency",
+    currency: "THB",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function settle(grossKg: number, moisture: number, pricePerKg: number) {
+  const over = Math.max(0, moisture - MOISTURE_STANDARD);
+  const deductKg = Math.round(grossKg * (over / 100));
+  const netKg = grossKg - deductKg;
+  const amountBaht = Math.round(netKg * pricePerKg * 100) / 100;
+  return { deductKg, netKg, amountBaht };
+}
+
+export function splitLot(inputKg: number) {
+  const headKg = Math.round(inputKg * 0.52);
+  const brokenKg = Math.round(inputKg * 0.14);
+  const branKg = Math.round(inputKg * 0.08);
+  const huskKg = Math.round(inputKg * 0.21);
+  return { headKg, brokenKg, branKg, huskKg };
+}
+
+function plot(lng: number, lat: number, width: number, height: number): [number, number][] {
+  return [
+    [lng, lat],
+    [lng + width, lat + height * 0.06],
+    [lng + width * 0.94, lat + height],
+    [lng - width * 0.02, lat + height * 0.92],
+    [lng, lat],
+  ];
+}
+
+const originLng = 100.122;
+const originLat = 14.5202;
+const cellW = 0.00115;
+const cellH = 0.00095;
+const gap = 0.00022;
+
+function at(column: number, row: number) {
+  return plot(originLng + column * (cellW + gap), originLat + row * (cellH + gap), cellW, cellH);
+}
+
+export const FARMERS: Farmer[] = [
+  { id: "f1", firstName: "สมชาย", lastName: "ใจดี", tel: "081-234-5678", variety: "หอมมะลิ", deliveredKg: 51760, unpaidBaht: 277280 },
+  { id: "f2", firstName: "สมหญิง", lastName: "ศรีนา", tel: "089-111-2233", variety: "หอมมะลิ", deliveredKg: 28400, unpaidBaht: 0 },
+  { id: "f3", firstName: "ประสิทธิ์", lastName: "ทองดี", tel: "086-555-4433", variety: "ขาว", deliveredKg: 41200, unpaidBaht: 96400 },
+  { id: "f4", firstName: "มาลี", lastName: "เขียวขจี", tel: "082-333-4455", variety: "เหนียว", deliveredKg: 15600, unpaidBaht: 45200 },
+  { id: "f5", firstName: "แก้ว", lastName: "นวลจันทร์", tel: "089-777-6655", variety: "หอมมะลิ", deliveredKg: 33800, unpaidBaht: 0 },
+];
+
+export const PLOTS: Plot[] = [
+  { id: "p1", farmerId: "f1", name: "นาหน้าบ้าน", areaRai: 12, harvestOn: "2026-10-04", estKg: 8400, delivered: false, polygon: at(0, 0) },
+  { id: "p2", farmerId: "f2", name: "นาโคก", areaRai: 10, harvestOn: "2026-10-06", estKg: 6500, delivered: false, polygon: at(1, 0) },
+  { id: "p3", farmerId: "f3", name: "นาเขา", areaRai: 18, harvestOn: "2026-10-15", estKg: 12000, delivered: false, polygon: at(2, 0) },
+  { id: "p4", farmerId: "f4", name: "นาปลายทุ่ง", areaRai: 8, harvestOn: "2026-11-02", estKg: 5000, delivered: false, polygon: at(0, 1) },
+  { id: "p5", farmerId: "f5", name: "นาสวน", areaRai: 14, harvestOn: "2026-09-18", estKg: 9100, delivered: true, polygon: at(1, 1) },
+];
+
+export const TICKETS: Ticket[] = [
+  {
+    id: "t1",
+    queue: 1,
+    plate: "81-4521",
+    farmerId: "f1",
+    variety: "หอมมะลิ",
+    status: "เข้าไซโล",
+    grossKg: 12000,
+    moisture: 17,
+    netKg: 11760,
+    pricePerKg: 15.5,
+    amountBaht: 182280,
+  },
+  {
+    id: "t2",
+    queue: 2,
+    plate: "70-8834",
+    farmerId: "f2",
+    variety: "หอมมะลิ",
+    status: "รอชั่ง",
+    grossKg: null,
+    moisture: null,
+    netKg: null,
+    pricePerKg: 15.5,
+    amountBaht: null,
+  },
+  {
+    id: "t3",
+    queue: 3,
+    plate: "83-2208",
+    farmerId: "f3",
+    variety: "ขาว",
+    status: "รอชั่ง",
+    grossKg: null,
+    moisture: null,
+    netKg: null,
+    pricePerKg: 11.2,
+    amountBaht: null,
+  },
+];
+
+export const SILOS: Silo[] = [
+  { id: "s-jw", name: "ไซโล A", stage: "ชื้น", variety: "หอมมะลิ", kg: 186000, capacityKg: 500000 },
+  { id: "s-jd", name: "ไซโล B", stage: "แห้ง", variety: "หอมมะลิ", kg: 240000, capacityKg: 500000 },
+  { id: "s-ww", name: "ไซโล C", stage: "ชื้น", variety: "ขาว", kg: 42000, capacityKg: 200000 },
+  { id: "s-wd", name: "ไซโล D", stage: "แห้ง", variety: "ขาว", kg: 96000, capacityKg: 300000 },
+  { id: "s-gw", name: "ไซโล E", stage: "ชื้น", variety: "เหนียว", kg: 18000, capacityKg: 150000 },
+  { id: "s-gd", name: "ไซโล F", stage: "แห้ง", variety: "เหนียว", kg: 54000, capacityKg: 150000 },
+  { id: "s-jh", name: "โกดัง 1", stage: "ต้นข้าว", variety: "หอมมะลิ", kg: 72000, capacityKg: 200000 },
+  { id: "s-wh", name: "โกดัง 2", stage: "ต้นข้าว", variety: "ขาว", kg: 31000, capacityKg: 120000 },
+  { id: "s-gh", name: "โกดัง 3", stage: "ต้นข้าว", variety: "เหนียว", kg: 14000, capacityKg: 80000 },
+  { id: "s-br", name: "โกดัง 4", stage: "ข้าวหัก", variety: "รวม", kg: 22000, capacityKg: 80000 },
+  { id: "s-bn", name: "โกดัง 5", stage: "รำ", variety: "รวม", kg: 9000, capacityKg: 40000 },
+];
+
+export const LOTS: Lot[] = [
+  {
+    id: "l1",
+    code: "ส-2601",
+    variety: "หอมมะลิ",
+    inputKg: 20000,
+    status: "ปิดแล้ว",
+    headKg: 10400,
+    brokenKg: 2800,
+    branKg: 1600,
+    huskKg: 4200,
+  },
+];
+
+export function plotColor(item: Plot) {
+  if (item.delivered) return "#18B473";
+  const days = daysUntil(item.harvestOn);
+  if (days <= 7) return "#F4A800";
+  return "#5098BA";
+}
+
+export function centroid(points: [number, number][]) {
+  const ring = points.slice(0, -1);
+  const lng = ring.reduce((sum, point) => sum + point[0], 0) / ring.length;
+  const lat = ring.reduce((sum, point) => sum + point[1], 0) / ring.length;
+  return { lng, lat };
+}
