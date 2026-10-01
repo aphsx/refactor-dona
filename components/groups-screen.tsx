@@ -438,17 +438,26 @@ function GroupDirectory() {
 
 function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => void }) {
   const { farmers, plots, updateGroup, assignFarmer } = useMill();
+  const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(group.name);
   const [draftLeader, setDraftLeader] = useState(group.leaderId);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [moving, setMoving] = useState(false);
   const members = farmers.filter((farmer) => farmer.groupId === group.id);
   const page = usePagination(members, group.id);
+  const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
+  const dirty = draftName !== group.name || draftLeader !== group.leaderId;
 
   useEffect(() => {
+    setEditing(false);
     setDraftName(group.name);
     setDraftLeader(group.leaderId);
   }, [group.id, group.name, group.leaderId]);
+
+  function undo() {
+    setDraftName(group.name);
+    setDraftLeader(group.leaderId);
+  }
 
   return (
     <>
@@ -462,18 +471,22 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
         className="grid gap-4 border-b border-frame px-6 py-5 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
+          if (!editing) return;
           const leader = members.find((farmer) => farmer.id === draftLeader);
           const changingLeader = draftLeader !== group.leaderId;
           setNotice({
             tone: "confirm",
             message: changingLeader ? `ยืนยันเปลี่ยนหัวหน้าเป็น ${leader ? farmerName(leader) : ""}` : "ยืนยันบันทึกข้อมูลกลุ่ม",
-            accept: () => setNotice(reported(updateGroup(group.id, draftName, draftLeader), changingLeader ? "เปลี่ยนหัวหน้าแล้ว" : "บันทึกกลุ่มแล้ว")),
+            accept: () =>
+              setNotice(
+                reported(updateGroup(group.id, draftName, draftLeader), changingLeader ? "เปลี่ยนหัวหน้าแล้ว" : "บันทึกกลุ่มแล้ว", () => setEditing(false)),
+              ),
           });
         }}
       >
         <label className="block text-[14px] font-bold leading-[1.4]">
           ชื่อกลุ่ม
-          <input value={draftName} onChange={(event) => setDraftName(event.target.value)} className={`${inputClass} mt-1`} />
+          <input value={draftName} disabled={!editing} onChange={(event) => setDraftName(event.target.value)} className={fieldClass} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           หัวหน้ากลุ่ม
@@ -481,14 +494,35 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
             label="หัวหน้ากลุ่ม"
             className="mt-1"
             value={draftLeader}
+            disabled={!editing}
             onChange={setDraftLeader}
             options={[...members]
               .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
               .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) }))}
           />
         </label>
-        <div className="sm:col-span-2">
-          <PrimaryButton type="submit">บันทึกกลุ่ม</PrimaryButton>
+        <div className="flex flex-wrap gap-3 sm:col-span-2">
+          {editing ? (
+            <>
+              <SecondaryButton type="button" disabled={!dirty} className="disabled:opacity-40" onClick={undo}>
+                เลิกทำ
+              </SecondaryButton>
+              <SecondaryButton
+                type="button"
+                onClick={() => {
+                  undo();
+                  setEditing(false);
+                }}
+              >
+                ยกเลิก
+              </SecondaryButton>
+              <PrimaryButton type="submit">บันทึก</PrimaryButton>
+            </>
+          ) : (
+            <SecondaryButton type="button" onClick={() => setEditing(true)}>
+              แก้ไข
+            </SecondaryButton>
+          )}
         </div>
       </form>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame bg-bar px-6 py-4 text-white">
@@ -586,12 +620,11 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
     tel !== farmer.tel ||
     (groupId || null) !== farmer.groupId;
 
-  function undoOrCancel() {
+  function undo() {
     setFirstName(farmer.firstName);
     setLastName(farmer.lastName);
     setTel(farmer.tel);
     setGroupId(farmer.groupId ?? "");
-    if (!dirty) setEditing(false);
   }
 
   return (
@@ -660,8 +693,17 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
           <div className="flex flex-wrap gap-3 sm:col-span-2">
             {editing ? (
               <>
-                <SecondaryButton type="button" onClick={undoOrCancel}>
-                  {dirty ? "เลิกทำ" : "ยกเลิก"}
+                <SecondaryButton type="button" disabled={!dirty} className="disabled:opacity-40" onClick={undo}>
+                  เลิกทำ
+                </SecondaryButton>
+                <SecondaryButton
+                  type="button"
+                  onClick={() => {
+                    undo();
+                    setEditing(false);
+                  }}
+                >
+                  ยกเลิก
                 </SecondaryButton>
                 <PrimaryButton type="submit">บันทึก</PrimaryButton>
               </>
@@ -930,10 +972,20 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? "");
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? "");
   const [estKg, setEstKg] = useState(current ? String(current.estKg) : "");
+  const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const fieldClass = `${inputClass} mt-1`;
+  const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
+  const savedKg = current ? String(current.estKg) : "";
+  const dirty =
+    name !== plot.name ||
+    area !== String(plot.areaRai) ||
+    variety !== plot.variety ||
+    plantedOn !== (current?.plantedOn ?? "") ||
+    harvestOn !== (current?.harvestOn ?? "") ||
+    estKg !== savedKg;
 
   useEffect(() => {
+    setEditing(false);
     setName(plot.name);
     setArea(String(plot.areaRai));
     setVariety(plot.variety);
@@ -942,16 +994,26 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setEstKg(current ? String(current.estKg) : "");
   }, [plot.id, plot.name, plot.areaRai, plot.variety, current?.id, current?.plantedOn, current?.harvestOn, current?.estKg]);
 
+  function undo() {
+    setName(plot.name);
+    setArea(String(plot.areaRai));
+    setVariety(plot.variety);
+    setPlantedOn(current?.plantedOn ?? "");
+    setHarvestOn(current?.harvestOn ?? "");
+    setEstKg(current ? String(current.estKg) : "");
+  }
+
   return (
     <>
       <div className="border-t border-frame bg-bar px-6 py-4 text-[16px] font-bold text-white">
-        แก้ไข {plot.name}
+        {plot.name}
         {mark ? ` · ${mark.label}` : ""}
       </div>
       <form
         className="grid gap-4 border-b border-frame px-6 py-5 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
+          if (!editing) return;
           const areaRai = parseAmount(area);
           const nextKg = parseAmount(estKg);
           if (!name.trim()) {
@@ -987,6 +1049,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
                 reported(
                   savePlanting(plot.id, { plantingId: current?.id ?? null, plantedOn, harvestOn, estKg: nextKg }),
                   "บันทึกแล้ว",
+                  () => setEditing(false),
                 ),
               );
             },
@@ -995,11 +1058,11 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
       >
         <label className="block text-[14px] font-bold leading-[1.4]">
           ชื่อแปลง
-          <input value={name} onChange={(event) => setName(event.target.value)} className={fieldClass} />
+          <input value={name} disabled={!editing} onChange={(event) => setName(event.target.value)} className={fieldClass} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           พื้นที่ (ไร่)
-          <input value={area} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
+          <input value={area} disabled={!editing} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           พันธุ์
@@ -1007,6 +1070,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
             label="พันธุ์"
             className="mt-1"
             value={variety}
+            disabled={!editing}
             onChange={(next) => setVariety(next as Variety)}
             options={VARIETIES.map((item) => ({ value: item, label: item }))}
           />
@@ -1017,6 +1081,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
             label="วันปลูก"
             className="mt-1"
             value={plantedOn}
+            disabled={!editing}
             max={harvestOn}
             onChange={(next) => {
               setPlantedOn(next);
@@ -1026,15 +1091,35 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           กำหนดเก็บ
-          <DateField label="กำหนดเก็บ" className="mt-1" value={harvestOn} min={plantedOn} onChange={setHarvestOn} />
+          <DateField label="กำหนดเก็บ" className="mt-1" value={harvestOn} disabled={!editing} min={plantedOn} onChange={setHarvestOn} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
           ที่คาด (กก.)
-          <input value={estKg} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={fieldClass} />
+          <input value={estKg} disabled={!editing} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={fieldClass} />
         </label>
         {locked && <p className="text-[14px] sm:col-span-2">รอบที่รับแล้วอยู่ที่รายละเอียดสมาชิก</p>}
         <div className="flex flex-wrap gap-3 sm:col-span-2">
-          <PrimaryButton type="submit">บันทึก</PrimaryButton>
+          {editing ? (
+            <>
+              <SecondaryButton type="button" disabled={!dirty} className="disabled:opacity-40" onClick={undo}>
+                เลิกทำ
+              </SecondaryButton>
+              <SecondaryButton
+                type="button"
+                onClick={() => {
+                  undo();
+                  setEditing(false);
+                }}
+              >
+                ยกเลิก
+              </SecondaryButton>
+              <PrimaryButton type="submit">บันทึก</PrimaryButton>
+            </>
+          ) : (
+            <SecondaryButton type="button" onClick={() => setEditing(true)}>
+              แก้ไข
+            </SecondaryButton>
+          )}
           {current && (
             <SecondaryButton
               type="button"
