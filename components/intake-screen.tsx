@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { useMill } from "@/components/store";
-import { Dialog, FarmerSelect, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, StatusTab, inputClass, usePagination } from "@/components/ui";
+import { Dialog, FarmerSelect, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, StatusTab, inputClass, usePagination } from "@/components/ui";
 import { VARIETIES, farmerName, formatBaht, formatKg, formatTon, settle, type Variety } from "@/lib/mill";
 
 type TicketFilter = "ทั้งหมด" | "รอชั่ง" | "เข้าไซโล";
@@ -141,13 +141,13 @@ function CreateTicket({
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           พันธุ์
-          <select value={variety} onChange={(event) => setVariety(event.target.value as Variety)} className={`${inputClass} mt-1`}>
-            {VARIETIES.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
+          <Select
+            label="พันธุ์"
+            className="mt-1"
+            value={variety}
+            onChange={(next) => setVariety(next as Variety)}
+            options={VARIETIES.map((item) => ({ value: item, label: item }))}
+          />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           ทะเบียนรถ

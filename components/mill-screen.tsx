@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMill } from "@/components/store";
-import { Dialog, PageHeader, Pagination, PrimaryButton, SecondaryButton, inputClass, usePagination } from "@/components/ui";
+import { Dialog, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, inputClass, usePagination } from "@/components/ui";
 import { MILL_YIELD, formatKg, splitLot } from "@/lib/mill";
 
 export function MillScreen() {
@@ -125,13 +125,13 @@ function OpenLot({
       >
         <label className="block text-[14px] font-bold leading-[1.4]">
           ไซโลแห้ง
-          <select value={siloId} onChange={(event) => setSiloId(event.target.value)} className={`${inputClass} mt-1`}>
-            {drySilos.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name} · {item.variety} · {formatKg(item.kg)}
-              </option>
-            ))}
-          </select>
+          <Select
+            label="ไซโลแห้ง"
+            className="mt-1"
+            value={siloId}
+            onChange={setSiloId}
+            options={drySilos.map((item) => ({ value: item.id, label: `${item.name} · ${item.variety} · ${formatKg(item.kg)}` }))}
+          />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           น้ำหนักเปลือกเข้าเครื่อง (กก.)

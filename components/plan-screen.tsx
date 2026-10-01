@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { MemberPlan, PlotWorkspace } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
-import { Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, inputClass, usePagination } from "@/components/ui";
+import { DateField, Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, Select, usePagination } from "@/components/ui";
 import { VARIETIES, daysUntil, farmerName, formatKg, formatThaiDate, type Farmer, type Plot } from "@/lib/mill";
 
 type SeasonRow = Plot & { plantingId: string; plantedOn: string; harvestOn: string; estKg: number };
@@ -65,23 +65,17 @@ export function PlanScreen() {
         >
           <label className="block text-[14px] font-bold leading-[1.4]">
             จากวัน
-            <input
-              type="date"
-              aria-label="จากวัน"
+            <DateField
+              label="จากวัน"
+              className="mt-1"
               value={draft.from}
-              onChange={(event) => setDraft({ ...draft, from: event.target.value })}
-              className={`${inputClass} mt-1`}
+              max={draft.to}
+              onChange={(from) => setDraft({ ...draft, from, to: draft.to && from && draft.to < from ? from : draft.to })}
             />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             ถึงวัน
-            <input
-              type="date"
-              aria-label="ถึงวัน"
-              value={draft.to}
-              onChange={(event) => setDraft({ ...draft, to: event.target.value })}
-              className={`${inputClass} mt-1`}
-            />
+            <DateField label="ถึงวัน" className="mt-1" value={draft.to} min={draft.from} onChange={(to) => setDraft({ ...draft, to })} />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             กลุ่ม
@@ -101,19 +95,13 @@ export function PlanScreen() {
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             พันธุ์
-            <select
-              aria-label="พันธุ์"
+            <Select
+              label="พันธุ์"
+              className="mt-1"
               value={draft.variety}
-              onChange={(event) => setDraft({ ...draft, variety: event.target.value })}
-              className={`${inputClass} mt-1`}
-            >
-              <option value="all">ทุกพันธุ์</option>
-              {VARIETIES.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
+              onChange={(variety) => setDraft({ ...draft, variety })}
+              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: item, label: item }))]}
+            />
           </label>
           <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-4">
             <SecondaryButton

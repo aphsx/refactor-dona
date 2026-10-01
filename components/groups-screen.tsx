@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useMill } from "@/components/store";
-import { Dialog, FarmerSelect, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, StatusTab, ConfirmAlert, ResultAlert, inputClass, usePagination } from "@/components/ui";
+import { DateField, Dialog, FarmerSelect, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, StatusTab, ConfirmAlert, ResultAlert, inputClass, usePagination } from "@/components/ui";
 import { VARIETIES, daysUntil, farmerName, farmerVarieties, formatBaht, formatKg, formatThaiDate, openPlanting, plantingsOf, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 
 type Notice =
@@ -966,6 +966,10 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
             setNotice({ tone: "error", message: "กรอกวันปลูกและกำหนดเก็บ" });
             return;
           }
+          if (harvestOn < plantedOn) {
+            setNotice({ tone: "error", message: "กำหนดเก็บต้องไม่ก่อนวันปลูก" });
+            return;
+          }
           if (!Number.isInteger(nextKg) || nextKg <= 0) {
             setNotice({ tone: "error", message: "ที่คาดต้องเป็นจำนวนเต็มมากกว่า 0" });
             return;
@@ -999,21 +1003,30 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           พันธุ์
-          <select value={variety} onChange={(event) => setVariety(event.target.value as Variety)} className={fieldClass}>
-            {VARIETIES.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
+          <Select
+            label="พันธุ์"
+            className="mt-1"
+            value={variety}
+            onChange={(next) => setVariety(next as Variety)}
+            options={VARIETIES.map((item) => ({ value: item, label: item }))}
+          />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           วันปลูก
-          <input type="date" value={plantedOn} onChange={(event) => setPlantedOn(event.target.value)} className={fieldClass} required />
+          <DateField
+            label="วันปลูก"
+            className="mt-1"
+            value={plantedOn}
+            max={harvestOn}
+            onChange={(next) => {
+              setPlantedOn(next);
+              if (harvestOn && next && harvestOn < next) setHarvestOn(next);
+            }}
+          />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           กำหนดเก็บ
-          <input type="date" value={harvestOn} onChange={(event) => setHarvestOn(event.target.value)} className={fieldClass} required />
+          <DateField label="กำหนดเก็บ" className="mt-1" value={harvestOn} min={plantedOn} onChange={setHarvestOn} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
           ที่คาด (กก.)
@@ -1102,6 +1115,14 @@ function PlotDialog({
               setNotice({ tone: "error", message: "พื้นที่ต้องมากกว่า 0" });
               return;
             }
+            if (schedule && (!plantedOn || !harvestOn)) {
+              setNotice({ tone: "error", message: "กรอกวันปลูกและกำหนดเก็บ" });
+              return;
+            }
+            if (schedule && harvestOn < plantedOn) {
+              setNotice({ tone: "error", message: "กำหนดเก็บต้องไม่ก่อนวันปลูก" });
+              return;
+            }
             if (schedule && (!Number.isInteger(nextKg) || nextKg <= 0)) {
               setNotice({ tone: "error", message: "ที่คาดต้องเป็นจำนวนเต็มมากกว่า 0" });
               return;
@@ -1126,23 +1147,32 @@ function PlotDialog({
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             พันธุ์
-            <select value={variety} onChange={(event) => setVariety(event.target.value as Variety)} className={`${inputClass} mt-1`}>
-              {VARIETIES.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
+            <Select
+              label="พันธุ์"
+              className="mt-1"
+              value={variety}
+              onChange={(next) => setVariety(next as Variety)}
+              options={VARIETIES.map((item) => ({ value: item, label: item }))}
+            />
           </label>
           {schedule && (
             <>
               <label className="block text-[14px] font-bold leading-[1.4]">
                 วันปลูก
-                <input type="date" value={plantedOn} onChange={(event) => setPlantedOn(event.target.value)} className={`${inputClass} mt-1`} required />
+                <DateField
+                  label="วันปลูก"
+                  className="mt-1"
+                  value={plantedOn}
+                  max={harvestOn}
+                  onChange={(next) => {
+                    setPlantedOn(next);
+                    if (harvestOn && next && harvestOn < next) setHarvestOn(next);
+                  }}
+                />
               </label>
               <label className="block text-[14px] font-bold leading-[1.4]">
                 กำหนดเก็บ
-                <input type="date" value={harvestOn} onChange={(event) => setHarvestOn(event.target.value)} className={`${inputClass} mt-1`} required />
+                <DateField label="กำหนดเก็บ" className="mt-1" value={harvestOn} min={plantedOn} onChange={setHarvestOn} />
               </label>
               <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
                 ที่คาด (กก.)

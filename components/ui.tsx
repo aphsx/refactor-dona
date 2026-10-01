@@ -234,18 +234,13 @@ export function Pagination({
       <span>{total} รายการ</span>
       <label className="flex items-center gap-2">
         แสดงต่อหน้า
-        <select
-          aria-label="จำนวนต่อหน้า"
-          value={pageSize}
-          onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className="h-[27px] border border-[#D0D0D0] bg-white px-1 font-bold text-[#808080] underline"
-        >
-          {PAGE_SIZES.map((size) => (
-            <option key={size} value={size}>
-              {size}
-            </option>
-          ))}
-        </select>
+        <Select
+          compact
+          label="จำนวนต่อหน้า"
+          value={String(pageSize)}
+          onChange={(size) => onPageSizeChange(Number(size))}
+          options={PAGE_SIZES.map((size) => ({ value: String(size), label: String(size) }))}
+        />
       </label>
       <button
         type="button"
@@ -481,7 +476,6 @@ export function DateField({
 
   useEffect(() => {
     if (!open) return;
-    setCursor(parseIso(value) ?? parseIso(min ?? "") ?? new Date());
     place();
     function onPointer(event: MouseEvent) {
       const target = event.target as Node;
@@ -520,6 +514,7 @@ export function DateField({
         aria-label={label}
         aria-expanded={open}
         onClick={() => {
+          setCursor(parseIso(value) ?? parseIso(min ?? "") ?? new Date());
           place();
           setOpen((current) => !current);
         }}
