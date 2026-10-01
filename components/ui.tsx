@@ -79,7 +79,7 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
       <div className="text-[14px] font-light">
-        โรงสี
+        dona
         <span className="px-2 text-ink/40">/</span>
         <span className="font-bold">{current}</span>
       </div>

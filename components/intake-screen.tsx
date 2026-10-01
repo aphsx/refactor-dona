@@ -9,7 +9,7 @@ import { farmerName, formatBaht, formatKg, formatTon, settle } from "@/lib/mill"
 type TicketFilter = "ทั้งหมด" | "รอชั่ง" | "เข้าไซโล";
 
 export function IntakeScreen() {
-  const { tickets, farmers, createTicket, weighTicket } = useMill();
+  const { tickets, farmers, groups, createTicket, weighTicket } = useMill();
   const [filter, setFilter] = useState<TicketFilter>("ทั้งหมด");
   const [creating, setCreating] = useState(false);
   const [weighId, setWeighId] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export function IntakeScreen() {
         <table className="w-full border-collapse text-left text-[14px]">
           <thead className="bg-table">
             <tr>
-              {["คิว", "ทะเบียน", "คู่ค้า", "พันธุ์", "ความชื้น", "น้ำหนักสุทธิ", "เป็นเงิน", ""].map((label) => (
+              {["คิว", "ทะเบียน", "คู่ค้า", "กลุ่ม", "พันธุ์", "ความชื้น", "น้ำหนักสุทธิ", "เป็นเงิน", ""].map((label) => (
                 <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
                   {label}
                 </th>
@@ -69,6 +69,7 @@ export function IntakeScreen() {
                   <td className="px-5 py-3 font-bold">{ticket.queue}</td>
                   <td className="px-5 py-3">{ticket.plate}</td>
                   <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
+                  <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
                   <td className="px-5 py-3">{ticket.variety}</td>
                   <td className="px-5 py-3">{ticket.moisture == null ? "—" : `${ticket.moisture}%`}</td>
                   <td className="px-5 py-3">{ticket.netKg == null ? "—" : formatKg(ticket.netKg)}</td>

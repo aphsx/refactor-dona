@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Bell, ChevronDown, Factory, Map, Menu, Scale, Users, Warehouse, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, Factory, Layers, Map, Menu, Scale, Users, Warehouse, type LucideIcon } from "lucide-react";
 import { StoreProvider, useMill } from "@/components/store";
 import { daysUntil, farmerName } from "@/lib/mill";
 
 const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "รับซื้อวันนี้", icon: Scale },
+  { href: "/plan", label: "แผนรอบปลูก", icon: CalendarDays },
   { href: "/supply", label: "แผนรับข้าว", icon: Map },
+  { href: "/groups", label: "กลุ่ม", icon: Layers },
+  { href: "/farmers", label: "คู่ค้า", icon: Users },
   { href: "/stock", label: "ไซโล", icon: Warehouse },
   { href: "/mill", label: "ล็อตสี", icon: Factory },
-  { href: "/farmers", label: "คู่ค้า", icon: Users },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -47,10 +49,8 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
             <Menu size={24} strokeWidth={1.75} />
           </button>
           <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-brand text-[16px] font-bold text-white">
-              D
-            </span>
-            <span className="text-[16px] font-bold tracking-tight">โรงสีบ้านดอน</span>
+            <img src="/dona-logo.png" alt="Dona" className="h-11 w-11 object-contain" />
+            <span className="text-[16px] font-bold tracking-tight">dona</span>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -119,7 +119,7 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
                 <div className="absolute right-0 z-50 mt-2 w-56 rounded-[8px] border border-frame bg-white px-4 py-3 text-left shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
                   <div className="text-[12px] font-bold">สมศักดิ์ บุญมาก</div>
                   <div className="mt-1 text-[12px] text-ink/70">ผู้จัดการโรงสี</div>
-                  <div className="mt-1 text-[12px] text-ink/70">โรงสีข้าวบ้านดอน</div>
+                  <div className="mt-1 text-[12px] text-ink/70">dona</div>
                 </div>
               </>
             )}

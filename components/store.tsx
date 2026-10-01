@@ -3,9 +3,11 @@
 import { createContext, useContext, useRef, useState } from "react";
 import {
   FARMERS,
+  GROUPS,
   LOTS,
   PLOTS,
   SILOS,
+  SUBGROUPS,
   PRICES,
   TICKETS,
   settle,
@@ -14,11 +16,15 @@ import {
   type Lot,
   type Plot,
   type Silo,
+  type Subgroup,
+  type SupplierGroup,
   type Ticket,
 } from "@/lib/mill";
 
 type MillData = {
   farmers: Farmer[];
+  groups: SupplierGroup[];
+  subgroups: Subgroup[];
   plots: Plot[];
   tickets: Ticket[];
   silos: Silo[];
@@ -31,12 +37,17 @@ type Store = MillData & {
   dryPaddy: (wetSiloId: string, kg: number) => string | null;
   openLot: (drySiloId: string, kg: number) => string | null;
   closeLot: (lotId: string) => string | null;
+  createGroup: (name: string, leaderId: string) => string | null;
+  createSubgroup: (groupId: string, name: string, leaderId: string) => string | null;
+  assignFarmer: (farmerId: string, groupId: string | null, subgroupId: string | null) => string | null;
 };
 
 const StoreContext = createContext<Store | null>(null);
 
 const initialData: MillData = {
   farmers: FARMERS,
+  groups: GROUPS,
+  subgroups: SUBGROUPS,
   plots: PLOTS,
   tickets: TICKETS,
   silos: SILOS,
@@ -157,6 +168,63 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         lot.branKg = parts.branKg;
         lot.huskKg = parts.huskKg;
         lot.status = "ปิดแล้ว";
+        return null;
+      });
+    },
+    createGroup(name, leaderId) {
+      return commit((draft) => {
+        const trimmed = name.trim();
+        if (!trimmed) return "กรอกชื่อกลุ่ม";
+        const leader = draft.farmers.find((item) => item.id === leaderId);
+        if (!leader) return "เลือกหัวหน้ากลุ่ม";
+        if (draft.groups.some((group) => group.leaderId === leaderId)) return "คนนี้เป็นหัวหน้ากลุ่มอยู่แล้ว";
+        if (draft.subgroups.some((item) => item.leaderId === leaderId)) return "คนนี้เป็นหัวหน้ากลุ่มย่อยอยู่แล้ว";
+        const id = `g-${draft.groups.length + 1}-${trimmed.length}`;
+        draft.groups.push({ id, name: trimmed, leaderId });
+        leader.groupId = id;
+        leader.subgroupId = null;
+        return null;
+      });
+    },
+    createSubgroup(groupId, name, leaderId) {
+      return commit((draft) => {
+        const trimmed = name.trim();
+        if (!trimmed) return "กรอกชื่อกลุ่มย่อย";
+        if (!draft.groups.some((group) => group.id === groupId)) return "ไม่พบกลุ่ม";
+        const leader = draft.farmers.find((item) => item.id === leaderId);
+        if (!leader) return "เลือกหัวหน้ากลุ่มย่อย";
+        if (leader.groupId !== groupId) return "หัวหน้ากลุ่มย่อยต้องอยู่ในกลุ่มนี้";
+        if (draft.subgroups.some((item) => item.leaderId === leaderId)) return "คนนี้เป็นหัวหน้ากลุ่มย่อยอยู่แล้ว";
+        const id = `sg-${draft.subgroups.length + 1}`;
+        draft.subgroups.push({ id, groupId, name: trimmed, leaderId });
+        leader.subgroupId = id;
+        return null;
+      });
+    },
+    assignFarmer(farmerId, groupId, subgroupId) {
+      return commit((draft) => {
+        const farmer = draft.farmers.find((item) => item.id === farmerId);
+        if (!farmer) return "ไม่พบคู่ค้า";
+        if (groupId == null) {
+          if (draft.groups.some((group) => group.leaderId === farmerId)) return "หัวหน้ากลุ่มออกจากกลุ่มไม่ได้";
+          if (draft.subgroups.some((item) => item.leaderId === farmerId)) return "หัวหน้ากลุ่มย่อยออกจากกลุ่มไม่ได้";
+          farmer.groupId = null;
+          farmer.subgroupId = null;
+          return null;
+        }
+        if (!draft.groups.some((group) => group.id === groupId)) return "ไม่พบกลุ่ม";
+        if (draft.groups.some((group) => group.leaderId === farmerId && group.id !== groupId)) {
+          return "ย้ายหัวหน้ากลุ่มไม่ได้";
+        }
+        if (subgroupId) {
+          const subgroup = draft.subgroups.find((item) => item.id === subgroupId);
+          if (!subgroup || subgroup.groupId !== groupId) return "กลุ่มย่อยไม่ได้อยู่ในกลุ่มนี้";
+        }
+        if (draft.subgroups.some((item) => item.leaderId === farmerId && item.id !== subgroupId)) {
+          return "ย้ายหัวหน้ากลุ่มย่อยไม่ได้";
+        }
+        farmer.groupId = groupId;
+        farmer.subgroupId = subgroupId;
         return null;
       });
     },

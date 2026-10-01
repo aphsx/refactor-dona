@@ -18,7 +18,7 @@ const thai = Noto_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: "โรงสีข้าวบ้านดอน",
+  title: "dona",
   description: "โต๊ะทำงานโรงสี",
 };
 

@@ -8,7 +8,7 @@ import { PageHeader, Pagination, usePagination } from "@/components/ui";
 import { farmerName, formatBaht, formatKg } from "@/lib/mill";
 
 export function FarmersScreen() {
-  const { farmers, plots } = useMill();
+  const { farmers, plots, groups, subgroups } = useMill();
   const [query, setQuery] = useState("");
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -37,7 +37,7 @@ export function FarmersScreen() {
         <table className="w-full border-collapse text-left text-[14px]">
           <thead className="bg-table">
             <tr>
-              {["คู่ค้า", "เบอร์โทร", "พันธุ์", "รับเข้าแล้ว", "คงค้างจ่าย", "แปลง", ""].map((label) => (
+              {["คู่ค้า", "เบอร์โทร", "กลุ่ม", "กลุ่มย่อย", "พันธุ์", "รับเข้าแล้ว", "คงค้างจ่าย", "แปลง", ""].map((label) => (
                 <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
                   {label}
                 </th>
@@ -51,6 +51,8 @@ export function FarmersScreen() {
                 <tr key={farmer.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                   <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                   <td className="px-5 py-3">{farmer.tel}</td>
+                  <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>
+                  <td className="px-5 py-3">{subgroups.find((item) => item.id === farmer.subgroupId)?.name ?? "—"}</td>
                   <td className="px-5 py-3">{farmer.variety}</td>
                   <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                   <td className="px-5 py-3">{farmer.unpaidBaht === 0 ? "จ่ายแล้ว" : formatBaht(farmer.unpaidBaht)}</td>

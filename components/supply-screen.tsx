@@ -15,14 +15,18 @@ type WindowFilter = "7 วันนี้" | "เดือนนี้" | "เ�
 export function SupplyScreen() {
   const params = useSearchParams();
   const focusFarmer = params.get("farmer");
-  const { plots, farmers } = useMill();
+  const { plots, farmers, groups } = useMill();
   const [filter, setFilter] = useState<WindowFilter>("7 วันนี้");
+  const [groupId, setGroupId] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const visible = useMemo(() => {
     return plots
       .filter((plot) => {
         if (focusFarmer) return plot.farmerId === focusFarmer;
+        const owner = farmers.find((item) => item.id === plot.farmerId);
+        if (groupId === "none") return owner?.groupId == null;
+        if (groupId !== "all" && owner?.groupId !== groupId) return false;
         const days = daysUntil(plot.harvestOn);
         if (filter === "เก็บแล้ว") return plot.delivered;
         if (plot.delivered) return false;
@@ -31,9 +35,9 @@ export function SupplyScreen() {
       })
       .slice()
       .sort((a, b) => a.harvestOn.localeCompare(b.harvestOn));
-  }, [plots, filter, focusFarmer]);
+  }, [plots, farmers, filter, focusFarmer, groupId]);
 
-  const page = usePagination(visible, `${filter}:${focusFarmer ?? ""}`);
+  const page = usePagination(visible, `${filter}:${focusFarmer ?? ""}:${groupId}`);
   const mapPlots = useMemo(
     () =>
       visible.map((plot) => ({
@@ -52,7 +56,7 @@ export function SupplyScreen() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-frame px-7">
         <div className="text-[14px] font-light">
-          โรงสี
+          dona
           <span className="px-2 text-ink/40">/</span>
           <span className="font-bold">แผนรับข้าว</span>
         </div>
@@ -69,6 +73,24 @@ export function SupplyScreen() {
       <div className="grid min-h-0 flex-1 grid-cols-[360px_minmax(0,1fr)]">
         <section className="flex min-h-0 flex-col border-r border-frame">
           <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">แปลงที่กำลังจะเข้า</div>
+          {!focusFarmer && (
+            <div className="px-4 pt-4">
+              <select
+                aria-label="กลุ่ม"
+                value={groupId}
+                onChange={(event) => setGroupId(event.target.value)}
+                className="h-10 w-full rounded-[4px] border border-line bg-white px-3 text-[14px]"
+              >
+                <option value="all">ทุกกลุ่ม</option>
+                <option value="none">ไม่มีกลุ่ม</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {!focusFarmer && (
             <div className="flex items-end gap-1 px-4 pt-4">
               {(["7 วันนี้", "เดือนนี้", "เก็บแล้ว"] as WindowFilter[]).map((item) => (
@@ -93,7 +115,7 @@ export function SupplyScreen() {
                     <span>
                       <span className="block text-[14px] font-bold">{plot.name}</span>
                       <span className="mt-0.5 block text-[12px] text-ink/60">
-                        {farmer ? farmerName(farmer) : ""} · {formatThaiDate(plot.harvestOn)}
+                        {farmer ? farmerName(farmer) : ""} · {groups.find((group) => group.id === farmer?.groupId)?.name ?? ""} · {formatThaiDate(plot.harvestOn)}
                       </span>
                     </span>
                     <span className="text-[14px] font-bold">{formatKg(plot.estKg)}</span>

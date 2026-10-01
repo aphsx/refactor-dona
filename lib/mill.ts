@@ -6,8 +6,23 @@ export type Farmer = {
   lastName: string;
   tel: string;
   variety: Variety;
+  groupId: string | null;
+  subgroupId: string | null;
   deliveredKg: number;
   unpaidBaht: number;
+};
+
+export type SupplierGroup = {
+  id: string;
+  name: string;
+  leaderId: string;
+};
+
+export type Subgroup = {
+  id: string;
+  groupId: string;
+  name: string;
+  leaderId: string;
 };
 
 export type Plot = {
@@ -15,6 +30,7 @@ export type Plot = {
   farmerId: string;
   name: string;
   areaRai: number;
+  plantedOn: string;
   harvestOn: string;
   estKg: number;
   delivered: boolean;
@@ -147,20 +163,32 @@ function at(column: number, row: number) {
   return plot(originLng + column * (cellW + gap), originLat + row * (cellH + gap), cellW, cellH);
 }
 
+export const GROUPS: SupplierGroup[] = [
+  { id: "g1", name: "กลุ่มนาแปลงรวมบ้านดอน", leaderId: "f1" },
+  { id: "g2", name: "กลุ่มทุ่งนาโคกน้อย", leaderId: "f3" },
+];
+
+export const SUBGROUPS: Subgroup[] = [
+  { id: "sg1", groupId: "g1", name: "โซนคลอง", leaderId: "f2" },
+  { id: "sg2", groupId: "g1", name: "โซนทุ่ง", leaderId: "f5" },
+  { id: "sg3", groupId: "g2", name: "ทุ่งหลัก", leaderId: "f3" },
+];
+
 export const FARMERS: Farmer[] = [
-  { id: "f1", firstName: "สมชาย", lastName: "ใจดี", tel: "081-234-5678", variety: "หอมมะลิ", deliveredKg: 51760, unpaidBaht: 277280 },
-  { id: "f2", firstName: "สมหญิง", lastName: "ศรีนา", tel: "089-111-2233", variety: "หอมมะลิ", deliveredKg: 28400, unpaidBaht: 0 },
-  { id: "f3", firstName: "ประสิทธิ์", lastName: "ทองดี", tel: "086-555-4433", variety: "ขาว", deliveredKg: 41200, unpaidBaht: 96400 },
-  { id: "f4", firstName: "มาลี", lastName: "เขียวขจี", tel: "082-333-4455", variety: "เหนียว", deliveredKg: 15600, unpaidBaht: 45200 },
-  { id: "f5", firstName: "แก้ว", lastName: "นวลจันทร์", tel: "089-777-6655", variety: "หอมมะลิ", deliveredKg: 33800, unpaidBaht: 0 },
+  { id: "f1", firstName: "สมชาย", lastName: "ใจดี", tel: "081-234-5678", variety: "หอมมะลิ", groupId: "g1", subgroupId: "sg2", deliveredKg: 51760, unpaidBaht: 277280 },
+  { id: "f2", firstName: "สมหญิง", lastName: "ศรีนา", tel: "089-111-2233", variety: "หอมมะลิ", groupId: "g1", subgroupId: "sg1", deliveredKg: 28400, unpaidBaht: 0 },
+  { id: "f3", firstName: "ประสิทธิ์", lastName: "ทองดี", tel: "086-555-4433", variety: "ขาว", groupId: "g2", subgroupId: "sg3", deliveredKg: 41200, unpaidBaht: 96400 },
+  { id: "f4", firstName: "มาลี", lastName: "เขียวขจี", tel: "082-333-4455", variety: "เหนียว", groupId: null, subgroupId: null, deliveredKg: 15600, unpaidBaht: 45200 },
+  { id: "f5", firstName: "แก้ว", lastName: "นวลจันทร์", tel: "089-777-6655", variety: "หอมมะลิ", groupId: "g1", subgroupId: "sg2", deliveredKg: 33800, unpaidBaht: 0 },
 ];
 
 export const PLOTS: Plot[] = [
-  { id: "p1", farmerId: "f1", name: "นาหน้าบ้าน", areaRai: 12, harvestOn: "2026-10-04", estKg: 8400, delivered: false, polygon: at(0, 0) },
-  { id: "p2", farmerId: "f2", name: "นาโคก", areaRai: 10, harvestOn: "2026-10-06", estKg: 6500, delivered: false, polygon: at(1, 0) },
-  { id: "p3", farmerId: "f3", name: "นาเขา", areaRai: 18, harvestOn: "2026-10-15", estKg: 12000, delivered: false, polygon: at(2, 0) },
-  { id: "p4", farmerId: "f4", name: "นาปลายทุ่ง", areaRai: 8, harvestOn: "2026-11-02", estKg: 5000, delivered: false, polygon: at(0, 1) },
-  { id: "p5", farmerId: "f5", name: "นาสวน", areaRai: 14, harvestOn: "2026-09-18", estKg: 9100, delivered: true, polygon: at(1, 1) },
+  { id: "p1", farmerId: "f1", name: "นาหน้าบ้าน", areaRai: 12, plantedOn: "2026-06-15", harvestOn: "2026-10-04", estKg: 8400, delivered: false, polygon: at(0, 0) },
+  { id: "p6", farmerId: "f1", name: "นาหลังบ้าน", areaRai: 6, plantedOn: "2026-07-02", harvestOn: "2026-10-22", estKg: 3900, delivered: false, polygon: at(2, 1) },
+  { id: "p2", farmerId: "f2", name: "นาโคก", areaRai: 10, plantedOn: "2026-06-18", harvestOn: "2026-10-06", estKg: 6500, delivered: false, polygon: at(1, 0) },
+  { id: "p3", farmerId: "f3", name: "นาเขา", areaRai: 18, plantedOn: "2026-06-25", harvestOn: "2026-10-15", estKg: 12000, delivered: false, polygon: at(2, 0) },
+  { id: "p4", farmerId: "f4", name: "นาปลายทุ่ง", areaRai: 8, plantedOn: "2026-07-10", harvestOn: "2026-11-02", estKg: 5000, delivered: false, polygon: at(0, 1) },
+  { id: "p5", farmerId: "f5", name: "นาสวน", areaRai: 14, plantedOn: "2026-05-20", harvestOn: "2026-09-18", estKg: 9100, delivered: true, polygon: at(1, 1) },
 ];
 
 export const TICKETS: Ticket[] = [
