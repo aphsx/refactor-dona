@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Scale, Warehouse, X } from "lucide-react";
 import { useMill } from "@/components/store";
-import { Dialog, FarmerSelect, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, StatusTab, inputClass, usePagination } from "@/components/ui";
+import { Dialog, FarmerSelect, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, SortableTh, StatusTab, TableScroll, inputClass, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { VARIETIES, farmerName, formatBaht, formatKg, formatTon, settle, type Variety } from "@/lib/mill";
 
 type TicketFilter = "ทั้งหมด" | "รอชั่ง" | "เข้าไซโล";
@@ -25,7 +25,19 @@ export function IntakeScreen() {
     .filter((ticket) => filter === "ทั้งหมด" || ticket.status === filter)
     .slice()
     .sort((a, b) => a.queue - b.queue);
-  const page = usePagination(rows, filter);
+  const listingSort = useTableSort(filter);
+  const ordered = orderBy(rows, listingSort.sort, (ticket, key) => {
+    const farmer = farmers.find((item) => item.id === ticket.farmerId);
+    if (key === "queue") return ticket.queue;
+    if (key === "plate") return ticket.plate;
+    if (key === "farmer") return farmer ? farmerName(farmer) : "";
+    if (key === "group") return groups.find((group) => group.id === farmer?.groupId)?.name ?? "";
+    if (key === "variety") return ticket.variety;
+    if (key === "moisture") return ticket.moisture ?? -1;
+    if (key === "net") return ticket.netKg ?? -1;
+    return ticket.amountBaht ?? -1;
+  });
+  const page = usePagination(ordered, filter);
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
@@ -51,14 +63,19 @@ export function IntakeScreen() {
             <StatusTab key={item} label={item} active={filter === item} onClick={() => setFilter(item)} />
           ))}
         </div>
-        <table className="w-full border-collapse text-left text-[14px]">
+        <TableScroll>
+<table className={tableClass}>
           <thead className="bg-table">
             <tr>
-              {["คิว", "ทะเบียน", "คู่ค้า", "กลุ่ม", "พันธุ์", "ความชื้น", "น้ำหนักสุทธิ", "เป็นเงิน", ""].map((label) => (
-                <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                  {label}
-                </th>
-              ))}
+              <SortableTh label="คิว" column="queue" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ทะเบียน" column="plate" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="คู่ค้า" column="farmer" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ความชื้น" column="moisture" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="น้ำหนักสุทธิ" column="net" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="เป็นเงิน" column="amount" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             </tr>
           </thead>
           <tbody>
@@ -89,6 +106,7 @@ export function IntakeScreen() {
             })}
           </tbody>
         </table>
+</TableScroll>
         <Pagination
           page={page.page}
           pageCount={page.pageCount}

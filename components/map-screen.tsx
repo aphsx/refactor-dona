@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useMill } from "@/components/store";
-import { SearchSelect } from "@/components/ui";
+import { SearchSelect, matchesQuery } from "@/components/ui";
 import {
   currentPlanting,
   daysUntil,
@@ -80,8 +80,8 @@ export function MapScreen() {
     if (focusId && row.farmer.id !== focusId) return false;
     if (groupId === "none" && row.farmer.groupId != null) return false;
     if (groupId !== "all" && groupId !== "none" && row.farmer.groupId !== groupId) return false;
-    if (!needle) return true;
-    return `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.tel}`.toLowerCase().includes(needle);
+    if (!needle || needle === "%") return true;
+    return matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.tel}`);
   });
 
   const listed = scoped

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMill } from "@/components/store";
-import { Kpi, PageHeader, Pagination, SearchSelect, StatusTab, usePagination } from "@/components/ui";
+import { Kpi, PageHeader, Pagination, SearchSelect, SortableTh, StatusTab, TableScroll, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { daysUntil, farmerName, formatKg, formatThaiDate, type Plot } from "@/lib/mill";
 
 type SupplyRow = Plot & { plantingId: string; harvestOn: string; estKg: number; delivered: boolean };
@@ -116,6 +116,18 @@ function queueMark(plots: SupplyRow[]) {
 
 function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
   const { farmers, groups } = useMill();
+  const listingSort = useTableSort(date);
+  const ordered = orderBy(plots, listingSort.sort, (plot, key) => {
+    const farmer = farmers.find((item) => item.id === plot.farmerId);
+    const left = daysUntil(plot.harvestOn);
+    if (key === "name") return plot.name;
+    if (key === "farmer") return farmer ? farmerName(farmer) : "";
+    if (key === "group") return groups.find((group) => group.id === farmer?.groupId)?.name ?? "";
+    if (key === "variety") return plot.variety;
+    if (key === "area") return plot.areaRai;
+    if (key === "kg") return plot.estKg;
+    return plot.delivered ? "รับแล้ว" : left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
+  });
   const mark = queueMark(plots);
   const kg = plots.reduce((sum, plot) => sum + plot.estKg, 0);
   return (
@@ -129,18 +141,22 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
           {mark && <span className="rounded-[6px] bg-white px-2 py-1 text-[12px] text-bar">{mark}</span>}
         </div>
       </div>
-      <table className="w-full border-collapse text-left text-[14px]">
+      <TableScroll>
+<table className={tableClass}>
         <thead className="bg-table">
           <tr>
-            {["แปลง", "คู่ค้า", "กลุ่ม", "พันธุ์", "พื้นที่", "ที่คาด", "สถานะ", ""].map((label) => (
-              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                {label}
-              </th>
-            ))}
+            <SortableTh label="แปลง" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="คู่ค้า" column="farmer" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="พื้นที่" column="area" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="ที่คาด" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="สถานะ" column="status" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
-          {plots.map((plot, index) => {
+          {ordered.map((plot, index) => {
             const farmer = farmers.find((item) => item.id === plot.farmerId);
             const left = daysUntil(plot.harvestOn);
             const status = plot.delivered ? "รับแล้ว" : left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
@@ -165,6 +181,7 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
           })}
         </tbody>
       </table>
+</TableScroll>
     </section>
   );
 }

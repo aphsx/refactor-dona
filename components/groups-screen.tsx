@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
+import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
-import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, StatusTab, ConfirmAlert, ResultAlert, inputClass, openRow, rowTone, usePagination } from "@/components/ui";
+import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { VARIETIES, daysUntil, farmerName, farmerVarieties, formatBaht, formatKg, formatThaiDate, openPlanting, plantingsOf, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 
 type Notice =
@@ -59,14 +60,24 @@ export function GroupManageScreen() {
   const selected = groups.find((group) => group.id === selectedId) ?? null;
 
   const rows = useMemo(() => {
-    const needle = name.trim().toLowerCase();
     return groups.filter((group) => {
-      if (needle && !group.name.toLowerCase().includes(needle)) return false;
+      if (!matchesQuery(name, group.name)) return false;
       if (leaderId && group.leaderId !== leaderId) return false;
       return true;
     });
   }, [groups, name, leaderId]);
-  const page = usePagination(rows, `${name}:${leaderId}`);
+  const listingSort = useTableSort(`${name}:${leaderId}`);
+  const ordered = orderBy(rows, listingSort.sort, (group, key) => {
+    const leader = farmers.find((farmer) => farmer.id === group.leaderId);
+    const people = farmers.filter((farmer) => farmer.groupId === group.id);
+    if (key === "name") return group.name;
+    if (key === "leader") return leader ? farmerName(leader) : "";
+    if (key === "members") return people.length;
+    if (key === "received") return people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
+    const ids = new Set(people.map((farmer) => farmer.id));
+    return plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
+  });
+  const page = usePagination(ordered, `${name}:${leaderId}`);
 
   function openGroup(id: string) {
     setSelectedId(id);
@@ -146,14 +157,15 @@ export function GroupManageScreen() {
       <div className={`overflow-hidden border border-frame ${tab === "listing" ? "rounded-[8px]" : "rounded-b-[8px] rounded-tr-[8px]"}`}>
         {tab === "listing" && (
           <>
-            <table className="w-full border-collapse text-left text-[14px]">
+            <TableScroll>
+            <table className={tableClass}>
               <thead className="bg-table">
                 <tr>
-                  {["กลุ่ม", "หัวหน้า", "สมาชิก", "คาดว่าจะได้", "รับเข้าแล้ว"].map((label) => (
-                    <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                      {label}
-                    </th>
-                  ))}
+                  <SortableTh label="กลุ่ม" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="หัวหน้า" column="leader" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="สมาชิก" column="members" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="คาดว่าจะได้" column="expected" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="รับเข้าแล้ว" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
               </thead>
               <tbody>
@@ -182,6 +194,7 @@ export function GroupManageScreen() {
                 })}
               </tbody>
             </table>
+            </TableScroll>
             <Pagination
               page={page.page}
               pageCount={page.pageCount}
@@ -214,15 +227,21 @@ export function MemberManageScreen() {
   const assignGroupId = draftGroup && draftGroup !== "none" ? draftGroup : (groups[0]?.id ?? "");
 
   const rows = useMemo(() => {
-    const needle = name.trim().toLowerCase();
     return farmers.filter((farmer) => {
       if (groupId === "none" && farmer.groupId != null) return false;
       if (groupId && groupId !== "none" && farmer.groupId !== groupId) return false;
-      if (!needle) return true;
-      return `${farmerName(farmer)} ${farmer.tel}`.toLowerCase().includes(needle);
+      return matchesQuery(name, `${farmerName(farmer)} ${farmer.tel}`);
     });
   }, [farmers, name, groupId]);
-  const page = usePagination(rows, `${name}:${groupId}`);
+  const listingSort = useTableSort(`${name}:${groupId}`);
+  const ordered = orderBy(rows, listingSort.sort, (farmer, key) => {
+    if (key === "name") return farmerName(farmer);
+    if (key === "tel") return farmer.tel;
+    if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
+    if (key === "variety") return farmerVarieties(plots, farmer.id);
+    return farmer.deliveredKg;
+  });
+  const page = usePagination(ordered, `${name}:${groupId}`);
 
   function openMember(id: string) {
     setDetailId(id);
@@ -311,14 +330,16 @@ export function MemberManageScreen() {
       <div className={`overflow-hidden border border-frame ${tab === "listing" ? "rounded-[8px]" : "rounded-b-[8px] rounded-tr-[8px]"}`}>
         {tab === "listing" && (
           <>
-            <table className="w-full border-collapse text-left text-[14px]">
+            <TableScroll>
+            <table className={tableClass}>
               <thead className="bg-table">
                 <tr>
-                  {["คู่ค้า", "เบอร์โทร", "กลุ่ม", "พันธุ์", "รับเข้าแล้ว", ""].map((label) => (
-                    <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                      {label}
-                    </th>
-                  ))}
+                  <SortableTh label="คู่ค้า" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="รับเข้าแล้ว" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
               </thead>
               <tbody>
@@ -362,6 +383,7 @@ export function MemberManageScreen() {
                 })}
               </tbody>
             </table>
+            </TableScroll>
             <Pagination
               page={page.page}
               pageCount={page.pageCount}
@@ -383,7 +405,18 @@ export function MemberManageScreen() {
 
 function GroupDirectory() {
   const { groups, farmers, plots, plantings } = useMill();
-  const page = usePagination(groups);
+  const listingSort = useTableSort("groups");
+  const ordered = orderBy(groups, listingSort.sort, (group, key) => {
+    const leader = farmers.find((farmer) => farmer.id === group.leaderId);
+    const people = farmers.filter((farmer) => farmer.groupId === group.id);
+    if (key === "name") return group.name;
+    if (key === "leader") return leader ? farmerName(leader) : "";
+    if (key === "members") return people.length;
+    if (key === "received") return people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
+    const ids = new Set(people.map((farmer) => farmer.id));
+    return plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
+  });
+  const page = usePagination(ordered);
 
   return (
     <>
@@ -391,14 +424,15 @@ function GroupDirectory() {
         กลุ่มรับซื้อ
         <span className="text-[14px]">{groups.length} กลุ่ม</span>
       </div>
-      <table className="w-full border-collapse text-left text-[14px]">
+      <TableScroll>
+<table className={tableClass}>
         <thead className="bg-table">
           <tr>
-            {["กลุ่ม", "หัวหน้า", "สมาชิก", "คาดว่าจะได้", "รับเข้าแล้ว"].map((label) => (
-              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                {label}
-              </th>
-            ))}
+            <SortableTh label="กลุ่ม" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="หัวหน้า" column="leader" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="สมาชิก" column="members" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="คาดว่าจะได้" column="expected" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="รับเข้าแล้ว" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
@@ -431,6 +465,7 @@ function GroupDirectory() {
           })}
         </tbody>
       </table>
+</TableScroll>
       <Pagination
         page={page.page}
         pageCount={page.pageCount}
@@ -451,7 +486,13 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
   const [notice, setNotice] = useState<Notice | null>(null);
   const [moving, setMoving] = useState(false);
   const members = farmers.filter((farmer) => farmer.groupId === group.id);
-  const page = usePagination(members, group.id);
+  const listingSort = useTableSort(group.id);
+  const ordered = orderBy(members, listingSort.sort, (farmer, key) => {
+    if (key === "name") return farmerName(farmer);
+    if (key === "tel") return farmer.tel;
+    return farmerVarieties(plots, farmer.id);
+  });
+  const page = usePagination(ordered, group.id);
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
   const dirty = draftName !== group.name || draftLeader !== group.leaderId;
 
@@ -536,14 +577,14 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
           จัดเข้ากลุ่ม
         </SecondaryButton>
       </div>
-      <table className="w-full border-collapse text-left text-[14px]">
+      <TableScroll>
+<table className={tableClass}>
         <thead className="bg-table">
           <tr>
-            {["คู่ค้า", "เบอร์โทร", "พันธุ์", ""].map((label) => (
-              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                {label}
-              </th>
-            ))}
+            <SortableTh label="คู่ค้า" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
@@ -585,6 +626,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
           })}
         </tbody>
       </table>
+</TableScroll>
       <Pagination
         page={page.page}
         pageCount={page.pageCount}
@@ -775,6 +817,17 @@ function PlotTable({
   farmerId: string;
   onAddRound: (plotId: string) => void;
 }) {
+  const listingSort = useTableSort(farmerId);
+  const ordered = orderBy(plots, listingSort.sort, (plot, key) => {
+    const round = openPlanting(plantings, plot.id);
+    if (key === "name") return plot.name;
+    if (key === "area") return plot.areaRai;
+    if (key === "variety") return plot.variety;
+    if (key === "planted") return round?.plantedOn ?? "";
+    if (key === "harvest") return round?.harvestOn ?? "";
+    if (key === "kg") return round?.estKg ?? -1;
+    return round ? plantingMark(round).label : "ยังไม่มีแผน";
+  });
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
@@ -783,14 +836,18 @@ function PlotTable({
           ดูบนแผนที่
         </Link>
       </div>
-      <table className="w-full border-collapse text-left text-[14px]">
+      <TableScroll>
+<table className={tableClass}>
         <thead className="bg-table">
           <tr>
-            {["แปลง", "พื้นที่", "พันธุ์", "วันปลูก", "กำหนดเก็บ", "ที่คาด", "สถานะ", ""].map((label) => (
-              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                {label}
-              </th>
-            ))}
+            <SortableTh label="แปลง" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="พื้นที่" column="area" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="วันปลูก" column="planted" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="กำหนดเก็บ" column="harvest" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="ที่คาด" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="สถานะ" column="status" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
@@ -801,7 +858,7 @@ function PlotTable({
               </td>
             </tr>
           )}
-          {plots.map((plot, index) => {
+          {ordered.map((plot, index) => {
             const round = openPlanting(plantings, plot.id);
             const harvest = plotHarvest(round);
             return (
@@ -826,6 +883,7 @@ function PlotTable({
           })}
         </tbody>
       </table>
+</TableScroll>
     </div>
   );
 }
@@ -836,29 +894,36 @@ function ReceivedRounds({ plots, plantings }: { plots: Plot[]; plantings: Planti
     .filter((planting) => planting.delivered && plotNames.has(planting.plotId))
     .slice()
     .sort((a, b) => b.harvestOn.localeCompare(a.harvestOn));
+  const listingSort = useTableSort(rows.map((row) => row.id).join(","));
+  const ordered = orderBy(rows, listingSort.sort, (round, key) => {
+    if (key === "plot") return plotNames.get(round.plotId) ?? "";
+    if (key === "planted") return round.plantedOn;
+    if (key === "harvest") return round.harvestOn;
+    return round.estKg;
+  });
 
   return (
     <div>
       <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">รอบที่รับแล้ว</div>
-      <table className="w-full border-collapse text-left text-[14px]">
+      <TableScroll>
+<table className={tableClass}>
         <thead className="bg-table">
           <tr>
-            {["แปลง", "วันปลูก", "กำหนดเก็บ", "ที่คาด"].map((label) => (
-              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                {label}
-              </th>
-            ))}
+            <SortableTh label="แปลง" column="plot" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="วันปลูก" column="planted" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="กำหนดเก็บ" column="harvest" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="ที่คาด" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
-          {rows.length === 0 && (
+          {ordered.length === 0 && (
             <tr>
               <td colSpan={4} className="px-5 py-6 text-ink/60">
                 ยังไม่มีรอบที่รับแล้ว
               </td>
             </tr>
           )}
-          {rows.map((round, index) => (
+          {ordered.map((round, index) => (
             <tr key={round.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
               <td className="px-5 py-3 font-bold">{plotNames.get(round.plotId)}</td>
               <td className="px-5 py-3">{formatThaiDate(round.plantedOn)}</td>
@@ -868,6 +933,7 @@ function ReceivedRounds({ plots, plantings }: { plots: Plot[]; plantings: Planti
           ))}
         </tbody>
       </table>
+</TableScroll>
     </div>
   );
 }
@@ -888,11 +954,32 @@ export function MemberPlan({
   onClose?: () => void;
 }) {
   const { plots, plantings, addPlot } = useMill();
-  const owned = plots.filter((plot) => plot.farmerId === farmer.id).slice().sort((a, b) => a.name.localeCompare(b.name, "th"));
+  const owned = plots.filter((plot) => plot.farmerId === farmer.id);
+  const rounds = owned.map((plot) => {
+    const round = openPlanting(plantings, plot.id);
+    return {
+      ...plot,
+      plantingId: round?.id ?? "",
+      plantedOn: round?.plantedOn ?? "",
+      harvestOn: round?.harvestOn ?? "",
+      estKg: round?.estKg ?? 0,
+      status: round ? plantingMark(round).label : "ยังไม่มีแผน",
+      statusClass: round ? plantingMark(round).className : "text-ink/60",
+    };
+  });
+  const listingSort = useTableSort(farmer.id);
+  const ordered = orderBy(rounds, listingSort.sort, (row, key) => {
+    if (key === "plot") return row.name;
+    if (key === "area") return row.areaRai;
+    if (key === "variety") return row.variety;
+    if (key === "status") return row.status;
+    if (key === "planted") return row.plantedOn;
+    if (key === "harvest") return row.harvestOn;
+    return row.estKg;
+  });
   const [plotId, setPlotId] = useState<string | null>(initialPlotId);
   const [adding, setAdding] = useState(false);
-  const fields = owned.filter((plot) => openPlanting(plantings, plot.id) || plot.id === plotId);
-  const selected = owned.find((plot) => plot.id === plotId) ?? null;
+  const selected = ordered.find((plot) => plot.id === plotId) ?? null;
 
   return (
     <>
@@ -910,51 +997,42 @@ export function MemberPlan({
           )}
         </div>
       </div>
-      <table className="w-full border-collapse text-left text-[14px]">
-        <thead className="bg-table">
-          <tr>
-            {["แปลง", "พื้นที่", "พันธุ์", "สถานะ", "วันปลูก", "กำหนดเก็บ", "ที่คาด"].map((label) => (
-              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                {label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {fields.length === 0 && (
+      <TableScroll>
+        <table className={tableClass}>
+          <thead className="bg-table">
             <tr>
-              <td colSpan={7} className="px-5 py-6 text-ink/60">
-                {owned.length === 0 ? "ยังไม่มีแปลง" : "ไม่มีรอบที่กำลังปลูก"}
-              </td>
+              <SortableTh label="แปลง" column="plot" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="พื้นที่" column="area" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="สถานะ" column="status" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="วันปลูก" column="planted" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="กำหนดเก็บ" column="harvest" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ที่คาด" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             </tr>
-          )}
-          {fields.map((plot, index) => {
-            const round = openPlanting(plantings, plot.id);
-            const mark = round ? plantingMark(round) : { label: "ยังไม่มีแผน", className: "text-ink/60" };
-            const picked = plot.id === plotId;
-            return (
-              <tr
-                key={plot.id}
-                onClick={(event) => openRow(event, () => setPlotId(plot.id))}
-                className={rowTone(index, picked)}
-              >
-                <td className="px-5 py-3 font-bold">{plot.name}</td>
-                <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-                <td className="px-5 py-3">{plot.variety}</td>
-                <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
-                <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
-                <td className="px-5 py-3">{round ? formatThaiDate(round.harvestOn) : "—"}</td>
-                <td className="px-5 py-3">{round ? formatKg(round.estKg) : "—"}</td>
+          </thead>
+          <tbody>
+            {ordered.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-5 py-6 text-ink/60">
+                  ยังไม่มีแปลง
+                </td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {selected && (
-        <div className="mx-6 mb-6 mt-2 overflow-hidden rounded-[8px] border border-frame">
-          <PlotWorkspace plot={selected} onBack={() => setPlotId(null)} />
-        </div>
-      )}
+            )}
+            {ordered.map((plot, index) => (
+                <tr key={plot.id} onClick={(event) => openRow(event, () => setPlotId(plot.id))} className={rowTone(index, plot.id === plotId)}>
+                  <td className="px-5 py-3 font-bold">{plot.name}</td>
+                  <td className="px-5 py-3">{plot.areaRai} ไร่</td>
+                  <td className="px-5 py-3">{plot.variety}</td>
+                  <td className={`px-5 py-3 font-bold ${plot.statusClass}`}>{plot.status}</td>
+                  <td className="px-5 py-3">{plot.plantedOn ? formatThaiDate(plot.plantedOn) : "—"}</td>
+                  <td className="px-5 py-3">{plot.harvestOn ? formatThaiDate(plot.harvestOn) : "—"}</td>
+                  <td className="px-5 py-3">{plot.plantingId ? formatKg(plot.estKg) : "—"}</td>
+                </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableScroll>
+      {selected && <PlanEditor key={selected.plantingId || selected.id} plot={selected} onClose={() => setPlotId(null)} />}
       {adding && (
         <PlotDialog
           title="เพิ่มแปลง"

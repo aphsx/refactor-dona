@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowRight, CloudSun, Sun, X } from "lucide-react";
 import { useMill } from "@/components/store";
-import { Dialog, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, inputClass, usePagination } from "@/components/ui";
+import { Dialog, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, SortableTh, TableScroll, inputClass, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { formatKg, formatTon, type Silo } from "@/lib/mill";
 
 export function StockScreen() {
@@ -12,7 +12,15 @@ export function StockScreen() {
   const wetKg = silos.filter((silo) => silo.stage === "ชื้น").reduce((sum, silo) => sum + silo.kg, 0);
   const dryKg = silos.filter((silo) => silo.stage === "แห้ง").reduce((sum, silo) => sum + silo.kg, 0);
   const headKg = silos.filter((silo) => silo.stage === "ต้นข้าว").reduce((sum, silo) => sum + silo.kg, 0);
-  const page = usePagination(silos);
+  const listingSort = useTableSort();
+  const ordered = orderBy(silos, listingSort.sort, (silo, key) => {
+    if (key === "name") return silo.name;
+    if (key === "variety") return silo.variety;
+    if (key === "stage") return silo.stage;
+    if (key === "capacity") return silo.capacityKg;
+    return silo.kg;
+  });
+  const page = usePagination(ordered);
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
@@ -28,14 +36,16 @@ export function StockScreen() {
       </div>
       <div className="overflow-hidden rounded-[8px] border border-frame">
         <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ปริมาณในไซโล</div>
-        <table className="w-full border-collapse text-left text-[14px]">
+        <TableScroll>
+<table className={tableClass}>
           <thead className="bg-table">
             <tr>
-              {["ไซโล", "พันธุ์", "สถานะ", "ปริมาณ", "ความจุ", ""].map((label) => (
-                <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                  {label}
-                </th>
-              ))}
+              <SortableTh label="ไซโล" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="สถานะ" column="stage" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ปริมาณ" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ความจุ" column="capacity" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             </tr>
           </thead>
           <tbody>
@@ -66,6 +76,7 @@ export function StockScreen() {
             })}
           </tbody>
         </table>
+</TableScroll>
         <Pagination
           page={page.page}
           pageCount={page.pageCount}

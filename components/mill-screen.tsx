@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CircleCheck, Plus, Save, X } from "lucide-react";
 import { useMill } from "@/components/store";
-import { Dialog, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, inputClass, usePagination } from "@/components/ui";
+import { Dialog, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, SortableTh, TableScroll, inputClass, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { MILL_YIELD, formatKg, splitLot } from "@/lib/mill";
 
 export function MillScreen() {
@@ -13,7 +13,17 @@ export function MillScreen() {
   const [closeError, setCloseError] = useState("");
   const drySilos = silos.filter((silo) => silo.stage === "แห้ง");
   const closing = lots.find((lot) => lot.id === closingId) ?? null;
-  const page = usePagination(lots);
+  const listingSort = useTableSort();
+  const ordered = orderBy(lots, listingSort.sort, (lot, key) => {
+    if (key === "code") return lot.code;
+    if (key === "variety") return lot.variety;
+    if (key === "input") return lot.inputKg;
+    if (key === "head") return lot.headKg ?? -1;
+    if (key === "broken") return lot.brokenKg ?? -1;
+    if (key === "bran") return lot.branKg ?? -1;
+    return lot.status;
+  });
+  const page = usePagination(ordered);
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
@@ -31,14 +41,18 @@ export function MillScreen() {
       </p>
       <div className="overflow-hidden rounded-[8px] border border-frame">
         <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ล็อต</div>
-        <table className="w-full border-collapse text-left text-[14px]">
+        <TableScroll>
+<table className={tableClass}>
           <thead className="bg-table">
             <tr>
-              {["ล็อต", "พันธุ์", "เปลือกเข้า", "ต้นข้าว", "ข้าวหัก", "รำ", "สถานะ", ""].map((label) => (
-                <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                  {label}
-                </th>
-              ))}
+              <SortableTh label="ล็อต" column="code" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="เปลือกเข้า" column="input" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ต้นข้าว" column="head" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ข้าวหัก" column="broken" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="รำ" column="bran" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="สถานะ" column="status" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             </tr>
           </thead>
           <tbody>
@@ -65,6 +79,7 @@ export function MillScreen() {
             ))}
           </tbody>
         </table>
+</TableScroll>
         <Pagination
           page={page.page}
           pageCount={page.pageCount}

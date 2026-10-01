@@ -26,6 +26,76 @@ export function rowTone(index: number, picked = false) {
   return `cursor-pointer transition-colors ${picked ? "bg-pick" : index % 2 === 1 ? "bg-table hover:bg-sub" : "bg-white hover:bg-sub"}`;
 }
 
+export const tableClass = "w-max min-w-full border-collapse whitespace-nowrap text-left text-[14px]";
+
+export function TableScroll({ children }: { children: React.ReactNode }) {
+  return <div className="overflow-x-auto scroll-smooth overscroll-x-contain">{children}</div>;
+}
+
+export type SortState = { key: string; dir: "asc" | "desc" } | null;
+
+export function useTableSort(resetKey = "") {
+  const [sort, setSort] = useState<SortState>(null);
+  useEffect(() => {
+    setSort(null);
+  }, [resetKey]);
+  function toggleSort(key: string) {
+    setSort((current) => {
+      if (!current || current.key !== key) return { key, dir: "asc" };
+      if (current.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  }
+  return { sort, toggleSort };
+}
+
+export function orderBy<T>(rows: T[], sort: SortState, valueOf: (row: T, key: string) => string | number) {
+  if (!sort) return rows;
+  const dir = sort.dir === "asc" ? 1 : -1;
+  return rows.slice().sort((a, b) => {
+    const left = valueOf(a, sort.key);
+    const right = valueOf(b, sort.key);
+    if (typeof left === "number" && typeof right === "number") return (left - right) * dir;
+    return String(left).localeCompare(String(right), "th", { numeric: true }) * dir;
+  });
+}
+
+export function SortableTh({
+  label,
+  column,
+  sort,
+  onSort,
+}: {
+  label: string;
+  column?: string;
+  sort: SortState;
+  onSort: (key: string) => void;
+}) {
+  const active = column != null && sort?.key === column;
+  return (
+    <th className="border-r border-white px-5 py-3 font-bold last:border-r-0">
+      {column ? (
+        <button type="button" onClick={() => onSort(column)} className="inline-flex items-center gap-1">
+          {label}
+          <ChevronDown size={14} strokeWidth={1.75} className={`shrink-0 ${active ? (sort.dir === "asc" ? "rotate-180" : "") : "opacity-40"}`} />
+        </button>
+      ) : (
+        label
+      )}
+    </th>
+  );
+}
+
+export function isWildcard(query: string) {
+  const value = query.trim();
+  return value === "" || value === "%";
+}
+
+export function matchesQuery(query: string, text: string) {
+  if (isWildcard(query)) return true;
+  return text.toLocaleLowerCase("th").includes(query.trim().toLocaleLowerCase("th"));
+}
+
 export function PrimaryButton({
   children,
   className = "",
@@ -330,8 +400,7 @@ export function Select({
   const searchRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const selected = options.find((option) => option.value === value);
-  const needle = query.trim().toLocaleLowerCase("th");
-  const shown = needle ? options.filter((option) => option.label.toLocaleLowerCase("th").includes(needle)) : options;
+  const shown = options.filter((option) => matchesQuery(query, option.label));
 
   function place() {
     const rect = buttonRef.current?.getBoundingClientRect();
