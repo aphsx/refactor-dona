@@ -3,11 +3,33 @@
 import { useMemo, useState } from "react";
 import { MemberPlan, PlotWorkspace } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
-import { DateField, Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, Select, usePagination } from "@/components/ui";
+import { Calendar, RotateCcw, Search } from "lucide-react";
+import { DateField, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, Select, inputClass, openRow, rowTone, usePagination } from "@/components/ui";
 import { VARIETIES, daysUntil, farmerName, formatKg, formatThaiDate, type Farmer, type Plot } from "@/lib/mill";
 
 type SeasonRow = Plot & { plantingId: string; plantedOn: string; harvestOn: string; estKg: number };
 type HarvestQuery = { from: string; to: string; groupId: string; variety: string };
+type MemberQuery = {
+  name: string;
+  tel: string;
+  groupId: string;
+  variety: string;
+  plantedFrom: string;
+  plantedTo: string;
+  harvestFrom: string;
+  harvestTo: string;
+};
+
+const emptyMemberQuery: MemberQuery = {
+  name: "",
+  tel: "",
+  groupId: "all",
+  variety: "all",
+  plantedFrom: "",
+  plantedTo: "",
+  harvestFrom: "",
+  harvestTo: "",
+};
 
 const SOON_DAYS = 14;
 
@@ -108,12 +130,17 @@ export function PlanScreen() {
               type="button"
               onClick={() => setDraft({ ...draft, from: `${today.slice(0, 7)}-01`, to: monthEnd(today) })}
             >
+              <Glyph icon={Calendar} />
               เดือนนี้
             </SecondaryButton>
             <SecondaryButton type="button" onClick={() => setDraft({ ...draft, from: "", to: "" })}>
+              <Glyph icon={RotateCcw} />
               ยังไม่เข้าทั้งหมด
             </SecondaryButton>
-            <PrimaryButton type="submit">ค้นหา</PrimaryButton>
+            <PrimaryButton type="submit">
+              <Glyph icon={Search} />
+              ค้นหา
+            </PrimaryButton>
           </div>
         </form>
       </div>
@@ -145,53 +172,155 @@ export function PlanScreen() {
 
 export function MemberSeasonScreen() {
   const { plantings, plots, farmers, groups } = useMill();
-  const [groupId, setGroupId] = useState("all");
+  const [draft, setDraft] = useState<MemberQuery>(emptyMemberQuery);
+  const [applied, setApplied] = useState<MemberQuery>(emptyMemberQuery);
   const [farmerId, setFarmerId] = useState<string | null>(null);
+  const groupOptions = [
+    { value: "all", label: "ทุกกลุ่ม" },
+    { value: "none", label: "ไม่มีกลุ่ม" },
+    ...[...groups].sort((a, b) => a.name.localeCompare(b.name, "th")).map((group) => ({ value: group.id, label: group.name })),
+  ];
   const rows = useMemo(() => {
     return plantings
       .filter((planting) => !planting.delivered)
       .flatMap((planting) => {
         const plot = plots.find((item) => item.id === planting.plotId);
-        return plot ? [{ ...plot, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }] : [];
+        if (!plot) return [];
+        if (applied.variety !== "all" && plot.variety !== applied.variety) return [];
+        if (!inRange(planting.plantedOn, applied.plantedFrom, applied.plantedTo)) return [];
+        if (!inRange(planting.harvestOn, applied.harvestFrom, applied.harvestTo)) return [];
+        return [{ ...plot, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
       });
-  }, [plantings, plots]);
+  }, [plantings, plots, applied]);
+  const plotFilter =
+    applied.variety !== "all" || applied.plantedFrom !== "" || applied.plantedTo !== "" || applied.harvestFrom !== "" || applied.harvestTo !== "";
   const people = useMemo(() => {
+    const name = applied.name.trim().toLocaleLowerCase("th");
+    const tel = applied.tel.replace(/\D/g, "");
     return farmers
       .filter((farmer) => {
-        if (groupId === "none") return farmer.groupId == null;
-        if (groupId !== "all") return farmer.groupId === groupId;
+        if (applied.groupId === "none" && farmer.groupId != null) return false;
+        if (applied.groupId !== "all" && applied.groupId !== "none" && farmer.groupId !== applied.groupId) return false;
+        if (name && !farmerName(farmer).toLocaleLowerCase("th").includes(name)) return false;
+        if (tel && !farmer.tel.replace(/\D/g, "").includes(tel)) return false;
+        if (plotFilter && !rows.some((row) => row.farmerId === farmer.id)) return false;
         return true;
       })
       .slice()
       .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"));
-  }, [farmers, groupId]);
-  const page = usePagination(people, groupId);
-  const selected = farmers.find((farmer) => farmer.id === farmerId) ?? null;
+  }, [farmers, applied, plotFilter, rows]);
+  const page = usePagination(people, JSON.stringify(applied));
+  const selected = people.some((farmer) => farmer.id === farmerId) ? (farmers.find((farmer) => farmer.id === farmerId) ?? null) : null;
+
+  function search(next: MemberQuery) {
+    setDraft(next);
+    setApplied(next);
+    setFarmerId(null);
+  }
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
       <PageHeader current="รายสมาชิก" />
+      <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
+        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาสมาชิก</div>
+        <form
+          className="grid gap-4 px-6 py-5 md:grid-cols-2 xl:grid-cols-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            search(draft);
+          }}
+        >
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ชื่อ
+            <input
+              value={draft.name}
+              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+              className={`${inputClass} mt-1`}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            เบอร์โทร
+            <input
+              value={draft.tel}
+              inputMode="tel"
+              onChange={(event) => setDraft({ ...draft, tel: event.target.value })}
+              placeholder="081"
+              className={`${inputClass} mt-1`}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            กลุ่ม
+            <SearchSelect label="กลุ่ม" className="mt-1" value={draft.groupId} onChange={(groupId) => setDraft({ ...draft, groupId })} options={groupOptions} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            พันธุ์
+            <Select
+              label="พันธุ์"
+              className="mt-1"
+              value={draft.variety}
+              onChange={(variety) => setDraft({ ...draft, variety })}
+              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: item, label: item }))]}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            จากวันปลูก
+            <DateField
+              label="จากวันปลูก"
+              className="mt-1"
+              value={draft.plantedFrom}
+              max={draft.plantedTo}
+              onChange={(plantedFrom) =>
+                setDraft({ ...draft, plantedFrom, plantedTo: draft.plantedTo && plantedFrom && draft.plantedTo < plantedFrom ? plantedFrom : draft.plantedTo })
+              }
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ถึงวันปลูก
+            <DateField
+              label="ถึงวันปลูก"
+              className="mt-1"
+              value={draft.plantedTo}
+              min={draft.plantedFrom}
+              onChange={(plantedTo) => setDraft({ ...draft, plantedTo })}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            จากวันเก็บ
+            <DateField
+              label="จากวันเก็บ"
+              className="mt-1"
+              value={draft.harvestFrom}
+              max={draft.harvestTo}
+              onChange={(harvestFrom) =>
+                setDraft({ ...draft, harvestFrom, harvestTo: draft.harvestTo && harvestFrom && draft.harvestTo < harvestFrom ? harvestFrom : draft.harvestTo })
+              }
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ถึงวันเก็บ
+            <DateField
+              label="ถึงวันเก็บ"
+              className="mt-1"
+              value={draft.harvestTo}
+              min={draft.harvestFrom}
+              onChange={(harvestTo) => setDraft({ ...draft, harvestTo })}
+            />
+          </label>
+          <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-4">
+            <PrimaryButton type="submit">
+              <Glyph icon={Search} />
+              ค้นหา
+            </PrimaryButton>
+            <SecondaryButton type="button" onClick={() => search(emptyMemberQuery)}>
+              <Glyph icon={RotateCcw} />
+              ล้าง
+            </SecondaryButton>
+          </div>
+        </form>
+      </div>
       <div className="overflow-hidden rounded-[8px] border border-frame">
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
-          <div className="text-[16px] font-bold">สมาชิก</div>
-          <SearchSelect
-            label="กลุ่ม"
-            className="w-64"
-            value={groupId}
-            onChange={(next) => {
-              setGroupId(next);
-              setFarmerId(null);
-            }}
-            options={[
-              { value: "all", label: "ทุกกลุ่ม" },
-              { value: "none", label: "ไม่มีกลุ่ม" },
-              ...[...groups]
-                .sort((a, b) => a.name.localeCompare(b.name, "th"))
-                .map((group) => ({ value: group.id, label: group.name })),
-            ]}
-          />
-        </div>
-        <MemberRoundTable farmers={page.rows} rows={rows} selectedId={farmerId} onSelect={setFarmerId} />
+        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">สมาชิก</div>
+        <MemberRoundTable farmers={page.rows} rows={rows} selectedId={selected?.id ?? null} onSelect={setFarmerId} />
         <Pagination
           page={page.page}
           pageCount={page.pageCount}
@@ -200,8 +329,12 @@ export function MemberSeasonScreen() {
           onPageChange={page.setPage}
           onPageSizeChange={page.setPageSize}
         />
-        {selected && <MemberPlan farmer={selected} />}
       </div>
+      {selected && (
+        <div className="mt-6 overflow-hidden rounded-[8px] border border-frame">
+          <MemberPlan farmer={selected} />
+        </div>
+      )}
     </div>
   );
 }
@@ -293,8 +426,8 @@ function PlotRoundTable({
           return (
             <tr
               key={plot.plantingId}
-              onClick={() => onSelect(plot.id)}
-              className={`cursor-pointer ${picked ? "bg-pick" : index % 2 === 1 ? "bg-table hover:bg-sub" : "bg-white hover:bg-sub"}`}
+              onClick={(event) => openRow(event, () => onSelect(plot.id))}
+              className={rowTone(index, picked)}
             >
               <td className="px-5 py-3 font-bold">{formatThaiDate(plot.harvestOn)}</td>
               <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
@@ -350,8 +483,8 @@ function MemberRoundTable({
           return (
             <tr
               key={farmer.id}
-              onClick={() => onSelect(farmer.id)}
-              className={`cursor-pointer ${picked ? "bg-pick" : index % 2 === 1 ? "bg-table hover:bg-sub" : "bg-white hover:bg-sub"}`}
+              onClick={(event) => openRow(event, () => onSelect(farmer.id))}
+              className={rowTone(index, picked)}
             >
               <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
               <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>

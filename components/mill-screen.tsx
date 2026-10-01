@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { CircleCheck, Plus, Save, X } from "lucide-react";
 import { useMill } from "@/components/store";
-import { Dialog, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, inputClass, usePagination } from "@/components/ui";
+import { Dialog, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, inputClass, usePagination } from "@/components/ui";
 import { MILL_YIELD, formatKg, splitLot } from "@/lib/mill";
 
 export function MillScreen() {
@@ -18,7 +19,12 @@ export function MillScreen() {
     <div className="h-full overflow-y-auto px-7 py-6">
       <PageHeader
         current="ล็อตสี"
-        action={<PrimaryButton onClick={() => setOpening(true)}>เปิดล็อตสี</PrimaryButton>}
+        action={
+          <PrimaryButton onClick={() => setOpening(true)}>
+            <Glyph icon={Plus} />
+            เปิดล็อตสี
+          </PrimaryButton>
+        }
       />
       <p className="mb-6 text-[14px]">
         ปิดล็อตจะแบ่งน้ำหนักตามเรทโรงสี: {MILL_YIELD.map((item) => `${item.label} ${Math.round(item.ratio * 100)}%`).join(" · ")} แกลบไม่เข้าโกดัง
@@ -50,6 +56,7 @@ export function MillScreen() {
                 <td className="px-5 py-3 text-right">
                   {lot.status === "สีอยู่" && (
                     <PrimaryButton className="h-9" onClick={() => setClosingId(lot.id)}>
+                      <Glyph icon={CircleCheck} />
                       ปิดล็อต
                     </PrimaryButton>
                   )}
@@ -140,8 +147,14 @@ function OpenLot({
         {silo && <p className="text-[14px] text-ink/70">ข้าวจะถูกกันออกจาก {silo.name} ทันทีที่เปิดล็อต</p>}
         {error && <p className="text-[14px] text-danger">{error}</p>}
         <div className="flex justify-end gap-3">
-          <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
-          <PrimaryButton type="submit">เปิดล็อต</PrimaryButton>
+          <SecondaryButton onClick={onClose}>
+            <Glyph icon={X} />
+            ยกเลิก
+          </SecondaryButton>
+          <PrimaryButton type="submit">
+            <Glyph icon={Plus} />
+            เปิดล็อต
+          </PrimaryButton>
         </div>
       </form>
     </Dialog>
@@ -182,8 +195,14 @@ function ClosePreview({
       </ul>
       {error && <p className="text-[14px] text-danger">{error}</p>}
       <div className="flex justify-end gap-3">
-        <SecondaryButton onClick={onCancel}>ยกเลิก</SecondaryButton>
-        <PrimaryButton onClick={onConfirm}>บันทึกเข้าโกดัง</PrimaryButton>
+        <SecondaryButton onClick={onCancel}>
+          <Glyph icon={X} />
+          ยกเลิก
+        </SecondaryButton>
+        <PrimaryButton onClick={onConfirm}>
+          <Glyph icon={Save} />
+          บันทึกเข้าโกดัง
+        </PrimaryButton>
       </div>
     </div>
   );

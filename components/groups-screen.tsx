@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
 import { useMill } from "@/components/store";
-import { DateField, Dialog, FarmerSelect, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, StatusTab, ConfirmAlert, ResultAlert, inputClass, usePagination } from "@/components/ui";
+import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, StatusTab, ConfirmAlert, ResultAlert, inputClass, openRow, rowTone, usePagination } from "@/components/ui";
 import { VARIETIES, daysUntil, farmerName, farmerVarieties, formatBaht, formatKg, formatThaiDate, openPlanting, plantingsOf, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 
 type Notice =
@@ -119,7 +120,10 @@ export function GroupManageScreen() {
               />
             </label>
             <div className="flex flex-wrap gap-3 sm:col-span-2">
-              <PrimaryButton type="submit">ค้นหา</PrimaryButton>
+              <PrimaryButton type="submit">
+                <Glyph icon={Search} />
+                ค้นหา
+              </PrimaryButton>
               <SecondaryButton
                 onClick={() => {
                   setDraftName("");
@@ -128,9 +132,13 @@ export function GroupManageScreen() {
                   setLeaderId("");
                 }}
               >
+                <Glyph icon={RotateCcw} />
                 ล้าง
               </SecondaryButton>
-              <SecondaryButton onClick={() => setCreatingGroup(true)}>สร้างกลุ่ม</SecondaryButton>
+              <SecondaryButton onClick={() => setCreatingGroup(true)}>
+                <Glyph icon={Plus} />
+                สร้างกลุ่ม
+              </SecondaryButton>
             </div>
           </form>
         </div>
@@ -163,12 +171,8 @@ export function GroupManageScreen() {
                   const expected = plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
                   const received = people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
                   return (
-                    <tr key={group.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                      <td className="px-5 py-3">
-                        <button type="button" className="font-bold text-link underline" onClick={() => openGroup(group.id)}>
-                          {group.name}
-                        </button>
-                      </td>
+                    <tr key={group.id} onClick={(event) => openRow(event, () => openGroup(group.id))} className={rowTone(index)}>
+                      <td className="px-5 py-3 font-bold">{group.name}</td>
                       <td className="px-5 py-3">{leader ? farmerName(leader) : "—"}</td>
                       <td className="px-5 py-3">{people.length}</td>
                       <td className="px-5 py-3">{formatKg(expected)}</td>
@@ -281,7 +285,10 @@ export function MemberManageScreen() {
               />
             </label>
             <div className="flex flex-wrap gap-3 sm:col-span-2">
-              <PrimaryButton type="submit">ค้นหา</PrimaryButton>
+              <PrimaryButton type="submit">
+                <Glyph icon={Search} />
+                ค้นหา
+              </PrimaryButton>
               <SecondaryButton
                 onClick={() => {
                   setDraftName("");
@@ -290,9 +297,13 @@ export function MemberManageScreen() {
                   setGroupId("");
                 }}
               >
+                <Glyph icon={RotateCcw} />
                 ล้าง
               </SecondaryButton>
-              <SecondaryButton onClick={() => setMoving(true)}>จัดเข้ากลุ่ม</SecondaryButton>
+              <SecondaryButton onClick={() => setMoving(true)}>
+                <Glyph icon={UserPlus} />
+                จัดเข้ากลุ่ม
+              </SecondaryButton>
             </div>
           </form>
         </div>
@@ -321,12 +332,8 @@ export function MemberManageScreen() {
                 {page.rows.map((farmer, index) => {
                   const leads = groups.some((group) => group.leaderId === farmer.id);
                   return (
-                    <tr key={farmer.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                      <td className="px-5 py-3">
-                        <button type="button" className="font-bold text-link underline" onClick={() => openMember(farmer.id)}>
-                          {farmerName(farmer)}
-                        </button>
-                      </td>
+                    <tr key={farmer.id} onClick={(event) => openRow(event, () => openMember(farmer.id))} className={rowTone(index)}>
+                      <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                       <td className="px-5 py-3">{farmer.tel}</td>
                       <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}</td>
                       <td className="px-5 py-3">{farmerVarieties(plots, farmer.id)}</td>
@@ -335,9 +342,8 @@ export function MemberManageScreen() {
                         {leads ? (
                           <span className="text-[12px] font-bold text-ink/50">หัวหน้า</span>
                         ) : (
-                          <button
-                            type="button"
-                            className="font-bold text-link underline"
+                          <SecondaryButton
+                            className="h-9"
                             onClick={() =>
                               setNotice({
                                 tone: "confirm",
@@ -346,8 +352,9 @@ export function MemberManageScreen() {
                               })
                             }
                           >
+                            <Glyph icon={UserMinus} />
                             ออกจากกลุ่ม
-                          </button>
+                          </SecondaryButton>
                         )}
                       </td>
                     </tr>
@@ -506,12 +513,17 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
           {editing ? (
             <>
               <SecondaryButton type="button" onClick={undo}>
+                <Glyph icon={Undo2} />
                 {dirty ? "เลิกทำ" : "ยกเลิก"}
               </SecondaryButton>
-              <PrimaryButton type="submit">บันทึก</PrimaryButton>
+              <PrimaryButton type="submit">
+                <Glyph icon={Save} />
+                บันทึก
+              </PrimaryButton>
             </>
           ) : (
             <SecondaryButton type="button" onClick={() => setEditing(true)}>
+              <Glyph icon={Pencil} />
               แก้ไข
             </SecondaryButton>
           )}
@@ -520,6 +532,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame bg-bar px-6 py-4 text-white">
         <div className="text-[16px] font-bold">สมาชิก · {members.length} คน</div>
         <SecondaryButton className="h-9" onClick={() => setMoving(true)}>
+          <Glyph icon={UserPlus} />
           จัดเข้ากลุ่ม
         </SecondaryButton>
       </div>
@@ -552,9 +565,8 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
                   {leadsGroup ? (
                     <span className="text-[12px] font-bold text-ink/50">หัวหน้ากลุ่ม</span>
                   ) : (
-                    <button
-                      type="button"
-                      className="font-bold text-link underline"
+                    <SecondaryButton
+                      className="h-9"
                       onClick={() =>
                         setNotice({
                           tone: "confirm",
@@ -563,8 +575,9 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
                         })
                       }
                     >
+                      <Glyph icon={UserMinus} />
                       ออกจากกลุ่ม
-                    </button>
+                    </SecondaryButton>
                   )}
                 </td>
               </tr>
@@ -687,12 +700,17 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
             {editing ? (
               <>
                 <SecondaryButton type="button" onClick={undo}>
+                  <Glyph icon={Undo2} />
                   {dirty ? "เลิกทำ" : "ยกเลิก"}
                 </SecondaryButton>
-                <PrimaryButton type="submit">บันทึก</PrimaryButton>
+                <PrimaryButton type="submit">
+                  <Glyph icon={Save} />
+                  บันทึก
+                </PrimaryButton>
               </>
             ) : (
               <SecondaryButton type="button" onClick={() => setEditing(true)}>
+                <Glyph icon={Pencil} />
                 แก้ไข
               </SecondaryButton>
             )}
@@ -797,9 +815,10 @@ function PlotTable({
                 <td className={`px-5 py-3 font-bold ${harvest.className}`}>{harvest.label}</td>
                 <td className="px-5 py-3 text-right">
                   {!round && (
-                    <button type="button" className="font-bold text-link underline" onClick={() => onAddRound(plot.id)}>
+                    <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
+                      <Glyph icon={Plus} />
                       เพิ่มรอบ
-                    </button>
+                    </SecondaryButton>
                   )}
                 </td>
               </tr>
@@ -881,6 +900,7 @@ export function MemberPlan({
         <div className="text-[16px] font-bold">แผนการปลูก · {farmerName(farmer)}</div>
         <div className="flex items-center gap-3">
           <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+            <Glyph icon={Plus} />
             เพิ่มแปลง
           </SecondaryButton>
           {onClose && (
@@ -915,8 +935,8 @@ export function MemberPlan({
             return (
               <tr
                 key={plot.id}
-                onClick={() => setPlotId(plot.id)}
-                className={`cursor-pointer ${picked ? "bg-pick" : index % 2 === 1 ? "bg-table hover:bg-sub" : "bg-white hover:bg-sub"}`}
+                onClick={(event) => openRow(event, () => setPlotId(plot.id))}
+                className={rowTone(index, picked)}
               >
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
@@ -930,7 +950,11 @@ export function MemberPlan({
           })}
         </tbody>
       </table>
-      {selected && <PlotWorkspace plot={selected} onBack={() => setPlotId(null)} />}
+      {selected && (
+        <div className="mx-6 mb-6 mt-2 overflow-hidden rounded-[8px] border border-frame">
+          <PlotWorkspace plot={selected} onBack={() => setPlotId(null)} />
+        </div>
+      )}
       {adding && (
         <PlotDialog
           title="เพิ่มแปลง"
@@ -1087,12 +1111,17 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
           {editing ? (
             <>
               <SecondaryButton type="button" onClick={undo}>
+                <Glyph icon={Undo2} />
                 {dirty ? "เลิกทำ" : "ยกเลิก"}
               </SecondaryButton>
-              <PrimaryButton type="submit">บันทึก</PrimaryButton>
+              <PrimaryButton type="submit">
+                <Glyph icon={Save} />
+                บันทึก
+              </PrimaryButton>
             </>
           ) : (
             <SecondaryButton type="button" onClick={() => setEditing(true)}>
+              <Glyph icon={Pencil} />
               แก้ไข
             </SecondaryButton>
           )}
@@ -1107,6 +1136,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
                 })
               }
             >
+              <Glyph icon={Trash2} />
               ลบแผน
             </SecondaryButton>
           )}
@@ -1121,6 +1151,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
                 })
               }
             >
+              <Glyph icon={Trash2} />
               ลบแปลง
             </SecondaryButton>
           )}
@@ -1242,8 +1273,14 @@ function PlotDialog({
             </>
           )}
           <div className="flex justify-end gap-3 sm:col-span-2">
-            <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
-            <PrimaryButton type="submit">บันทึก</PrimaryButton>
+            <SecondaryButton onClick={onClose}>
+              <Glyph icon={X} />
+              ยกเลิก
+            </SecondaryButton>
+            <PrimaryButton type="submit">
+                <Glyph icon={Save} />
+                บันทึก
+              </PrimaryButton>
           </div>
         </form>
       </Dialog>
@@ -1304,8 +1341,14 @@ function CreateGroup({
             </div>
           </label>
           <div className="flex justify-end gap-3">
-            <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
-            <PrimaryButton type="submit">บันทึก</PrimaryButton>
+            <SecondaryButton onClick={onClose}>
+              <Glyph icon={X} />
+              ยกเลิก
+            </SecondaryButton>
+            <PrimaryButton type="submit">
+                <Glyph icon={Save} />
+                บันทึก
+              </PrimaryButton>
           </div>
         </form>
       </Dialog>
@@ -1353,8 +1396,14 @@ function MoveFarmer({
             </div>
           </label>
           <div className="flex justify-end gap-3">
-            <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
-            <PrimaryButton type="submit">บันทึก</PrimaryButton>
+            <SecondaryButton onClick={onClose}>
+              <Glyph icon={X} />
+              ยกเลิก
+            </SecondaryButton>
+            <PrimaryButton type="submit">
+                <Glyph icon={Save} />
+                บันทึก
+              </PrimaryButton>
           </div>
         </form>
       </Dialog>

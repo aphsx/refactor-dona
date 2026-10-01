@@ -2,12 +2,29 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleX, Search, X } from "lucide-react";
+import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleX, Search, X, type LucideIcon } from "lucide-react";
 import { useMill } from "@/components/store";
 import { farmerName, formatThaiDate, formatThaiMonth } from "@/lib/mill";
 
 export const inputClass =
   "h-10 w-full rounded-[4px] border border-line bg-white px-3 text-[14px] text-ink placeholder:text-ink/20";
+
+export function Glyph({ icon: Icon }: { icon: LucideIcon }) {
+  return <Icon size={16} strokeWidth={1.75} aria-hidden className="shrink-0" />;
+}
+
+export function openRow(event: React.MouseEvent<HTMLElement>, action: () => void) {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const selection = window.getSelection();
+  if (selection && !selection.isCollapsed && selection.toString().length > 0) return;
+  if (target.closest("a,button,input,textarea,select,[role='button']")) return;
+  action();
+}
+
+export function rowTone(index: number, picked = false) {
+  return `cursor-pointer transition-colors ${picked ? "bg-pick" : index % 2 === 1 ? "bg-table hover:bg-sub" : "bg-white hover:bg-sub"}`;
+}
 
 export function PrimaryButton({
   children,
@@ -18,7 +35,7 @@ export function PrimaryButton({
     <button
       type="button"
       {...props}
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white hover:bg-brand-hover disabled:bg-[#D0D0D0] ${className}`}
+      className={`inline-flex h-10 cursor-pointer select-none items-center justify-center gap-2 rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white transition-colors hover:bg-brand-hover active:bg-sidebar disabled:pointer-events-none disabled:bg-[#D0D0D0] ${className}`}
     >
       {children}
     </button>
@@ -34,7 +51,7 @@ export function SecondaryButton({
     <button
       type="button"
       {...props}
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand ${className}`}
+      className={`inline-flex h-10 cursor-pointer select-none items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand transition-colors hover:bg-pick active:bg-table disabled:pointer-events-none disabled:border-[#D0D0D0] disabled:text-[#B0B0B0] ${className}`}
     >
       {children}
     </button>
@@ -93,7 +110,10 @@ export function ResultAlert({
       <Icon className={`mx-auto ${kind === "success" ? "text-ok" : "text-danger"}`} size={96} strokeWidth={1.25} />
       <p className="mt-4 text-[18px] font-bold">{message}</p>
       <div className="mt-6 flex justify-center">
-        <PrimaryButton onClick={onClose}>ตกลง</PrimaryButton>
+        <PrimaryButton onClick={onClose}>
+          <Glyph icon={Check} />
+          ตกลง
+        </PrimaryButton>
       </div>
     </AlertFrame>
   );
@@ -113,8 +133,14 @@ export function ConfirmAlert({
       <CircleAlert className="mx-auto text-brand" size={96} strokeWidth={1.25} />
       <p className="mt-4 text-[18px] font-bold">{message}</p>
       <div className="mt-6 flex justify-center gap-3">
-        <SecondaryButton onClick={onCancel}>ยกเลิก</SecondaryButton>
-        <PrimaryButton onClick={onConfirm}>ยืนยัน</PrimaryButton>
+        <SecondaryButton onClick={onCancel}>
+          <Glyph icon={X} />
+          ยกเลิก
+        </SecondaryButton>
+        <PrimaryButton onClick={onConfirm}>
+          <Glyph icon={Check} />
+          ยืนยัน
+        </PrimaryButton>
       </div>
     </AlertFrame>
   );

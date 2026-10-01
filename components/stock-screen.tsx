@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CloudSun } from "lucide-react";
+import { ArrowRight, CloudSun, Sun, X } from "lucide-react";
 import { useMill } from "@/components/store";
-import { Dialog, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, inputClass, usePagination } from "@/components/ui";
+import { Dialog, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, inputClass, usePagination } from "@/components/ui";
 import { formatKg, formatTon, type Silo } from "@/lib/mill";
 
 export function StockScreen() {
@@ -56,6 +56,7 @@ export function StockScreen() {
                   <td className="px-5 py-3 text-right">
                     {silo.stage === "ชื้น" && (
                       <SecondaryButton className="h-9" onClick={() => setDrying(silo)}>
+                        <Glyph icon={Sun} />
                         บันทึกการตาก
                       </SecondaryButton>
                     )}
@@ -119,8 +120,14 @@ function DryDialog({
         </label>
         {error && <p className="text-[14px] text-danger">{error}</p>}
         <div className="flex justify-end gap-3">
-          <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
-          <PrimaryButton type="submit">ย้ายเข้าไซโลแห้ง</PrimaryButton>
+          <SecondaryButton onClick={onClose}>
+            <Glyph icon={X} />
+            ยกเลิก
+          </SecondaryButton>
+          <PrimaryButton type="submit">
+            <Glyph icon={ArrowRight} />
+            ย้ายเข้าไซโลแห้ง
+          </PrimaryButton>
         </div>
       </form>
     </Dialog>

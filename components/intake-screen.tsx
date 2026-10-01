@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Scale, Warehouse, X } from "lucide-react";
 import { useMill } from "@/components/store";
-import { Dialog, FarmerSelect, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, StatusTab, inputClass, usePagination } from "@/components/ui";
+import { Dialog, FarmerSelect, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, Select, StatusTab, inputClass, usePagination } from "@/components/ui";
 import { VARIETIES, farmerName, formatBaht, formatKg, formatTon, settle, type Variety } from "@/lib/mill";
 
 type TicketFilter = "ทั้งหมด" | "รอชั่ง" | "เข้าไซโล";
@@ -33,7 +33,7 @@ export function IntakeScreen() {
         current="รับซื้อวันนี้"
         action={
           <PrimaryButton onClick={() => setCreating(true)}>
-            <Plus size={16} strokeWidth={1.75} />
+            <Glyph icon={Plus} />
             เปิดตั๋วรับซื้อ
           </PrimaryButton>
         }
@@ -77,6 +77,7 @@ export function IntakeScreen() {
                   <td className="px-5 py-3 text-right">
                     {ticket.status === "รอชั่ง" ? (
                       <PrimaryButton className="h-9" onClick={() => setWeighId(ticket.id)}>
+                        <Glyph icon={Scale} />
                         ชั่ง
                       </PrimaryButton>
                     ) : (
@@ -160,8 +161,14 @@ function CreateTicket({
         </label>
         {error && <p className="text-[14px] text-danger">{error}</p>}
         <div className="flex justify-end gap-3">
-          <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
-          <PrimaryButton type="submit">เปิดคิว</PrimaryButton>
+          <SecondaryButton onClick={onClose}>
+            <Glyph icon={X} />
+            ยกเลิก
+          </SecondaryButton>
+          <PrimaryButton type="submit">
+            <Glyph icon={Plus} />
+            เปิดคิว
+          </PrimaryButton>
         </div>
       </form>
     </Dialog>
@@ -234,8 +241,14 @@ function WeighTicket({
         )}
         {error && <p className="text-[14px] text-danger">{error}</p>}
         <div className="flex justify-end gap-3">
-          <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
-          <PrimaryButton type="submit">รับเข้าไซโลชื้น</PrimaryButton>
+          <SecondaryButton onClick={onClose}>
+            <Glyph icon={X} />
+            ยกเลิก
+          </SecondaryButton>
+          <PrimaryButton type="submit">
+            <Glyph icon={Warehouse} />
+            รับเข้าไซโลชื้น
+          </PrimaryButton>
         </div>
       </form>
     </Dialog>
