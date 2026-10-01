@@ -36,6 +36,10 @@ type Store = MillData & {
   closeLot: (lotId: string) => string | null;
   createGroup: (name: string, leaderId: string) => string | null;
   updateGroup: (groupId: string, name: string, leaderId: string) => string | null;
+  updateFarmer: (
+    farmerId: string,
+    input: { firstName: string; lastName: string; tel: string; variety: Farmer["variety"]; groupId: string | null },
+  ) => string | null;
   assignFarmer: (farmerId: string, groupId: string | null) => string | null;
 };
 
@@ -191,6 +195,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (draft.groups.some((item) => item.leaderId === leaderId && item.id !== groupId)) return "คนนี้เป็นหัวหน้ากลุ่มอยู่แล้ว";
         group.name = trimmed;
         group.leaderId = leaderId;
+        return null;
+      });
+    },
+    updateFarmer(farmerId, input) {
+      return commit((draft) => {
+        const farmer = draft.farmers.find((item) => item.id === farmerId);
+        if (!farmer) return "ไม่พบคู่ค้า";
+        const firstName = input.firstName.trim();
+        const lastName = input.lastName.trim();
+        const tel = input.tel.trim();
+        if (!firstName || !lastName) return "กรอกชื่อ";
+        if (!tel) return "กรอกเบอร์โทร";
+        if (input.groupId !== farmer.groupId) {
+          if (input.groupId == null) {
+            if (draft.groups.some((group) => group.leaderId === farmerId)) return "หัวหน้ากลุ่มออกจากกลุ่มไม่ได้";
+          } else {
+            if (!draft.groups.some((group) => group.id === input.groupId)) return "ไม่พบกลุ่ม";
+            if (draft.groups.some((group) => group.leaderId === farmerId && group.id !== input.groupId)) {
+              return "ย้ายหัวหน้ากลุ่มไม่ได้";
+            }
+          }
+          farmer.groupId = input.groupId;
+        }
+        farmer.firstName = firstName;
+        farmer.lastName = lastName;
+        farmer.tel = tel;
+        farmer.variety = input.variety;
         return null;
       });
     },

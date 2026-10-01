@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useMill } from "@/components/store";
 import { Dialog, FarmerSelect, PageHeader, Pagination, PrimaryButton, SecondaryButton, StatusTab, ConfirmAlert, ResultAlert, inputClass, usePagination } from "@/components/ui";
-import { farmerName, formatBaht, formatKg, formatThaiDate, type Farmer, type Plot, type SupplierGroup } from "@/lib/mill";
+import { farmerName, formatBaht, formatKg, formatThaiDate, type Farmer, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void }
@@ -539,24 +539,130 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
 }
 
 function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void }) {
-  const { groups, plots } = useMill();
-  const group = groups.find((item) => item.id === farmer.groupId);
+  const { groups, plots, updateFarmer } = useMill();
+  const varieties: Variety[] = ["หอมมะลิ", "ขาว", "เหนียว"];
+  const [editing, setEditing] = useState(false);
+  const [firstName, setFirstName] = useState(farmer.firstName);
+  const [lastName, setLastName] = useState(farmer.lastName);
+  const [tel, setTel] = useState(farmer.tel);
+  const [variety, setVariety] = useState<Variety>(farmer.variety);
+  const [groupId, setGroupId] = useState(farmer.groupId ?? "");
+  const [notice, setNotice] = useState<Notice | null>(null);
   const fields = plots.filter((plot) => plot.farmerId === farmer.id);
+  const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
+  const leads = groups.find((item) => item.leaderId === farmer.id) ?? null;
+
+  useEffect(() => {
+    setEditing(false);
+    setFirstName(farmer.firstName);
+    setLastName(farmer.lastName);
+    setTel(farmer.tel);
+    setVariety(farmer.variety);
+    setGroupId(farmer.groupId ?? "");
+  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.variety, farmer.groupId]);
+
+  const dirty =
+    firstName !== farmer.firstName ||
+    lastName !== farmer.lastName ||
+    tel !== farmer.tel ||
+    variety !== farmer.variety ||
+    (groupId || null) !== farmer.groupId;
+
+  function undoOrCancel() {
+    setFirstName(farmer.firstName);
+    setLastName(farmer.lastName);
+    setTel(farmer.tel);
+    setVariety(farmer.variety);
+    setGroupId(farmer.groupId ?? "");
+    if (!dirty) setEditing(false);
+  }
 
   return (
     <>
-      <div className="flex items-center justify-between bg-bar px-6 py-4 text-[16px] font-bold text-white">
+      <div className="flex items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
         รายละเอียดสมาชิก
         <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
           ปิด
         </button>
       </div>
+      <form
+        className="grid gap-4 border-b border-frame px-6 py-5 sm:grid-cols-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!editing) return;
+            const nextGroup = groupId || null;
+            const moving = nextGroup !== farmer.groupId;
+            const target = groups.find((item) => item.id === nextGroup);
+            const message = moving
+              ? nextGroup
+                ? `ยืนยันย้าย ${farmerName(farmer)} ไป ${target?.name ?? "กลุ่มใหม่"}`
+                : `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`
+              : "ยืนยันบันทึกข้อมูลสมาชิก";
+            setNotice({
+              tone: "confirm",
+              message,
+              accept: () =>
+                setNotice(
+                  reported(
+                    updateFarmer(farmer.id, { firstName, lastName, tel, variety, groupId: nextGroup }),
+                    moving ? "ย้ายกลุ่มแล้ว" : "บันทึกสมาชิกแล้ว",
+                    () => setEditing(false),
+                  ),
+                ),
+            });
+          }}
+        >
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ชื่อ
+            <input value={firstName} disabled={!editing} onChange={(event) => setFirstName(event.target.value)} className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            นามสกุล
+            <input value={lastName} disabled={!editing} onChange={(event) => setLastName(event.target.value)} className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            เบอร์โทร
+            <input value={tel} disabled={!editing} onChange={(event) => setTel(event.target.value)} className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            พันธุ์
+            <select value={variety} disabled={!editing} onChange={(event) => setVariety(event.target.value as Variety)} className={fieldClass}>
+              {varieties.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+            กลุ่ม
+            <select value={groupId} disabled={!editing} onChange={(event) => setGroupId(event.target.value)} className={fieldClass}>
+              <option value="">ไม่มีกลุ่ม</option>
+              {groups.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex flex-wrap gap-3 sm:col-span-2">
+            {editing ? (
+              <>
+                <SecondaryButton type="button" onClick={undoOrCancel}>
+                  {dirty ? "เลิกทำ" : "ยกเลิก"}
+                </SecondaryButton>
+                <PrimaryButton type="submit">บันทึก</PrimaryButton>
+              </>
+            ) : (
+              <SecondaryButton type="button" onClick={() => setEditing(true)}>
+                แก้ไข
+              </SecondaryButton>
+            )}
+          </div>
+        </form>
       <div className="grid gap-6 p-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="space-y-4 text-[14px]">
-          <Fact label="ชื่อ" value={farmerName(farmer)} />
-          <Fact label="เบอร์โทร" value={farmer.tel} />
-          <Fact label="กลุ่ม" value={group?.name ?? "ไม่มีกลุ่ม"} />
-          <Fact label="พันธุ์" value={farmer.variety} />
+          {leads && <Fact label="หน้าที่" value={`หัวหน้า ${leads.name}`} />}
           <Fact label="รับเข้าแล้ว" value={formatKg(farmer.deliveredKg)} />
           <Fact label="คงค้างจ่าย" value={farmer.unpaidBaht === 0 ? "จ่ายแล้ว" : formatBaht(farmer.unpaidBaht)} />
           <Link href={`/map?farmer=${farmer.id}`} className="inline-block font-bold text-link underline">
@@ -565,10 +671,10 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
         </div>
         <PlotTable plots={fields} />
       </div>
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
 }
-
 function PlotTable({ plots }: { plots: Plot[] }) {
   return (
     <div className="overflow-hidden rounded-[8px] border border-frame">
