@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleX, X } from "lucide-react";
 import { useMill } from "@/components/store";
 import { farmerName } from "@/lib/mill";
 
@@ -66,6 +66,56 @@ export function Dialog({
         <div className="p-6">{children}</div>
       </div>
     </div>
+  );
+}
+
+function AlertFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-[420px] rounded-[8px] bg-white px-8 py-8 text-center shadow-[0_8px_24px_rgba(0,0,0,0.18)]">{children}</div>
+    </div>
+  );
+}
+
+export function ResultAlert({
+  kind,
+  message,
+  onClose,
+}: {
+  kind: "success" | "error";
+  message: string;
+  onClose: () => void;
+}) {
+  const Icon = kind === "success" ? CircleCheck : CircleX;
+  return (
+    <AlertFrame>
+      <Icon className={`mx-auto ${kind === "success" ? "text-ok" : "text-danger"}`} size={96} strokeWidth={1.25} />
+      <p className="mt-4 text-[18px] font-bold">{message}</p>
+      <div className="mt-6 flex justify-center">
+        <PrimaryButton onClick={onClose}>ตกลง</PrimaryButton>
+      </div>
+    </AlertFrame>
+  );
+}
+
+export function ConfirmAlert({
+  message,
+  onCancel,
+  onConfirm,
+}: {
+  message: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertFrame>
+      <CircleAlert className="mx-auto text-brand" size={96} strokeWidth={1.25} />
+      <p className="mt-4 text-[18px] font-bold">{message}</p>
+      <div className="mt-6 flex justify-center gap-3">
+        <SecondaryButton onClick={onCancel}>ยกเลิก</SecondaryButton>
+        <PrimaryButton onClick={onConfirm}>ยืนยัน</PrimaryButton>
+      </div>
+    </AlertFrame>
   );
 }
 

@@ -7,20 +7,12 @@ export type Farmer = {
   tel: string;
   variety: Variety;
   groupId: string | null;
-  subgroupId: string | null;
   deliveredKg: number;
   unpaidBaht: number;
 };
 
 export type SupplierGroup = {
   id: string;
-  name: string;
-  leaderId: string;
-};
-
-export type Subgroup = {
-  id: string;
-  groupId: string;
   name: string;
   leaderId: string;
 };
@@ -181,18 +173,12 @@ export const GROUPS: SupplierGroup[] = [
   { id: "g2", name: "กลุ่มทุ่งนาโคกน้อย", leaderId: "f3" },
 ];
 
-export const SUBGROUPS: Subgroup[] = [
-  { id: "sg1", groupId: "g1", name: "โซนคลอง", leaderId: "f2" },
-  { id: "sg2", groupId: "g1", name: "โซนทุ่ง", leaderId: "f5" },
-  { id: "sg3", groupId: "g2", name: "ทุ่งหลัก", leaderId: "f3" },
-];
-
 export const FARMERS: Farmer[] = [
-  { id: "f1", firstName: "สมชาย", lastName: "ใจดี", tel: "081-234-5678", variety: "หอมมะลิ", groupId: "g1", subgroupId: "sg2", deliveredKg: 51760, unpaidBaht: 277280 },
-  { id: "f2", firstName: "สมหญิง", lastName: "ศรีนา", tel: "089-111-2233", variety: "หอมมะลิ", groupId: "g1", subgroupId: "sg1", deliveredKg: 28400, unpaidBaht: 0 },
-  { id: "f3", firstName: "ประสิทธิ์", lastName: "ทองดี", tel: "086-555-4433", variety: "ขาว", groupId: "g2", subgroupId: "sg3", deliveredKg: 41200, unpaidBaht: 96400 },
-  { id: "f4", firstName: "มาลี", lastName: "เขียวขจี", tel: "082-333-4455", variety: "เหนียว", groupId: null, subgroupId: null, deliveredKg: 15600, unpaidBaht: 45200 },
-  { id: "f5", firstName: "แก้ว", lastName: "นวลจันทร์", tel: "089-777-6655", variety: "หอมมะลิ", groupId: "g1", subgroupId: "sg2", deliveredKg: 33800, unpaidBaht: 0 },
+  { id: "f1", firstName: "สมชาย", lastName: "ใจดี", tel: "081-234-5678", variety: "หอมมะลิ", groupId: "g1", deliveredKg: 51760, unpaidBaht: 277280 },
+  { id: "f2", firstName: "สมหญิง", lastName: "ศรีนา", tel: "089-111-2233", variety: "หอมมะลิ", groupId: "g1", deliveredKg: 28400, unpaidBaht: 0 },
+  { id: "f3", firstName: "ประสิทธิ์", lastName: "ทองดี", tel: "086-555-4433", variety: "ขาว", groupId: "g2", deliveredKg: 41200, unpaidBaht: 96400 },
+  { id: "f4", firstName: "มาลี", lastName: "เขียวขจี", tel: "082-333-4455", variety: "เหนียว", groupId: null, deliveredKg: 15600, unpaidBaht: 45200 },
+  { id: "f5", firstName: "แก้ว", lastName: "นวลจันทร์", tel: "089-777-6655", variety: "หอมมะลิ", groupId: "g1", deliveredKg: 33800, unpaidBaht: 0 },
 ];
 
 export const PLOTS: Plot[] = [

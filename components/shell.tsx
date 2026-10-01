@@ -2,18 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, CalendarDays, ChevronDown, Factory, Layers, Map, Menu, Scale, Sprout, Users, Warehouse, type LucideIcon } from "lucide-react";
 import { StoreProvider, useMill } from "@/components/store";
 import { daysUntil, farmerName } from "@/lib/mill";
 
-const NAV: { href: string; label: string; icon: LucideIcon }[] = [
+type NavChild = { href: string; label: string };
+type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavChild[] };
+
+const NAV: NavItem[] = [
   { href: "/", label: "รับซื้อวันนี้", icon: Scale },
   { href: "/plan", label: "แผนรอบปลูก", icon: Sprout },
   { href: "/supply", label: "แผนรับข้าว", icon: CalendarDays },
   { href: "/map", label: "แผนที่แปลง", icon: Map },
-  { href: "/groups", label: "กลุ่ม", icon: Layers },
-  { href: "/farmers", label: "คู่ค้า", icon: Users },
+  {
+    label: "กลุ่ม",
+    icon: Layers,
+    children: [
+      { href: "/groups", label: "กลุ่ม" },
+      { href: "/groups/manage", label: "จัดการกลุ่ม" },
+    ],
+  },
+  {
+    label: "คู่ค้า",
+    icon: Users,
+    children: [
+      { href: "/farmers", label: "คู่ค้า" },
+      { href: "/farmers/manage", label: "จัดการสมาชิก" },
+    ],
+  },
   { href: "/stock", label: "ไซโล", icon: Warehouse },
   { href: "/mill", label: "ล็อตสี", icon: Factory },
 ];
@@ -32,6 +49,12 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+
+  useEffect(() => {
+    const parent = NAV.find((item) => item.children?.some((child) => pathname === child.href));
+    if (parent) setOpenMenu(parent.label);
+  }, [pathname]);
 
   const waiting = tickets.filter((ticket) => ticket.status === "รอชั่ง");
   const duePlots = plots.filter((plot) => !plot.delivered && daysUntil(plot.harvestOn) <= 7);
@@ -132,22 +155,59 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
       </header>
       <div className="flex min-h-0 flex-1">
         <aside className={`flex shrink-0 flex-col border-r border-frame bg-white ${collapsed ? "w-[96px]" : "w-[316px]"}`}>
-          <nav className="min-h-0 flex-1 py-2">
+          <nav className="min-h-0 flex-1 overflow-y-auto py-2">
             {NAV.map((item) => {
-              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
               const Icon = item.icon;
+              const childActive = item.children?.some((child) => pathname === child.href) ?? false;
+              const active = item.href ? (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)) : childActive;
+              const expanded = !collapsed && openMenu === item.label;
+              const rowClass = `flex h-[52px] w-full items-center gap-3 text-[14px] ${collapsed ? "justify-center px-0" : "px-4"} ${
+                active ? "bg-sidebar font-bold text-white" : "font-bold text-sidebar hover:bg-slate-50"
+              }`;
+              const iconBox = (
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] ${active ? "bg-white/15" : "bg-sub"}`}>
+                  <Icon size={24} strokeWidth={1.75} />
+                </span>
+              );
+              if (item.children) {
+                return (
+                  <div key={item.label}>
+                    <button
+                      type="button"
+                      title={item.label}
+                      aria-expanded={expanded}
+                      onClick={() => setOpenMenu((current) => (current === item.label ? null : item.label))}
+                      className={rowClass}
+                    >
+                      {iconBox}
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 text-left">{item.label}</span>
+                          <ChevronDown size={16} strokeWidth={1.75} className={expanded ? "rotate-180" : ""} />
+                        </>
+                      )}
+                    </button>
+                    {expanded &&
+                      item.children.map((child) => {
+                        const selected = pathname === child.href;
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={`flex h-[52px] items-center pl-16 pr-4 text-[14px] ${
+                              selected ? "bg-sub font-bold text-sidebar" : "text-sidebar hover:bg-slate-50"
+                            }`}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                  </div>
+                );
+              }
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  title={item.label}
-                  className={`flex h-[52px] items-center gap-3 text-[14px] font-bold ${
-                    collapsed ? "justify-center px-0" : "px-4"
-                  } ${active ? "bg-sidebar text-white" : "text-sidebar hover:bg-slate-50"}`}
-                >
-                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] ${active ? "bg-white/15" : "bg-sub"}`}>
-                    <Icon size={24} strokeWidth={1.75} />
-                  </span>
+                <Link key={item.href} href={item.href ?? "/"} title={item.label} className={rowClass}>
+                  {iconBox}
                   {!collapsed && <span>{item.label}</span>}
                 </Link>
               );
