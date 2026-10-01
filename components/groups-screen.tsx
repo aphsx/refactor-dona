@@ -835,14 +835,10 @@ function plantingMark(planting: Planting) {
 function MemberPlan({ farmer, initialPlotId, onClose }: { farmer: Farmer; initialPlotId: string | null; onClose: () => void }) {
   const { plots, plantings, addPlot } = useMill();
   const owned = plots.filter((plot) => plot.farmerId === farmer.id).slice().sort((a, b) => a.name.localeCompare(b.name, "th"));
-  const fields = owned.filter((plot) => openPlanting(plantings, plot.id));
   const [plotId, setPlotId] = useState<string | null>(initialPlotId);
   const [adding, setAdding] = useState(false);
+  const fields = owned.filter((plot) => openPlanting(plantings, plot.id) || plot.id === plotId);
   const selected = owned.find((plot) => plot.id === plotId) ?? null;
-
-  if (selected) {
-    return <PlotWorkspace plot={selected} onBack={() => setPlotId(null)} onClose={onClose} />;
-  }
 
   return (
     <>
@@ -878,13 +874,14 @@ function MemberPlan({ farmer, initialPlotId, onClose }: { farmer: Farmer; initia
           {fields.map((plot, index) => {
             const round = openPlanting(plantings, plot.id);
             const mark = round ? plantingMark(round) : { label: "ยังไม่มีแผน", className: "text-ink/60" };
+            const picked = plot.id === plotId;
             return (
-              <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                <td className="px-5 py-3">
-                  <button type="button" className="font-bold text-link underline" onClick={() => setPlotId(plot.id)}>
-                    {plot.name}
-                  </button>
-                </td>
+              <tr
+                key={plot.id}
+                onClick={() => setPlotId(plot.id)}
+                className={`cursor-pointer ${picked ? "bg-pick" : index % 2 === 1 ? "bg-table hover:bg-sub" : "bg-white hover:bg-sub"}`}
+              >
+                <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
                 <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
                 <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
@@ -895,6 +892,7 @@ function MemberPlan({ farmer, initialPlotId, onClose }: { farmer: Farmer; initia
           })}
         </tbody>
       </table>
+      {selected && <PlotWorkspace plot={selected} onBack={() => setPlotId(null)} />}
       {adding && (
         <PlotDialog
           title="เพิ่มแปลง"
@@ -908,41 +906,40 @@ function MemberPlan({ farmer, initialPlotId, onClose }: { farmer: Farmer; initia
   );
 }
 
-function PlotWorkspace({ plot, onBack, onClose }: { plot: Plot; onBack: () => void; onClose: () => void }) {
+function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void }) {
   const { plantings, savePlot, removePlot, savePlanting, removePlanting } = useMill();
   const history = plantingsOf(plantings, plot.id);
-  const rounds = history.filter((round) => !round.delivered);
   const current = openPlanting(plantings, plot.id);
   const locked = history.some((round) => round.delivered);
+  const mark = current ? plantingMark(current) : null;
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
+  const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? "");
+  const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? "");
+  const [estKg, setEstKg] = useState(current ? String(current.estKg) : "");
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [roundEditor, setRoundEditor] = useState<Planting | null | false>(false);
   const fieldClass = `${inputClass} mt-1`;
 
   useEffect(() => {
     setName(plot.name);
     setArea(String(plot.areaRai));
-  }, [plot.id, plot.name, plot.areaRai]);
+    setPlantedOn(current?.plantedOn ?? "");
+    setHarvestOn(current?.harvestOn ?? "");
+    setEstKg(current ? String(current.estKg) : "");
+  }, [plot.id, plot.name, plot.areaRai, current?.id, current?.plantedOn, current?.harvestOn, current?.estKg]);
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
-        <div className="text-[16px] font-bold">{plot.name}</div>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={onBack} className="text-[14px] font-bold underline">
-            รายการแปลง
-          </button>
-          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
-            ปิด
-          </button>
-        </div>
+      <div className="border-t border-frame bg-bar px-6 py-4 text-[16px] font-bold text-white">
+        แก้ไข {plot.name}
+        {mark ? ` · ${mark.label}` : ""}
       </div>
       <form
         className="grid gap-4 border-b border-frame px-6 py-5 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
           const areaRai = parseAmount(area);
+          const nextKg = parseAmount(estKg);
           if (!name.trim()) {
             setNotice({ tone: "error", message: "กรอกชื่อแปลง" });
             return;
@@ -951,10 +948,30 @@ function PlotWorkspace({ plot, onBack, onClose }: { plot: Plot; onBack: () => vo
             setNotice({ tone: "error", message: "พื้นที่ต้องมากกว่า 0" });
             return;
           }
+          if (!plantedOn || !harvestOn) {
+            setNotice({ tone: "error", message: "กรอกวันปลูกและกำหนดเก็บ" });
+            return;
+          }
+          if (!Number.isInteger(nextKg) || nextKg <= 0) {
+            setNotice({ tone: "error", message: "ที่คาดต้องเป็นจำนวนเต็มมากกว่า 0" });
+            return;
+          }
           setNotice({
             tone: "confirm",
-            message: `ยืนยันบันทึกแปลง ${name.trim()}`,
-            accept: () => setNotice(reported(savePlot(plot.id, { name, areaRai }), "บันทึกแปลงแล้ว")),
+            message: `ยืนยันบันทึก ${name.trim()}`,
+            accept: () => {
+              const plotError = savePlot(plot.id, { name, areaRai });
+              if (plotError) {
+                setNotice({ tone: "error", message: plotError });
+                return;
+              }
+              setNotice(
+                reported(
+                  savePlanting(plot.id, { plantingId: current?.id ?? null, plantedOn, harvestOn, estKg: nextKg }),
+                  "บันทึกแล้ว",
+                ),
+              );
+            },
           });
         }}
       >
@@ -966,9 +983,35 @@ function PlotWorkspace({ plot, onBack, onClose }: { plot: Plot; onBack: () => vo
           พื้นที่ (ไร่)
           <input value={area} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
         </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          วันปลูก
+          <input type="date" value={plantedOn} onChange={(event) => setPlantedOn(event.target.value)} className={fieldClass} required />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          กำหนดเก็บ
+          <input type="date" value={harvestOn} onChange={(event) => setHarvestOn(event.target.value)} className={fieldClass} required />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+          ที่คาด (กก.)
+          <input value={estKg} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={fieldClass} />
+        </label>
         {locked && <p className="text-[14px] sm:col-span-2">รอบที่รับแล้วอยู่ที่รายละเอียดสมาชิก</p>}
         <div className="flex flex-wrap gap-3 sm:col-span-2">
-          <PrimaryButton type="submit">บันทึกแปลง</PrimaryButton>
+          <PrimaryButton type="submit">บันทึก</PrimaryButton>
+          {current && (
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setNotice({
+                  tone: "confirm",
+                  message: `ยืนยันลบแผนรอบ ${formatThaiDate(current.plantedOn)}`,
+                  accept: () => setNotice(reported(removePlanting(current.id), "ลบแผนแล้ว")),
+                })
+              }
+            >
+              ลบแผน
+            </SecondaryButton>
+          )}
           {!locked && (
             <SecondaryButton
               type="button"
@@ -985,71 +1028,6 @@ function PlotWorkspace({ plot, onBack, onClose }: { plot: Plot; onBack: () => vo
           )}
         </div>
       </form>
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
-        <div className="text-[16px] font-bold">รอบปลูก</div>
-        {!current && <SecondaryButton className="h-9" onClick={() => setRoundEditor(null)}>เพิ่มรอบ</SecondaryButton>}
-      </div>
-      <table className="w-full border-collapse text-left text-[14px]">
-        <thead className="bg-table">
-          <tr>
-            {["สถานะ", "วันปลูก", "กำหนดเก็บ", "ที่คาด", ""].map((label) => (
-              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                {label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rounds.length === 0 && (
-            <tr>
-              <td colSpan={5} className="px-5 py-6 text-ink/60">
-                ยังไม่มีแผน
-              </td>
-            </tr>
-          )}
-          {rounds.map((round, index) => {
-            const mark = plantingMark(round);
-            return (
-              <tr key={round.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
-                <td className="px-5 py-3">{formatThaiDate(round.plantedOn)}</td>
-                <td className="px-5 py-3">{formatThaiDate(round.harvestOn)}</td>
-                <td className="px-5 py-3">{formatKg(round.estKg)}</td>
-                <td className="px-5 py-3 text-right">
-                  {!round.delivered && (
-                    <span className="inline-flex gap-3">
-                      <button type="button" className="font-bold text-link underline" onClick={() => setRoundEditor(round)}>
-                        แก้แผน
-                      </button>
-                      <button
-                        type="button"
-                        className="font-bold text-link underline"
-                        onClick={() =>
-                          setNotice({
-                            tone: "confirm",
-                            message: `ยืนยันลบแผนรอบ ${formatThaiDate(round.plantedOn)}`,
-                            accept: () => setNotice(reported(removePlanting(round.id), "ลบแผนแล้ว")),
-                          })
-                        }
-                      >
-                        ลบแผน
-                      </button>
-                    </span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {roundEditor !== false && (
-        <RoundDialog
-          title={roundEditor ? `แก้แผน · ${plot.name}` : `เพิ่มรอบ · ${plot.name}`}
-          planting={roundEditor}
-          onClose={() => setRoundEditor(false)}
-          onSave={(schedule) => savePlanting(plot.id, { plantingId: roundEditor?.id ?? null, ...schedule })}
-        />
-      )}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
@@ -1137,64 +1115,6 @@ function PlotDialog({
               </label>
             </>
           )}
-          <div className="flex justify-end gap-3 sm:col-span-2">
-            <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
-            <PrimaryButton type="submit">บันทึก</PrimaryButton>
-          </div>
-        </form>
-      </Dialog>
-      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
-    </>
-  );
-}
-
-function RoundDialog({
-  title,
-  planting,
-  onClose,
-  onSave,
-}: {
-  title: string;
-  planting: Planting | null;
-  onClose: () => void;
-  onSave: (schedule: { plantedOn: string; harvestOn: string; estKg: number }) => string | null;
-}) {
-  const [plantedOn, setPlantedOn] = useState(planting?.plantedOn ?? "");
-  const [harvestOn, setHarvestOn] = useState(planting?.harvestOn ?? "");
-  const [estKg, setEstKg] = useState(planting ? String(planting.estKg) : "");
-  const [notice, setNotice] = useState<Notice | null>(null);
-
-  return (
-    <>
-      <Dialog title={title} onClose={onClose}>
-        <form
-          className="grid gap-4 sm:grid-cols-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const nextKg = parseAmount(estKg);
-            if (!Number.isInteger(nextKg) || nextKg <= 0) {
-              setNotice({ tone: "error", message: "ที่คาดต้องเป็นจำนวนเต็มมากกว่า 0" });
-              return;
-            }
-            setNotice({
-              tone: "confirm",
-              message: `ยืนยัน${title}`,
-              accept: () => setNotice(reported(onSave({ plantedOn, harvestOn, estKg: nextKg }), "บันทึกแผนแล้ว", onClose)),
-            });
-          }}
-        >
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            วันปลูก
-            <input type="date" value={plantedOn} onChange={(event) => setPlantedOn(event.target.value)} className={`${inputClass} mt-1`} required />
-          </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            กำหนดเก็บ
-            <input type="date" value={harvestOn} onChange={(event) => setHarvestOn(event.target.value)} className={`${inputClass} mt-1`} required />
-          </label>
-          <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
-            ที่คาด (กก.)
-            <input value={estKg} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={`${inputClass} mt-1`} />
-          </label>
           <div className="flex justify-end gap-3 sm:col-span-2">
             <SecondaryButton onClick={onClose}>ยกเลิก</SecondaryButton>
             <PrimaryButton type="submit">บันทึก</PrimaryButton>
