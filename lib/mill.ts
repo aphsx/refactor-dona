@@ -110,6 +110,19 @@ export function formatThaiDate(iso: string) {
   }).format(new Date(year, month - 1, day));
 }
 
+export function formatThaiMonth(iso: string) {
+  const [year, month] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+}
+
+const FARMER_COLORS = ["#1A9D72", "#1D4F60", "#3B6787", "#6B5BA6", "#B7791F", "#0F766E"];
+
+export function farmerColor(id: string) {
+  let hash = 0;
+  for (let index = 0; index < id.length; index++) hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
+  return FARMER_COLORS[hash % FARMER_COLORS.length];
+}
+
 export function formatKg(kg: number) {
   return `${new Intl.NumberFormat("th-TH").format(Math.round(kg))} กก.`;
 }
@@ -260,13 +273,6 @@ export const LOTS: Lot[] = [
     huskKg: 4200,
   },
 ];
-
-export function plotColor(item: Plot) {
-  if (item.delivered) return "#18B473";
-  const days = daysUntil(item.harvestOn);
-  if (days <= 7) return "#F4A800";
-  return "#5098BA";
-}
 
 export function centroid(points: [number, number][]) {
   const ring = points.slice(0, -1);

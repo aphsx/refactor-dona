@@ -2,18 +2,18 @@
 
 @theme {
   --font-sans: var(--font-noto), var(--font-thai), "Noto Sans Thai", "Noto Sans", sans-serif;
-  --color-ink: #041942;
-  --color-brand: #5098ba;
-  --color-brand-hover: #22759c;
-  --color-bar: #005983;
-  --color-sidebar: #024f7b;
-  --color-sub: #f5f9fe;
-  --color-table: #e6edf2;
-  --color-frame: #acc4e4;
+  --color-ink: #1d4f60;
+  --color-brand: #1a9d72;
+  --color-brand-hover: #16875f;
+  --color-bar: #16875f;
+  --color-sidebar: #147a56;
+  --color-sub: #f6fafb;
+  --color-table: #e6f6f0;
+  --color-frame: #c5e4d8;
   --color-line: #707070;
-  --color-link: #4591b5;
+  --color-link: #16875f;
   --color-ok: #18b473;
-  --color-pick: #c7e1f4;
+  --color-pick: #d4f0e4;
   --color-danger: #ff0000;
 }
 
@@ -25,13 +25,13 @@ body {
 body {
   margin: 0;
   background: #ffffff;
-  color: #041942;
+  color: #1d4f60;
   font-size: 14px;
   font-family: var(--font-noto), var(--font-thai), "Noto Sans Thai", "Noto Sans", sans-serif;
 }
 
 :focus-visible {
-  outline: 3px solid #f4a800;
+  outline: 3px solid #f4c35d;
   outline-offset: 1px;
 }
 

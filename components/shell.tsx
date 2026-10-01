@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Bell, CalendarDays, ChevronDown, Factory, Layers, Map, Menu, Scale, Users, Warehouse, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, Factory, Layers, Map, Menu, Scale, Sprout, Users, Warehouse, type LucideIcon } from "lucide-react";
 import { StoreProvider, useMill } from "@/components/store";
 import { daysUntil, farmerName } from "@/lib/mill";
 
 const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "รับซื้อวันนี้", icon: Scale },
-  { href: "/plan", label: "แผนรอบปลูก", icon: CalendarDays },
-  { href: "/supply", label: "แผนรับข้าว", icon: Map },
+  { href: "/plan", label: "แผนรอบปลูก", icon: Sprout },
+  { href: "/supply", label: "แผนรับข้าว", icon: CalendarDays },
+  { href: "/map", label: "แผนที่แปลง", icon: Map },
   { href: "/groups", label: "กลุ่ม", icon: Layers },
   { href: "/farmers", label: "คู่ค้า", icon: Users },
   { href: "/stock", label: "ไซโล", icon: Warehouse },

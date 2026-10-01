@@ -3,14 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMill } from "@/components/store";
-import { Kpi, PageHeader, Pagination, StatusTab, inputClass, usePagination } from "@/components/ui";
-import { daysUntil, farmerName, formatKg, formatThaiDate, type Plot } from "@/lib/mill";
-
-type PlanTab = "แผนปลูก" | "แผนเก็บเกี่ยว";
+import { Kpi, PageHeader, Pagination, inputClass, usePagination } from "@/components/ui";
+import { farmerName, formatKg, formatThaiDate, formatThaiMonth, type Plot } from "@/lib/mill";
 
 export function PlanScreen() {
   const { plots, farmers, groups } = useMill();
-  const [tab, setTab] = useState<PlanTab>("แผนเก็บเกี่ยว");
   const [groupId, setGroupId] = useState("all");
 
   const rows = useMemo(() => {
@@ -22,30 +19,23 @@ export function PlanScreen() {
         return farmer?.groupId === groupId;
       })
       .slice()
-      .sort((a, b) => (tab === "แผนปลูก" ? a.plantedOn.localeCompare(b.plantedOn) : a.harvestOn.localeCompare(b.harvestOn)));
-  }, [plots, farmers, groupId, tab]);
+      .sort((a, b) => a.plantedOn.localeCompare(b.plantedOn));
+  }, [plots, farmers, groupId]);
 
-  const page = usePagination(rows, `${tab}:${groupId}`);
-  const pending = rows.filter((plot) => !plot.delivered);
-  const withinSeven = pending.filter((plot) => daysUntil(plot.harvestOn) <= 7);
-  const expectedKg = pending.reduce((sum, plot) => sum + plot.estKg, 0);
+  const months = useMemo(() => groupByMonth(rows), [rows]);
+  const page = usePagination(months, groupId);
   const area = rows.reduce((sum, plot) => sum + plot.areaRai, 0);
+  const expected = rows.reduce((sum, plot) => sum + plot.estKg, 0);
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
       <PageHeader current="แผนรอบปลูก" />
-      <div className="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <Kpi label="พื้นที่ในแผน" value={`${area} ไร่`} />
-        <Kpi label="คาดว่าจะได้ทั้งรอบ" value={formatKg(expectedKg)} />
-        <Kpi label="เข้าภายใน 7 วัน" value={formatKg(withinSeven.reduce((sum, plot) => sum + plot.estKg, 0))} />
-        <Kpi label="แปลงในแผน" value={`${rows.length} แปลง`} />
+      <div className="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-3">
+        <Kpi label="พื้นที่ปลูกรอบนี้" value={`${area} ไร่`} />
+        <Kpi label="แปลงในรอบ" value={`${rows.length} แปลง`} />
+        <Kpi label="ผลผลิตที่คาดทั้งรอบ" value={formatKg(expected)} />
       </div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div className="flex items-end gap-1">
-          {(["แผนเก็บเกี่ยว", "แผนปลูก"] as PlanTab[]).map((item) => (
-            <StatusTab key={item} label={item} active={tab === item} onClick={() => setTab(item)} />
-          ))}
-        </div>
+      <div className="mb-4 flex justify-end">
         <select aria-label="กลุ่ม" value={groupId} onChange={(event) => setGroupId(event.target.value)} className={`${inputClass} w-64`}>
           <option value="all">ทุกกลุ่ม</option>
           <option value="none">ไม่มีกลุ่ม</option>
@@ -56,8 +46,15 @@ export function PlanScreen() {
           ))}
         </select>
       </div>
-      {tab === "แผนเก็บเกี่ยว" ? <HarvestTable rows={page.rows} /> : <PlantTable rows={page.rows} />}
-      <div className="overflow-hidden rounded-b-[8px] border border-t-0 border-frame">
+      {page.rows.length === 0 && (
+        <div className="rounded-[8px] border border-frame px-6 py-8 text-[14px] text-ink/60">ไม่มีแปลงในรอบนี้</div>
+      )}
+      <div className="space-y-6">
+        {page.rows.map((month) => (
+          <MonthBlock key={month.key} month={month.key} plots={month.plots} />
+        ))}
+      </div>
+      <div className="mt-6 overflow-hidden rounded-[8px] border border-frame">
         <Pagination
           page={page.page}
           pageCount={page.pageCount}
@@ -71,20 +68,34 @@ export function PlanScreen() {
   );
 }
 
-function groupName(groups: { id: string; name: string }[], farmers: { id: string; groupId: string | null }[], plot: Plot) {
-  const farmer = farmers.find((item) => item.id === plot.farmerId);
-  return groups.find((group) => group.id === farmer?.groupId)?.name ?? "—";
+function groupByMonth(plots: Plot[]) {
+  const grouped = new Map<string, Plot[]>();
+  for (const plot of plots) {
+    const key = plot.plantedOn.slice(0, 7);
+    const list = grouped.get(key) ?? [];
+    list.push(plot);
+    grouped.set(key, list);
+  }
+  return [...grouped.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, items]) => ({ key, plots: items }));
 }
 
-function HarvestTable({ rows }: { rows: Plot[] }) {
+function MonthBlock({ month, plots }: { month: string; plots: Plot[] }) {
   const { farmers, groups } = useMill();
+  const area = plots.reduce((sum, plot) => sum + plot.areaRai, 0);
   return (
-    <div className="overflow-hidden rounded-t-[8px] border border-frame">
-      <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">จะได้เข้ามาเมื่อไหร่</div>
+    <section className="overflow-hidden rounded-[8px] border border-frame">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+        <span>ปลูกรอบ {formatThaiMonth(`${month}-01`)}</span>
+        <span className="text-[14px]">
+          {plots.length} แปลง · {area} ไร่
+        </span>
+      </div>
       <table className="w-full border-collapse text-left text-[14px]">
         <thead className="bg-table">
           <tr>
-            {["วันเก็บ", "กลุ่ม", "แปลง", "คู่ค้า", "พันธุ์", "ที่คาด", "สถานะ", ""].map((label) => (
+            {["วันปลูก", "แปลง", "คู่ค้า", "กลุ่ม", "พันธุ์", "พื้นที่", "คาดเก็บ", ""].map((label) => (
               <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
                 {label}
               </th>
@@ -92,23 +103,21 @@ function HarvestTable({ rows }: { rows: Plot[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((plot, index) => {
+          {plots.map((plot, index) => {
             const farmer = farmers.find((item) => item.id === plot.farmerId);
-            const days = daysUntil(plot.harvestOn);
-            const status = plot.delivered ? "รับแล้ว" : days <= 0 ? "ถึงกำหนด" : `อีก ${days} วัน`;
             return (
               <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                <td className="px-5 py-3 font-bold">{formatThaiDate(plot.harvestOn)}</td>
-                <td className="px-5 py-3">{groupName(groups, farmers, plot)}</td>
+                <td className="px-5 py-3 font-bold">{formatThaiDate(plot.plantedOn)}</td>
                 <td className="px-5 py-3">{plot.name}</td>
                 <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
+                <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
                 <td className="px-5 py-3">{farmer?.variety ?? "—"}</td>
-                <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
-                <td className="px-5 py-3">{status}</td>
+                <td className="px-5 py-3">{plot.areaRai} ไร่</td>
+                <td className="px-5 py-3">{formatThaiDate(plot.harvestOn)}</td>
                 <td className="px-5 py-3">
                   {farmer && (
-                    <Link href={`/supply?farmer=${farmer.id}`} className="font-bold text-link underline">
-                      ดูแปลง
+                    <Link href={`/map?farmer=${farmer.id}`} className="font-bold text-link underline">
+                      แผนที่
                     </Link>
                   )}
                 </td>
@@ -117,42 +126,6 @@ function HarvestTable({ rows }: { rows: Plot[] }) {
           })}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function PlantTable({ rows }: { rows: Plot[] }) {
-  const { farmers, groups } = useMill();
-  return (
-    <div className="overflow-hidden rounded-t-[8px] border border-frame">
-      <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ลงปลูกแล้วรอบนี้</div>
-      <table className="w-full border-collapse text-left text-[14px]">
-        <thead className="bg-table">
-          <tr>
-            {["วันปลูก", "กลุ่ม", "แปลง", "คู่ค้า", "พันธุ์", "พื้นที่", "ที่คาด"].map((label) => (
-              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
-                {label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((plot, index) => {
-            const farmer = farmers.find((item) => item.id === plot.farmerId);
-            return (
-              <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                <td className="px-5 py-3 font-bold">{formatThaiDate(plot.plantedOn)}</td>
-                <td className="px-5 py-3">{groupName(groups, farmers, plot)}</td>
-                <td className="px-5 py-3">{plot.name}</td>
-                <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
-                <td className="px-5 py-3">{farmer?.variety ?? "—"}</td>
-                <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-                <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    </section>
   );
 }

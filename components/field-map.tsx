@@ -32,10 +32,12 @@ const satelliteStyle = {
 export function FieldMap({
   plots,
   selectedId,
+  activeIds,
   onSelect,
 }: {
   plots: MapPlot[];
   selectedId: string | null;
+  activeIds?: string[];
   onSelect: (id: string | null) => void;
 }) {
   const mapRef = useRef<MapRef>(null);
@@ -44,6 +46,7 @@ export function FieldMap({
     () => (mode === "satellite" ? structuredClone(satelliteStyle) : "https://tiles.openfreemap.org/styles/positron"),
     [mode],
   );
+  const marked = activeIds ?? (selectedId ? [selectedId] : []);
   const selected = plots.find((plot) => plot.id === selectedId) ?? null;
   const selectedPoint = selected ? centroid(selected.polygon) : null;
 
@@ -108,8 +111,8 @@ export function FieldMap({
             id="plot-line"
             type="line"
             paint={{
-              "line-color": ["case", ["==", ["get", "id"], selectedId ?? ""], "#F4A800", "#ffffff"],
-              "line-width": ["case", ["==", ["get", "id"], selectedId ?? ""], 3, 2],
+              "line-color": ["case", ["in", ["get", "id"], ["literal", marked]], "#F4C35D", "#ffffff"],
+              "line-width": ["case", ["in", ["get", "id"], ["literal", marked]], 3, 1.5],
             }}
           />
         </Source>

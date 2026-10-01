@@ -1,177 +1,162 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
-
-const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
-import { useMill } from "@/components/store";
-import { Pagination, StatusTab, usePagination } from "@/components/ui";
 import Link from "next/link";
-import { daysUntil, farmerName, formatKg, formatThaiDate, plotColor } from "@/lib/mill";
+import { useMemo, useState } from "react";
+import { useMill } from "@/components/store";
+import { Kpi, PageHeader, Pagination, StatusTab, inputClass, usePagination } from "@/components/ui";
+import { daysUntil, farmerName, formatKg, formatThaiDate, type Plot } from "@/lib/mill";
 
-type WindowFilter = "7 วันนี้" | "เดือนนี้" | "เก็บแล้ว";
+type WindowFilter = "ใกล้เก็บเกี่ยว" | "เดือนนี้" | "ยังไม่เข้า" | "รับแล้ว";
 
 export function SupplyScreen() {
-  const params = useSearchParams();
-  const focusFarmer = params.get("farmer");
   const { plots, farmers, groups } = useMill();
-  const [filter, setFilter] = useState<WindowFilter>("7 วันนี้");
+  const [filter, setFilter] = useState<WindowFilter>("ใกล้เก็บเกี่ยว");
   const [groupId, setGroupId] = useState("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const visible = useMemo(() => {
-    return plots
-      .filter((plot) => {
-        if (focusFarmer) return plot.farmerId === focusFarmer;
-        const owner = farmers.find((item) => item.id === plot.farmerId);
-        if (groupId === "none") return owner?.groupId == null;
-        if (groupId !== "all" && owner?.groupId !== groupId) return false;
-        const days = daysUntil(plot.harvestOn);
-        if (filter === "เก็บแล้ว") return plot.delivered;
-        if (plot.delivered) return false;
-        if (filter === "7 วันนี้") return days <= 7;
-        return days <= 31;
-      })
-      .slice()
-      .sort((a, b) => a.harvestOn.localeCompare(b.harvestOn));
-  }, [plots, farmers, filter, focusFarmer, groupId]);
+  const owned = useMemo(() => {
+    return plots.filter((plot) => {
+      const farmer = farmers.find((item) => item.id === plot.farmerId);
+      if (groupId === "none") return farmer?.groupId == null;
+      if (groupId !== "all") return farmer?.groupId === groupId;
+      return true;
+    });
+  }, [plots, farmers, groupId]);
 
-  const page = usePagination(visible, `${filter}:${focusFarmer ?? ""}:${groupId}`);
-  const mapPlots = useMemo(
-    () =>
-      visible.map((plot) => ({
-        id: plot.id,
-        name: plot.name,
-        color: plotColor(plot),
-        polygon: plot.polygon,
-      })),
-    [visible],
-  );
-  const selected = plots.find((plot) => plot.id === selectedId) ?? null;
-  const selectedFarmer = farmers.find((farmer) => farmer.id === selected?.farmerId);
-  const expectedKg = visible.filter((plot) => !plot.delivered).reduce((sum, plot) => sum + plot.estKg, 0);
+  const pending = owned.filter((plot) => !plot.delivered);
+  const due = pending.filter((plot) => daysUntil(plot.harvestOn) <= 0);
+  const soon = pending.filter((plot) => daysUntil(plot.harvestOn) <= 7);
+  const soonKg = soon.reduce((sum, plot) => sum + plot.estKg, 0);
+
+  const days = owned.filter((plot) => {
+    const left = daysUntil(plot.harvestOn);
+    if (filter === "รับแล้ว") return plot.delivered;
+    if (plot.delivered) return false;
+    if (filter === "ใกล้เก็บเกี่ยว") return left <= 7;
+    if (filter === "เดือนนี้") return left <= 31;
+    return true;
+  });
+
+  const queues = useMemo(() => groupByHarvest(days), [days]);
+  const page = usePagination(queues, `${filter}:${groupId}`);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-frame px-7">
-        <div className="text-[14px] font-light">
-          dona
-          <span className="px-2 text-ink/40">/</span>
-          <span className="font-bold">แผนรับข้าว</span>
-        </div>
-        <div className="text-[14px] font-bold">
-          {focusFarmer ? (
-            <Link href="/supply" className="text-link underline">
-              ดูทุกแปลง
-            </Link>
-          ) : (
-            `คาดว่าจะเข้า ${formatKg(expectedKg)}`
-          )}
-        </div>
+    <div className="h-full overflow-y-auto px-7 py-6">
+      <PageHeader current="แผนรับข้าว" />
+      <div className="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <Kpi label="ใกล้เก็บเกี่ยว" value={`${soon.length} แปลง`} />
+        <Kpi label="ปริมาณที่ใกล้เข้า" value={formatKg(soonKg)} />
+        <Kpi label="ถึงกำหนดแล้ว" value={`${due.length} แปลง`} />
+        <Kpi label="ยังไม่เข้าทั้งหมด" value={formatKg(pending.reduce((sum, plot) => sum + plot.estKg, 0))} />
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[360px_minmax(0,1fr)]">
-        <section className="flex min-h-0 flex-col border-r border-frame">
-          <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">แปลงที่กำลังจะเข้า</div>
-          {!focusFarmer && (
-            <div className="px-4 pt-4">
-              <select
-                aria-label="กลุ่ม"
-                value={groupId}
-                onChange={(event) => setGroupId(event.target.value)}
-                className="h-10 w-full rounded-[4px] border border-line bg-white px-3 text-[14px]"
-              >
-                <option value="all">ทุกกลุ่ม</option>
-                <option value="none">ไม่มีกลุ่ม</option>
-                {groups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          {!focusFarmer && (
-            <div className="flex items-end gap-1 px-4 pt-4">
-              {(["7 วันนี้", "เดือนนี้", "เก็บแล้ว"] as WindowFilter[]).map((item) => (
-                <StatusTab key={item} label={item} active={filter === item} onClick={() => setFilter(item)} />
-              ))}
-            </div>
-          )}
-          <ul className="min-h-0 flex-1 overflow-y-auto border-t border-frame">
-            {page.rows.length === 0 && <li className="px-5 py-6 text-[14px] text-ink/60">ไม่มีแปลงในช่วงนี้</li>}
-            {page.rows.map((plot, index) => {
-              const farmer = farmers.find((item) => item.id === plot.farmerId);
-              const active = plot.id === selectedId;
-              return (
-                <li key={plot.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(plot.id)}
-                    className={`flex w-full items-center justify-between gap-3 px-5 py-3 text-left ${
-                      active ? "bg-pick" : index % 2 === 1 ? "bg-table hover:bg-sub" : "bg-white hover:bg-sub"
-                    }`}
-                  >
-                    <span>
-                      <span className="block text-[14px] font-bold">{plot.name}</span>
-                      <span className="mt-0.5 block text-[12px] text-ink/60">
-                        {farmer ? farmerName(farmer) : ""} · {groups.find((group) => group.id === farmer?.groupId)?.name ?? ""} · {formatThaiDate(plot.harvestOn)}
-                      </span>
-                    </span>
-                    <span className="text-[14px] font-bold">{formatKg(plot.estKg)}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <Pagination
-            page={page.page}
-            pageCount={page.pageCount}
-            pageSize={page.pageSize}
-            total={page.total}
-            onPageChange={page.setPage}
-            onPageSizeChange={page.setPageSize}
-          />
-        </section>
-        <section className="relative min-h-0">
-          <FieldMap plots={mapPlots} selectedId={selectedId} onSelect={setSelectedId} />
-          <div className="absolute bottom-4 left-4 z-10 w-48 rounded-[8px] border border-frame bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
-            <div className="mb-2 text-[12px] font-bold">กำหนดเข้า</div>
-            <ul className="space-y-1.5 text-[12px]">
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#F4A800]" /> 7 วันนี้
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-brand" /> เดือนนี้
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-ok" /> รับแล้ว
-              </li>
-            </ul>
-          </div>
-          {selected && selectedFarmer && (
-            <aside className="absolute bottom-0 right-0 top-0 z-20 flex w-[340px] flex-col border-l border-frame bg-white shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-              <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">{selected.name}</div>
-              <div className="space-y-4 p-6 text-[14px]">
-                <Fact label="คู่ค้า" value={`${farmerName(selectedFarmer)} · ${selectedFarmer.tel}`} />
-                <Fact label="พันธุ์" value={selectedFarmer.variety} />
-                <Fact label="พื้นที่" value={`${selected.areaRai} ไร่`} />
-                <Fact label="กำหนดเกี่ยว" value={formatThaiDate(selected.harvestOn)} />
-                <Fact label="ปริมาณที่คาด" value={selected.delivered ? "รับเข้าแล้ว" : formatKg(selected.estKg)} />
-              </div>
-            </aside>
-          )}
-        </section>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div className="flex items-end gap-1">
+          {(["ใกล้เก็บเกี่ยว", "เดือนนี้", "ยังไม่เข้า", "รับแล้ว"] as WindowFilter[]).map((item) => (
+            <StatusTab key={item} label={item} active={filter === item} onClick={() => setFilter(item)} />
+          ))}
+        </div>
+        <select aria-label="กลุ่ม" value={groupId} onChange={(event) => setGroupId(event.target.value)} className={`${inputClass} w-64`}>
+          <option value="all">ทุกกลุ่ม</option>
+          <option value="none">ไม่มีกลุ่ม</option>
+          {groups.map((group) => (
+            <option key={group.id} value={group.id}>
+              {group.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      {page.rows.length === 0 && (
+        <div className="rounded-[8px] border border-frame px-6 py-8 text-[14px] text-ink/60">ไม่มีแปลงในช่วงนี้</div>
+      )}
+      <div className="space-y-6">
+        {page.rows.map((queue) => (
+          <DateQueue key={queue.date} date={queue.date} plots={queue.plots} />
+        ))}
+      </div>
+      <div className="mt-6 overflow-hidden rounded-[8px] border border-frame">
+        <Pagination
+          page={page.page}
+          pageCount={page.pageCount}
+          pageSize={page.pageSize}
+          total={page.total}
+          onPageChange={page.setPage}
+          onPageSizeChange={page.setPageSize}
+        />
       </div>
     </div>
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function groupByHarvest(plots: Plot[]) {
+  const grouped = new Map<string, Plot[]>();
+  for (const plot of plots) {
+    const list = grouped.get(plot.harvestOn) ?? [];
+    list.push(plot);
+    grouped.set(plot.harvestOn, list);
+  }
+  return [...grouped.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([date, items]) => ({ date, plots: items }));
+}
+
+function queueMark(plots: Plot[]) {
+  const open = plots.filter((plot) => !plot.delivered);
+  if (open.length === 0) return "รับแล้ว";
+  if (open.some((plot) => daysUntil(plot.harvestOn) <= 0)) return "ถึงกำหนด";
+  if (open.some((plot) => daysUntil(plot.harvestOn) <= 7)) return "ใกล้เก็บเกี่ยว";
+  return "";
+}
+
+function DateQueue({ date, plots }: { date: string; plots: Plot[] }) {
+  const { farmers, groups } = useMill();
+  const mark = queueMark(plots);
+  const kg = plots.reduce((sum, plot) => sum + plot.estKg, 0);
   return (
-    <div>
-      <div className="font-bold leading-[1.4]">{label}</div>
-      <div className="mt-1">{value}</div>
-    </div>
+    <section className="overflow-hidden rounded-[8px] border border-frame">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+        <div className="text-[16px] font-bold">{formatThaiDate(date)}</div>
+        <div className="flex items-center gap-3 text-[14px] font-bold">
+          <span>
+            {plots.length} แปลง · {formatKg(kg)}
+          </span>
+          {mark && <span className="rounded-[6px] bg-white px-2 py-1 text-[12px] text-bar">{mark}</span>}
+        </div>
+      </div>
+      <table className="w-full border-collapse text-left text-[14px]">
+        <thead className="bg-table">
+          <tr>
+            {["แปลง", "คู่ค้า", "กลุ่ม", "พันธุ์", "พื้นที่", "ที่คาด", "สถานะ", ""].map((label) => (
+              <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {plots.map((plot, index) => {
+            const farmer = farmers.find((item) => item.id === plot.farmerId);
+            const left = daysUntil(plot.harvestOn);
+            const status = plot.delivered ? "รับแล้ว" : left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
+            return (
+              <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                <td className="px-5 py-3 font-bold">{plot.name}</td>
+                <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
+                <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
+                <td className="px-5 py-3">{farmer?.variety ?? "—"}</td>
+                <td className="px-5 py-3">{plot.areaRai} ไร่</td>
+                <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
+                <td className={`px-5 py-3 font-bold ${plot.delivered ? "text-ok" : left <= 7 ? "text-brand" : ""}`}>{status}</td>
+                <td className="px-5 py-3">
+                  {farmer && (
+                    <Link href={`/map?farmer=${farmer.id}`} className="font-bold text-link underline">
+                      แผนที่
+                    </Link>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
   );
 }

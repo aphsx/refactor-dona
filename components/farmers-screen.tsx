@@ -58,7 +58,7 @@ export function FarmersScreen() {
                   <td className="px-5 py-3">{farmer.unpaidBaht === 0 ? "จ่ายแล้ว" : formatBaht(farmer.unpaidBaht)}</td>
                   <td className="px-5 py-3">{fieldCount}</td>
                   <td className="px-5 py-3">
-                    <Link href={`/supply?farmer=${farmer.id}`} className="font-bold text-link underline">
+                    <Link href={`/map?farmer=${farmer.id}`} className="font-bold text-link underline">
                       ดูแปลง
                     </Link>
                   </td>
