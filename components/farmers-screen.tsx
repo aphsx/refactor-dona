@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMill } from "@/components/store";
 import { PageHeader, Pagination, usePagination } from "@/components/ui";
-import { farmerName, formatBaht, formatKg } from "@/lib/mill";
+import { farmerName, farmerVarieties, formatBaht, formatKg } from "@/lib/mill";
 
 export function FarmersScreen() {
   const { farmers, plots, groups } = useMill();
@@ -32,7 +32,7 @@ export function FarmersScreen() {
                   <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                   <td className="px-5 py-3">{farmer.tel}</td>
                   <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>
-                  <td className="px-5 py-3">{farmer.variety}</td>
+                  <td className="px-5 py-3">{farmerVarieties(plots, farmer.id)}</td>
                   <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                   <td className="px-5 py-3">{farmer.unpaidBaht === 0 ? "จ่ายแล้ว" : formatBaht(farmer.unpaidBaht)}</td>
                   <td className="px-5 py-3">{fieldCount}</td>

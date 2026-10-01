@@ -19,6 +19,7 @@ import {
   type Silo,
   type SupplierGroup,
   type Ticket,
+  type Variety,
 } from "@/lib/mill";
 
 type MillData = {
@@ -32,7 +33,7 @@ type MillData = {
 };
 
 type Store = MillData & {
-  createTicket: (farmerId: string, plate: string) => string | null;
+  createTicket: (farmerId: string, plate: string, variety: Variety) => string | null;
   weighTicket: (id: string, grossKg: number, moisture: number) => string | null;
   dryPaddy: (wetSiloId: string, kg: number) => string | null;
   openLot: (drySiloId: string, kg: number) => string | null;
@@ -41,14 +42,14 @@ type Store = MillData & {
   updateGroup: (groupId: string, name: string, leaderId: string) => string | null;
   updateFarmer: (
     farmerId: string,
-    input: { firstName: string; lastName: string; tel: string; variety: Farmer["variety"]; groupId: string | null },
+    input: { firstName: string; lastName: string; tel: string; groupId: string | null },
   ) => string | null;
   assignFarmer: (farmerId: string, groupId: string | null) => string | null;
   addPlot: (
     farmerId: string,
-    input: { name: string; areaRai: number; plantedOn: string; harvestOn: string; estKg: number },
+    input: { name: string; areaRai: number; variety: Variety; plantedOn: string; harvestOn: string; estKg: number },
   ) => string | null;
-  savePlot: (plotId: string, input: { name: string; areaRai: number }) => string | null;
+  savePlot: (plotId: string, input: { name: string; areaRai: number; variety: Variety }) => string | null;
   removePlot: (plotId: string) => string | null;
   savePlanting: (
     plotId: string,
@@ -85,22 +86,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const store: Store = {
     ...data,
-    createTicket(farmerId, plate) {
+    createTicket(farmerId, plate, variety) {
       return commit((draft) => {
         const farmer = draft.farmers.find((item) => item.id === farmerId);
         if (!farmer) return "ไม่พบคู่ค้า";
+        if (!PRICES[variety]) return "เลือกพันธุ์";
         const queue = draft.tickets.reduce((max, ticket) => Math.max(max, ticket.queue), 0) + 1;
         draft.tickets.push({
           id: `t-${queue}`,
           queue,
           plate,
           farmerId,
-          variety: farmer.variety,
+          variety,
           status: "รอชั่ง",
           grossKg: null,
           moisture: null,
           netKg: null,
-          pricePerKg: PRICES[farmer.variety],
+          pricePerKg: PRICES[variety],
           amountBaht: null,
         });
         return null;
@@ -236,7 +238,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         farmer.firstName = firstName;
         farmer.lastName = lastName;
         farmer.tel = tel;
-        farmer.variety = input.variety;
         return null;
       });
     },
@@ -264,10 +265,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const name = input.name.trim();
         if (!name) return "กรอกชื่อแปลง";
         if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";
+        if (!PRICES[input.variety]) return "เลือกพันธุ์";
         const schedule = validSchedule(name, input);
         if (schedule) return schedule;
         const plotId = `p-${draft.plots.length + 1}-${name.length}`;
-        draft.plots.push({ id: plotId, farmerId, name, areaRai: input.areaRai, polygon: [] });
+        draft.plots.push({ id: plotId, farmerId, name, areaRai: input.areaRai, variety: input.variety, polygon: [] });
         draft.plantings.push({
           id: `r-${draft.plantings.length + 1}`,
           plotId,
@@ -286,8 +288,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const name = input.name.trim();
         if (!name) return "กรอกชื่อแปลง";
         if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";
+        if (!PRICES[input.variety]) return "เลือกพันธุ์";
         plot.name = name;
         plot.areaRai = input.areaRai;
+        plot.variety = input.variety;
         return null;
       });
     },

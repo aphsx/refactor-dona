@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CircleAlert, CircleCheck, CircleX, X } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown, CircleAlert, CircleCheck, CircleX, Search, X } from "lucide-react";
 import { useMill } from "@/components/store";
 import { farmerName } from "@/lib/mill";
 
@@ -277,6 +278,141 @@ export function Pagination({
   );
 }
 
+export function SearchSelect({
+  value,
+  onChange,
+  options,
+  placeholder = "เลือก",
+  emptyLabel = "ไม่พบรายการ",
+  disabled = false,
+  label,
+  className = "",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  emptyLabel?: string;
+  disabled?: boolean;
+  label: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
+  const selected = options.find((option) => option.value === value);
+  const needle = query.trim().toLocaleLowerCase("th");
+  const shown = needle ? options.filter((option) => option.label.toLocaleLowerCase("th").includes(needle)) : options;
+
+  function place() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const roomBelow = window.innerHeight - rect.bottom;
+    const top = roomBelow < 280 && rect.top > roomBelow ? Math.max(8, rect.top - 4 - 280) : rect.bottom + 4;
+    setBox({ top, left: rect.left, width: rect.width });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    place();
+    searchRef.current?.focus();
+    function onPointer(event: MouseEvent) {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest("[data-search-select]")) return;
+      setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className={`relative ${className}`}>
+      <button
+        ref={buttonRef}
+        type="button"
+        disabled={disabled}
+        aria-label={label}
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => {
+          setQuery("");
+          place();
+          setOpen((current) => !current);
+        }}
+        className={`${inputClass} flex items-center justify-between gap-2 text-left disabled:bg-[#E7E7E7]`}
+      >
+        <span className={`min-w-0 truncate ${selected ? "" : "text-ink/20"}`}>{selected?.label ?? placeholder}</span>
+        <ChevronDown size={16} strokeWidth={1.75} className="shrink-0 text-ink/50" />
+      </button>
+      {open &&
+        box &&
+        createPortal(
+          <div
+            data-search-select
+            style={{ position: "fixed", top: box.top, left: box.left, width: box.width, zIndex: 80 }}
+            className="overflow-hidden rounded-[4px] border border-line bg-white shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+          >
+            <div className="border-b border-frame p-2">
+              <div className="relative">
+                <Search size={14} strokeWidth={1.75} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink/40" />
+                <input
+                  ref={searchRef}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="ค้นหา"
+                  aria-label={`ค้นหา${label}`}
+                  className="h-9 w-full rounded-[4px] border border-line bg-white pl-8 pr-2 text-[14px] placeholder:text-ink/20"
+                />
+              </div>
+            </div>
+            <ul id={listId} role="listbox" className="max-h-60 overflow-y-auto py-1">
+              {shown.length === 0 ? (
+                <li className="px-3 py-2 text-[14px] text-ink/50">{emptyLabel}</li>
+              ) : (
+                shown.map((option) => {
+                  const picked = option.value === value;
+                  return (
+                    <li key={option.value || "empty"}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={picked}
+                        onClick={() => {
+                          onChange(option.value);
+                          setOpen(false);
+                        }}
+                        className={`block w-full truncate px-3 py-2 text-left text-[14px] hover:bg-pick ${picked ? "bg-pick font-bold" : ""}`}
+                      >
+                        {option.label}
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 export function FarmerSelect({
   value,
   onChange,
@@ -285,14 +421,9 @@ export function FarmerSelect({
   onChange: (id: string) => void;
 }) {
   const { farmers } = useMill();
-  return (
-    <select aria-label="คู่ค้า" value={value} onChange={(event) => onChange(event.target.value)} className={inputClass}>
-      <option value="">เลือกคู่ค้า</option>
-      {farmers.map((farmer) => (
-        <option key={farmer.id} value={farmer.id}>
-          {farmerName(farmer)} · {farmer.variety}
-        </option>
-      ))}
-    </select>
-  );
+  const options = farmers
+    .slice()
+    .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
+    .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) }));
+  return <SearchSelect label="คู่ค้า" value={value} onChange={onChange} placeholder="เลือกคู่ค้า" options={[{ value: "", label: "เลือกคู่ค้า" }, ...options]} />;
 }

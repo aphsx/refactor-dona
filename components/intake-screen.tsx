@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { useMill } from "@/components/store";
 import { Dialog, FarmerSelect, Kpi, PageHeader, Pagination, PrimaryButton, SecondaryButton, StatusTab, inputClass, usePagination } from "@/components/ui";
-import { farmerName, formatBaht, formatKg, formatTon, settle } from "@/lib/mill";
+import { VARIETIES, farmerName, formatBaht, formatKg, formatTon, settle, type Variety } from "@/lib/mill";
 
 type TicketFilter = "ทั้งหมด" | "รอชั่ง" | "เข้าไซโล";
 
@@ -108,9 +108,10 @@ function CreateTicket({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (farmerId: string, plate: string) => string | null;
+  onCreate: (farmerId: string, plate: string, variety: Variety) => string | null;
 }) {
   const [farmerId, setFarmerId] = useState("");
+  const [variety, setVariety] = useState<Variety>("หอมมะลิ");
   const [plate, setPlate] = useState("");
   const [error, setError] = useState("");
 
@@ -124,7 +125,7 @@ function CreateTicket({
             setError("เลือกคู่ค้าและกรอกทะเบียนรถ");
             return;
           }
-          const message = onCreate(farmerId, plate.trim());
+          const message = onCreate(farmerId, plate.trim(), variety);
           if (message) {
             setError(message);
             return;
@@ -137,6 +138,16 @@ function CreateTicket({
           <div className="mt-1">
             <FarmerSelect value={farmerId} onChange={setFarmerId} />
           </div>
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          พันธุ์
+          <select value={variety} onChange={(event) => setVariety(event.target.value as Variety)} className={`${inputClass} mt-1`}>
+            {VARIETIES.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           ทะเบียนรถ

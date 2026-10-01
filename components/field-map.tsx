@@ -13,6 +13,7 @@ type MapPlot = {
   id: string;
   name: string;
   color: string;
+  muted: boolean;
   polygon: [number, number][];
 };
 
@@ -32,12 +33,10 @@ const satelliteStyle = {
 export function FieldMap({
   plots,
   selectedId,
-  activeIds,
   onSelect,
 }: {
   plots: MapPlot[];
   selectedId: string | null;
-  activeIds?: string[];
   onSelect: (id: string | null) => void;
 }) {
   const mapRef = useRef<MapRef>(null);
@@ -46,47 +45,52 @@ export function FieldMap({
     () => (mode === "satellite" ? structuredClone(satelliteStyle) : "https://tiles.openfreemap.org/styles/positron"),
     [mode],
   );
-  const marked = activeIds ?? (selectedId ? [selectedId] : []);
   const drawn = useMemo(() => plots.filter((plot) => plot.polygon.length >= 4), [plots]);
   const selected = drawn.find((plot) => plot.id === selectedId) ?? null;
   const selectedPoint = selected ? centroid(selected.polygon) : null;
+  const frameKey = `${selectedId ?? ""}|${mode}|${drawn.map((plot) => `${plot.id}:${plot.muted ? 1 : 0}`).join(",")}`;
 
   const data = useMemo(
     () => ({
       type: "FeatureCollection" as const,
       features: drawn.map((plot) => ({
         type: "Feature" as const,
-        properties: { id: plot.id, color: plot.color },
+        properties: { id: plot.id, color: plot.color, muted: plot.muted ? 1 : 0 },
         geometry: { type: "Polygon" as const, coordinates: [plot.polygon] },
       })),
     }),
     [drawn],
   );
 
-  function fit() {
+  function fitFrame() {
     const map = mapRef.current;
     if (!map || drawn.length === 0) return;
-    const lngs = drawn.flatMap((plot) => plot.polygon.map((point) => point[0]));
-    const lats = drawn.flatMap((plot) => plot.polygon.map((point) => point[1]));
+    const picked = selectedId ? drawn.filter((plot) => plot.id === selectedId) : [];
+    const subject = picked.length > 0 ? picked : drawn.filter((plot) => !plot.muted);
+    const frame = subject.length > 0 ? subject : drawn;
+    const lngs = frame.flatMap((plot) => plot.polygon.map((point) => point[0]));
+    const lats = frame.flatMap((plot) => plot.polygon.map((point) => point[1]));
     map.fitBounds(
       [
         [Math.min(...lngs), Math.min(...lats)],
         [Math.max(...lngs), Math.max(...lats)],
       ],
-      { padding: 72, duration: 500, maxZoom: 16 },
+      { padding: { top: 64, right: 48, bottom: selectedId ? 200 : 64, left: 48 }, duration: 500, maxZoom: 16 },
     );
   }
 
   useEffect(() => {
-    fit();
-    // Refit when the plotted set changes, not on every selection.
+    fitFrame();
+    // Recenter when the working set, the selection, or the basemap changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawn.map((plot) => plot.id).join("|"), mode]);
+  }, [frameKey]);
 
   function selectFromMap(event: MapLayerMouseEvent) {
     const id = event.features?.[0]?.properties?.id;
     onSelect(id ? String(id) : null);
   }
+
+  const highlight = selectedId ?? "";
 
   return (
     <div className="relative h-full min-h-0">
@@ -96,7 +100,7 @@ export function FieldMap({
         initialViewState={{ longitude: 100.124, latitude: 14.521, zoom: 15 }}
         maxZoom={17}
         mapStyle={mapStyle}
-        onLoad={fit}
+        onLoad={fitFrame}
         interactiveLayerIds={["plot-fill"]}
         onClick={selectFromMap}
         cursor="pointer"
@@ -106,14 +110,18 @@ export function FieldMap({
           <Layer
             id="plot-fill"
             type="fill"
-            paint={{ "fill-color": ["get", "color"], "fill-opacity": 0.55 }}
+            paint={{
+              "fill-color": ["get", "color"],
+              "fill-opacity": ["case", ["==", ["get", "id"], highlight], 0.72, ["==", ["get", "muted"], 1], 0.14, 0.55],
+            }}
           />
           <Layer
             id="plot-line"
             type="line"
             paint={{
-              "line-color": ["case", ["in", ["get", "id"], ["literal", marked]], "#F4C35D", "#ffffff"],
-              "line-width": ["case", ["in", ["get", "id"], ["literal", marked]], 3, 1.5],
+              "line-color": ["case", ["==", ["get", "id"], highlight], "#F4C35D", "#ffffff"],
+              "line-width": ["case", ["==", ["get", "id"], highlight], 3, 1.5],
+              "line-opacity": ["case", ["==", ["get", "muted"], 1], 0.35, 1],
             }}
           />
         </Source>
@@ -125,7 +133,7 @@ export function FieldMap({
           </Marker>
         )}
       </Map>
-      <div className="absolute left-4 top-4 z-10 flex gap-2">
+      <div className="absolute right-14 top-4 z-10 flex gap-2">
         <button
           type="button"
           onClick={() => setMode("satellite")}
@@ -149,7 +157,7 @@ export function FieldMap({
         <button
           type="button"
           aria-label="จัดขอบเขตแปลง"
-          onClick={fit}
+          onClick={fitFrame}
           className="inline-flex h-9 items-center gap-2 rounded-[6px] border-2 border-brand bg-white px-3 text-[14px] font-bold text-brand"
         >
           <LocateFixed size={16} strokeWidth={1.75} />

@@ -12,7 +12,14 @@ type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavC
 
 const NAV: NavItem[] = [
   { href: "/", label: "รับซื้อวันนี้", icon: Scale },
-  { href: "/plan", label: "แผนรอบปลูก", icon: Sprout },
+  {
+    label: "แผนรอบปลูก",
+    icon: Sprout,
+    children: [
+      { href: "/plan", label: "แผนรวม" },
+      { href: "/plan/members", label: "รายสมาชิก" },
+    ],
+  },
   { href: "/supply", label: "แผนรับข้าว", icon: CalendarDays },
   { href: "/map", label: "แผนที่แปลง", icon: Map },
   {

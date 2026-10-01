@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMill } from "@/components/store";
-import { Kpi, PageHeader, Pagination, StatusTab, inputClass, usePagination } from "@/components/ui";
+import { Kpi, PageHeader, Pagination, SearchSelect, StatusTab, usePagination } from "@/components/ui";
 import { daysUntil, farmerName, formatKg, formatThaiDate, type Plot } from "@/lib/mill";
 
 type SupplyRow = Plot & { plantingId: string; harvestOn: string; estKg: number; delivered: boolean };
@@ -58,15 +58,19 @@ export function SupplyScreen() {
             <StatusTab key={item} label={item} active={filter === item} onClick={() => setFilter(item)} />
           ))}
         </div>
-        <select aria-label="กลุ่ม" value={groupId} onChange={(event) => setGroupId(event.target.value)} className={`${inputClass} w-64`}>
-          <option value="all">ทุกกลุ่ม</option>
-          <option value="none">ไม่มีกลุ่ม</option>
-          {groups.map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.name}
-            </option>
-          ))}
-        </select>
+        <SearchSelect
+          label="กลุ่ม"
+          className="w-64"
+          value={groupId}
+          onChange={setGroupId}
+          options={[
+            { value: "all", label: "ทุกกลุ่ม" },
+            { value: "none", label: "ไม่มีกลุ่ม" },
+            ...[...groups]
+              .sort((a, b) => a.name.localeCompare(b.name, "th"))
+              .map((group) => ({ value: group.id, label: group.name })),
+          ]}
+        />
       </div>
       {page.rows.length === 0 && (
         <div className="rounded-[8px] border border-frame px-6 py-8 text-[14px] text-ink/60">ไม่มีแปลงในช่วงนี้</div>
@@ -145,7 +149,7 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
                 <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
-                <td className="px-5 py-3">{farmer?.variety ?? "—"}</td>
+                <td className="px-5 py-3">{plot.variety}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
                 <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
                 <td className={`px-5 py-3 font-bold ${plot.delivered ? "text-ok" : left <= 7 ? "text-brand" : ""}`}>{status}</td>

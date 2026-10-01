@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useMill } from "@/components/store";
-import { Dialog, FarmerSelect, PageHeader, Pagination, PrimaryButton, SecondaryButton, StatusTab, ConfirmAlert, ResultAlert, inputClass, usePagination } from "@/components/ui";
-import { daysUntil, farmerName, formatBaht, formatKg, formatThaiDate, openPlanting, plantingsOf, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { Dialog, FarmerSelect, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, StatusTab, ConfirmAlert, ResultAlert, inputClass, usePagination } from "@/components/ui";
+import { VARIETIES, daysUntil, farmerName, farmerVarieties, formatBaht, formatKg, formatThaiDate, openPlanting, plantingsOf, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void }
@@ -105,14 +105,18 @@ export function GroupManageScreen() {
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               หัวหน้ากลุ่ม
-              <select value={draftLeader} onChange={(event) => setDraftLeader(event.target.value)} className={`${inputClass} mt-1`}>
-                <option value="">ทั้งหมด</option>
-                {farmers.map((farmer) => (
-                  <option key={farmer.id} value={farmer.id}>
-                    {farmerName(farmer)}
-                  </option>
-                ))}
-              </select>
+              <SearchSelect
+                label="หัวหน้ากลุ่ม"
+                className="mt-1"
+                value={draftLeader}
+                onChange={setDraftLeader}
+                options={[
+                  { value: "", label: "ทั้งหมด" },
+                  ...[...farmers]
+                    .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
+                    .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) })),
+                ]}
+              />
             </label>
             <div className="flex flex-wrap gap-3 sm:col-span-2">
               <PrimaryButton type="submit">ค้นหา</PrimaryButton>
@@ -192,7 +196,7 @@ export function GroupManageScreen() {
 }
 
 export function MemberManageScreen() {
-  const { groups, farmers, assignFarmer } = useMill();
+  const { groups, farmers, plots, assignFarmer } = useMill();
   const [tab, setTab] = useState<"listing" | "detail" | "plan">("listing");
   const [draftName, setDraftName] = useState("");
   const [draftGroup, setDraftGroup] = useState("");
@@ -262,15 +266,19 @@ export function MemberManageScreen() {
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               กลุ่ม
-              <select value={draftGroup} onChange={(event) => setDraftGroup(event.target.value)} className={`${inputClass} mt-1`}>
-                <option value="">ทั้งหมด</option>
-                <option value="none">ไม่มีกลุ่ม</option>
-                {groups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
+              <SearchSelect
+                label="กลุ่ม"
+                className="mt-1"
+                value={draftGroup}
+                onChange={setDraftGroup}
+                options={[
+                  { value: "", label: "ทั้งหมด" },
+                  { value: "none", label: "ไม่มีกลุ่ม" },
+                  ...[...groups]
+                    .sort((a, b) => a.name.localeCompare(b.name, "th"))
+                    .map((group) => ({ value: group.id, label: group.name })),
+                ]}
+              />
             </label>
             <div className="flex flex-wrap gap-3 sm:col-span-2">
               <PrimaryButton type="submit">ค้นหา</PrimaryButton>
@@ -321,7 +329,7 @@ export function MemberManageScreen() {
                       </td>
                       <td className="px-5 py-3">{farmer.tel}</td>
                       <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}</td>
-                      <td className="px-5 py-3">{farmer.variety}</td>
+                      <td className="px-5 py-3">{farmerVarieties(plots, farmer.id)}</td>
                       <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                       <td className="px-5 py-3 text-right">
                         {leads ? (
@@ -429,7 +437,7 @@ function GroupDirectory() {
 }
 
 function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => void }) {
-  const { farmers, updateGroup, assignFarmer } = useMill();
+  const { farmers, plots, updateGroup, assignFarmer } = useMill();
   const [draftName, setDraftName] = useState(group.name);
   const [draftLeader, setDraftLeader] = useState(group.leaderId);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -469,13 +477,15 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           หัวหน้ากลุ่ม
-          <select value={draftLeader} onChange={(event) => setDraftLeader(event.target.value)} className={`${inputClass} mt-1`}>
-            {members.map((farmer) => (
-              <option key={farmer.id} value={farmer.id}>
-                {farmerName(farmer)}
-              </option>
-            ))}
-          </select>
+          <SearchSelect
+            label="หัวหน้ากลุ่ม"
+            className="mt-1"
+            value={draftLeader}
+            onChange={setDraftLeader}
+            options={[...members]
+              .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
+              .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) }))}
+          />
         </label>
         <div className="sm:col-span-2">
           <PrimaryButton type="submit">บันทึกกลุ่ม</PrimaryButton>
@@ -511,7 +521,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
               <tr key={farmer.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                 <td className="px-5 py-3">{farmer.tel}</td>
-                <td className="px-5 py-3">{farmer.variety}</td>
+                <td className="px-5 py-3">{farmerVarieties(plots, farmer.id)}</td>
                 <td className="px-5 py-3 text-right">
                   {leadsGroup ? (
                     <span className="text-[12px] font-bold text-ink/50">หัวหน้ากลุ่ม</span>
@@ -552,12 +562,10 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
 
 function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose: () => void; onAddRound: (plotId: string) => void }) {
   const { groups, plots, plantings, updateFarmer } = useMill();
-  const varieties: Variety[] = ["หอมมะลิ", "ขาว", "เหนียว"];
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState(farmer.firstName);
   const [lastName, setLastName] = useState(farmer.lastName);
   const [tel, setTel] = useState(farmer.tel);
-  const [variety, setVariety] = useState<Variety>(farmer.variety);
   const [groupId, setGroupId] = useState(farmer.groupId ?? "");
   const [notice, setNotice] = useState<Notice | null>(null);
   const fields = plots.filter((plot) => plot.farmerId === farmer.id);
@@ -569,22 +577,19 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
     setFirstName(farmer.firstName);
     setLastName(farmer.lastName);
     setTel(farmer.tel);
-    setVariety(farmer.variety);
     setGroupId(farmer.groupId ?? "");
-  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.variety, farmer.groupId]);
+  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.groupId]);
 
   const dirty =
     firstName !== farmer.firstName ||
     lastName !== farmer.lastName ||
     tel !== farmer.tel ||
-    variety !== farmer.variety ||
     (groupId || null) !== farmer.groupId;
 
   function undoOrCancel() {
     setFirstName(farmer.firstName);
     setLastName(farmer.lastName);
     setTel(farmer.tel);
-    setVariety(farmer.variety);
     setGroupId(farmer.groupId ?? "");
     if (!dirty) setEditing(false);
   }
@@ -616,7 +621,7 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
               accept: () =>
                 setNotice(
                   reported(
-                    updateFarmer(farmer.id, { firstName, lastName, tel, variety, groupId: nextGroup }),
+                    updateFarmer(farmer.id, { firstName, lastName, tel, groupId: nextGroup }),
                     moving ? "ย้ายกลุ่มแล้ว" : "บันทึกสมาชิกแล้ว",
                     () => setEditing(false),
                   ),
@@ -636,26 +641,21 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
             เบอร์โทร
             <input value={tel} disabled={!editing} onChange={(event) => setTel(event.target.value)} className={fieldClass} />
           </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            พันธุ์
-            <select value={variety} disabled={!editing} onChange={(event) => setVariety(event.target.value as Variety)} className={fieldClass}>
-              {varieties.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
             กลุ่ม
-            <select value={groupId} disabled={!editing || leads != null} onChange={(event) => setGroupId(event.target.value)} className={fieldClass}>
-              <option value="">ไม่มีกลุ่ม</option>
-              {groups.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            <SearchSelect
+              label="กลุ่ม"
+              className="mt-1"
+              value={groupId}
+              disabled={!editing || leads != null}
+              onChange={setGroupId}
+              options={[
+                { value: "", label: "ไม่มีกลุ่ม" },
+                ...[...groups]
+                  .sort((a, b) => a.name.localeCompare(b.name, "th"))
+                  .map((item) => ({ value: item.id, label: item.name })),
+              ]}
+            />
           </label>
           <div className="flex flex-wrap gap-3 sm:col-span-2">
             {editing ? (
@@ -742,7 +742,7 @@ function PlotTable({
       <table className="w-full border-collapse text-left text-[14px]">
         <thead className="bg-table">
           <tr>
-            {["แปลง", "พื้นที่", "วันปลูก", "กำหนดเก็บ", "ที่คาด", "สถานะ", ""].map((label) => (
+            {["แปลง", "พื้นที่", "พันธุ์", "วันปลูก", "กำหนดเก็บ", "ที่คาด", "สถานะ", ""].map((label) => (
               <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
                 {label}
               </th>
@@ -752,7 +752,7 @@ function PlotTable({
         <tbody>
           {plots.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-5 py-6 text-ink/60">
+              <td colSpan={8} className="px-5 py-6 text-ink/60">
                 ยังไม่มีแปลง
               </td>
             </tr>
@@ -764,6 +764,7 @@ function PlotTable({
               <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
+                <td className="px-5 py-3">{plot.variety}</td>
                 <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
                 <td className="px-5 py-3">{round ? formatThaiDate(round.harvestOn) : "—"}</td>
                 <td className="px-5 py-3">{round ? formatKg(round.estKg) : "—"}</td>
@@ -866,7 +867,7 @@ export function MemberPlan({
       <table className="w-full border-collapse text-left text-[14px]">
         <thead className="bg-table">
           <tr>
-            {["แปลง", "พื้นที่", "สถานะ", "วันปลูก", "กำหนดเก็บ", "ที่คาด"].map((label) => (
+            {["แปลง", "พื้นที่", "พันธุ์", "สถานะ", "วันปลูก", "กำหนดเก็บ", "ที่คาด"].map((label) => (
               <th key={label} className="border-r border-white px-5 py-3 font-bold last:border-r-0">
                 {label}
               </th>
@@ -876,7 +877,7 @@ export function MemberPlan({
         <tbody>
           {fields.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-5 py-6 text-ink/60">
+              <td colSpan={7} className="px-5 py-6 text-ink/60">
                 {owned.length === 0 ? "ยังไม่มีแปลง" : "ไม่มีรอบที่กำลังปลูก"}
               </td>
             </tr>
@@ -893,6 +894,7 @@ export function MemberPlan({
               >
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
+                <td className="px-5 py-3">{plot.variety}</td>
                 <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
                 <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
                 <td className="px-5 py-3">{round ? formatThaiDate(round.harvestOn) : "—"}</td>
@@ -909,7 +911,7 @@ export function MemberPlan({
           name=""
           area=""
           onClose={() => setAdding(false)}
-          onSave={(name, areaRai, schedule) => addPlot(farmer.id, { name, areaRai, ...schedule })}
+          onSave={(name, areaRai, variety, schedule) => addPlot(farmer.id, { name, areaRai, variety, ...schedule })}
         />
       )}
     </>
@@ -924,6 +926,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const mark = current ? plantingMark(current) : null;
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
+  const [variety, setVariety] = useState<Variety>(plot.variety);
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? "");
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? "");
   const [estKg, setEstKg] = useState(current ? String(current.estKg) : "");
@@ -933,10 +936,11 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   useEffect(() => {
     setName(plot.name);
     setArea(String(plot.areaRai));
+    setVariety(plot.variety);
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
-  }, [plot.id, plot.name, plot.areaRai, current?.id, current?.plantedOn, current?.harvestOn, current?.estKg]);
+  }, [plot.id, plot.name, plot.areaRai, plot.variety, current?.id, current?.plantedOn, current?.harvestOn, current?.estKg]);
 
   return (
     <>
@@ -970,7 +974,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
             tone: "confirm",
             message: `ยืนยันบันทึก ${name.trim()}`,
             accept: () => {
-              const plotError = savePlot(plot.id, { name, areaRai });
+              const plotError = savePlot(plot.id, { name, areaRai, variety });
               if (plotError) {
                 setNotice({ tone: "error", message: plotError });
                 return;
@@ -992,6 +996,16 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
         <label className="block text-[14px] font-bold leading-[1.4]">
           พื้นที่ (ไร่)
           <input value={area} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          พันธุ์
+          <select value={variety} onChange={(event) => setVariety(event.target.value as Variety)} className={fieldClass}>
+            {VARIETIES.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           วันปลูก
@@ -1061,10 +1075,11 @@ function PlotDialog({
   area: string;
   schedule?: boolean;
   onClose: () => void;
-  onSave: (name: string, areaRai: number, schedule: { plantedOn: string; harvestOn: string; estKg: number }) => string | null;
+  onSave: (name: string, areaRai: number, variety: Variety, schedule: { plantedOn: string; harvestOn: string; estKg: number }) => string | null;
 }) {
   const [plotName, setPlotName] = useState(name);
   const [areaRai, setAreaRai] = useState(area);
+  const [variety, setVariety] = useState<Variety>("หอมมะลิ");
   const [plantedOn, setPlantedOn] = useState("");
   const [harvestOn, setHarvestOn] = useState("");
   const [estKg, setEstKg] = useState("");
@@ -1096,7 +1111,7 @@ function PlotDialog({
               message: `ยืนยัน${title}`,
               accept: () =>
                 setNotice(
-                  reported(onSave(plotName, nextArea, { plantedOn, harvestOn, estKg: nextKg }), schedule ? "บันทึกแปลงแล้ว" : "แก้แปลงแล้ว", onClose),
+                  reported(onSave(plotName, nextArea, variety, { plantedOn, harvestOn, estKg: nextKg }), schedule ? "บันทึกแปลงแล้ว" : "แก้แปลงแล้ว", onClose),
                 ),
             });
           }}
@@ -1108,6 +1123,16 @@ function PlotDialog({
           <label className="block text-[14px] font-bold leading-[1.4]">
             พื้นที่ (ไร่)
             <input value={areaRai} inputMode="decimal" onChange={(event) => setAreaRai(event.target.value)} className={`${inputClass} mt-1`} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            พันธุ์
+            <select value={variety} onChange={(event) => setVariety(event.target.value as Variety)} className={`${inputClass} mt-1`}>
+              {VARIETIES.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
           </label>
           {schedule && (
             <>
