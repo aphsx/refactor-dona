@@ -1670,7 +1670,7 @@ export function PlotDialog({
               }}
               className="mt-2 text-[14px] font-bold text-brand underline"
             >
-              วาดบนแผนที่
+              {boundary.length > 0 ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
             </button>
             <p className="mt-1 text-[12px] font-normal text-ink/60">
               {boundary.length > 0 ? `วาดแล้ว · จากรูป ${formatRai(polygonAreaRai(boundary) ?? 0)} · ที่อยู่ถูกใส่จากตำแหน่งรูป แก้ตัวเลขได้ถ้าไม่ตรง` : "คลิกเพื่อวาดรูปแปลง แล้วพื้นที่กับที่อยู่จะถูกใส่ให้"}
@@ -1767,18 +1767,20 @@ export function PlotDialog({
   );
 }
 
-function DrawBoundary({
+export function DrawBoundary({
   plots,
   draft,
   onDraft,
   onUse,
   onClose,
+  title = "วาดขอบเขต",
 }: {
   plots: Plot[];
   draft: [number, number][];
   onDraft: (next: [number, number][]) => void;
   onUse: (ring: [number, number][]) => void;
   onClose: () => void;
+  title?: string;
 }) {
   const closed = isClosedRing(draft);
   const measured = polygonAreaRai(draft);
@@ -1794,7 +1796,7 @@ function DrawBoundary({
     onDraft([...ring, next]);
   }
   return (
-    <Dialog title="วาดขอบเขตแปลง" wide onClose={onClose}>
+    <Dialog title={title} wide onClose={onClose}>
       <p className="mb-3 text-[14px]">คลิกบนแผนที่เพื่อวางจุด แล้วคลิกจุดแรกหรือกดปิดรูป ที่อยู่จะถูกใส่จากตำแหน่งรูป</p>
       <div className="h-[calc(100vh-20rem)]">
         <FieldMap

@@ -238,13 +238,14 @@ export function MapScreen() {
                       </div>
                       <div className="mt-3">
                         <button type="button" onClick={() => { setDraft([]); setBoundaryError(""); }} className={mapButton}>
-                          วาดขอบเขต
+                          {selected.plot.polygon.length >= 4 ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
                         </button>
                       </div>
                     </>
                   ) : (
                     <DrawStep
                       name={selected.plot.name}
+                      replacing={selected.plot.polygon.length >= 4}
                       draft={draft}
                       areaText={areaText}
                       error={boundaryError}
@@ -267,6 +268,7 @@ export function MapScreen() {
 
 function DrawStep({
   name,
+  replacing,
   draft,
   areaText,
   error,
@@ -278,6 +280,7 @@ function DrawStep({
   onSave,
 }: {
   name: string;
+  replacing: boolean;
   draft: [number, number][];
   areaText: string;
   error: string;
@@ -296,7 +299,7 @@ function DrawStep({
     <>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[16px] font-bold">{closed ? "ยืนยันรูป" : "วาดขอบเขต"} · {name}</h2>
+          <h2 className="text-[16px] font-bold">{closed ? "ยืนยันรูป" : replacing ? "แก้ไขขอบเขต" : "วาดขอบเขต"} · {name}</h2>
           <p className="mt-1 text-[14px]">{closed ? `จากรูป ${formatRai(measured ?? 0)} แก้ตัวเลขได้ถ้าคำนวณไม่ตรง` : hint}</p>
         </div>
         <button type="button" onClick={onCancel} className="shrink-0 text-[14px] font-bold text-link underline">

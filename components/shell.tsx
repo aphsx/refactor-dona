@@ -20,7 +20,14 @@ const NAV: NavItem[] = [
     ],
   },
   { href: "/supply", label: "แผนรับข้าว", icon: CalendarDays },
-  { href: "/map", label: "แผนที่แปลง", icon: Map },
+  {
+    label: "แผนที่แปลง",
+    icon: Map,
+    children: [
+      { href: "/map", label: "แผนที่แปลง" },
+      { href: "/map/manage", label: "จัดการแปลง" },
+    ],
+  },
   {
     label: "กลุ่ม",
     icon: Layers,
