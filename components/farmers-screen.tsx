@@ -137,7 +137,7 @@ function AddFarmer({ onClose }: { onClose: () => void }) {
         <label className="block text-[14px] font-bold leading-[1.4]">
           เบอร์โทร
           <RequiredMark />
-          <input value={tel} onChange={(event) => setTel(event.target.value)} className={`${inputClass} mt-1`} />
+          <input value={tel} inputMode="tel" autoComplete="tel" placeholder="0812345678" onChange={(event) => setTel(event.target.value)} className={`${inputClass} mt-1`} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           ที่อยู่

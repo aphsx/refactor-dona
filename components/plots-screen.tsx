@@ -28,7 +28,7 @@ import {
   usePagination,
   useTableSort,
 } from "@/components/ui";
-import { farmerName, formatCoord, centroid, polygonAreaRai, type Plot } from "@/lib/mill";
+import { farmerHandle, farmerName, formatCoord, centroid, polygonAreaRai, type Plot } from "@/lib/mill";
 import { placeAt } from "@/lib/thai-place";
 
 type Notice =
@@ -163,7 +163,7 @@ export function PlotManageScreen() {
                   { value: "", label: "ทั้งหมด" },
                   ...[...farmers]
                     .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
-                    .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) })),
+                    .map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) })),
                 ]}
               />
             </label>
@@ -282,7 +282,7 @@ export function PlotManageScreen() {
                 onChange={setPickedOwner}
                 options={[...farmers]
                   .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
-                  .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) }))}
+                  .map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) }))}
               />
             </label>
             <div className="flex justify-end gap-3">

@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleX, Search, X, type LucideIcon } from "lucide-react";
 import { useMill } from "@/components/store";
-import { farmerName, formatThaiDate, formatThaiMonth } from "@/lib/mill";
+import { farmerHandle, farmerName, formatThaiDate, formatThaiMonth } from "@/lib/mill";
 
 export const inputClass =
   "h-10 w-full rounded-[4px] border border-line bg-white px-3 text-[14px] text-ink placeholder:text-ink/20";
@@ -93,7 +93,11 @@ export function isWildcard(query: string) {
 
 export function matchesQuery(query: string, text: string) {
   if (isWildcard(query)) return true;
-  return text.toLocaleLowerCase("th").includes(query.trim().toLocaleLowerCase("th"));
+  const needle = query.trim().toLocaleLowerCase("th");
+  const haystack = text.toLocaleLowerCase("th");
+  if (haystack.includes(needle)) return true;
+  const digits = needle.replace(/\D/g, "");
+  return digits.length >= 3 && haystack.replace(/\D/g, "").includes(digits);
 }
 
 export function PrimaryButton({
@@ -803,6 +807,6 @@ export function FarmerSelect({
   const options = farmers
     .slice()
     .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
-    .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) }));
+    .map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) }));
   return <SearchSelect label="เกษตรกร" value={value} onChange={onChange} placeholder="เลือกเกษตรกร" options={[{ value: "", label: "เลือกเกษตรกร" }, ...options]} />;
 }

@@ -8,7 +8,7 @@ import { Map as MapIcon, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, U
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtNames, placeAt, provinceNames, subdistrictNames } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -136,7 +136,7 @@ export function GroupManageScreen() {
                   { value: "", label: "ทั้งหมด" },
                   ...[...farmers]
                     .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
-                    .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) })),
+                    .map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) })),
                 ]}
               />
             </label>
@@ -564,7 +564,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
             onChange={setDraftLeader}
             options={[...members]
               .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
-              .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) }))}
+              .map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) }))}
           />
         </label>
         <div className="flex flex-wrap gap-3 sm:col-span-2">
@@ -755,7 +755,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             เบอร์โทร
-            <input value={tel} disabled={!editing} onChange={(event) => setTel(event.target.value)} className={fieldClass} />
+            <input value={tel} inputMode="tel" autoComplete="tel" placeholder="0812345678" disabled={!editing} onChange={(event) => setTel(event.target.value)} className={fieldClass} />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             ที่อยู่

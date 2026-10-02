@@ -7,6 +7,7 @@ import {
   PLANTINGS,
   PLOTS,
   VARIETIES,
+  canonicalPhone,
   isClosedRing,
   type Farmer,
   type Planting,
@@ -130,9 +131,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return commit((draft) => {
         const firstName = input.firstName.trim();
         const lastName = input.lastName.trim();
-        const tel = input.tel.trim();
+        const tel = phoneTaken(draft.farmers, input.tel);
+        if (typeof tel !== "string") return tel.error;
         if (!firstName || !lastName) return "กรอกชื่อ";
-        if (!tel) return "กรอกเบอร์โทร";
         if (!input.address.trim()) return "กรอกที่อยู่";
         if (input.groupId != null && !draft.groups.some((group) => group.id === input.groupId)) return "ไม่พบกลุ่ม";
         draft.farmers.push({
@@ -156,9 +157,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!farmer) return "ไม่พบเกษตรกร";
         const firstName = input.firstName.trim();
         const lastName = input.lastName.trim();
-        const tel = input.tel.trim();
+        const tel = phoneTaken(draft.farmers, input.tel, farmerId);
+        if (typeof tel !== "string") return tel.error;
         if (!firstName || !lastName) return "กรอกชื่อ";
-        if (!tel) return "กรอกเบอร์โทร";
         if (!input.address.trim()) return "กรอกที่อยู่";
         if (input.groupId !== farmer.groupId) {
           if (input.groupId == null) {
@@ -317,6 +318,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
+}
+
+function phoneTaken(farmers: Farmer[], value: string, exceptId?: string) {
+  const phone = canonicalPhone(value);
+  if (!phone) return { error: "เบอร์โทรไม่ถูกต้อง" };
+  if (farmers.some((farmer) => farmer.id !== exceptId && farmer.tel === phone)) return { error: "เบอร์นี้มีอยู่แล้ว" };
+  return phone;
 }
 
 function isoDate(value: string) {

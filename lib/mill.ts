@@ -52,6 +52,17 @@ export function farmerName(farmer: Farmer) {
   return `${farmer.firstName} ${farmer.lastName}`;
 }
 
+export function canonicalPhone(value: string) {
+  let digits = value.replace(/\D/g, "");
+  if (digits.startsWith("66") && digits.length === 11) digits = `0${digits.slice(2)}`;
+  if (!/^0[689]\d{8}$/.test(digits)) return null;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+export function farmerHandle(farmer: Farmer) {
+  return `${farmerName(farmer)} · ${farmer.tel}`;
+}
+
 export function daysUntil(iso: string) {
   const [year, month, day] = iso.split("-").map(Number);
   const target = Date.UTC(year, month - 1, day);
