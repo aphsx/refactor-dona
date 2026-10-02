@@ -22,8 +22,7 @@ import {
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
 type StatusKey = "due" | "upcoming" | "delivered" | "none";
-type ColorMode = "status" | "farmer" | "variety";
-type StatusFilter = "all" | StatusKey;
+type Lens = "harvest" | "farmer" | "variety";
 
 const STATUS: Record<StatusKey, { label: string; color: string }> = {
   due: { label: "ใกล้เก็บ", color: "#C05621" },
@@ -40,12 +39,25 @@ const VARIETY_COLOR: Record<Variety, string> = {
 
 const STATUS_ORDER: StatusKey[] = ["due", "upcoming", "delivered", "none"];
 
+const LENSES: { id: Lens; label: string }[] = [
+  { id: "harvest", label: "เก็บเกี่ยว" },
+  { id: "farmer", label: "คู่ค้า" },
+  { id: "variety", label: "พันธุ์" },
+];
+
 type Row = {
   plot: Plot;
   farmer: Farmer;
   planting: Planting | null;
   status: StatusKey;
   days: number | null;
+};
+
+type Bucket = {
+  key: string;
+  label: string;
+  color: string;
+  rows: Row[];
 };
 
 export function MapScreen() {
@@ -56,8 +68,8 @@ export function MapScreen() {
   const [query, setQuery] = useState("");
   const [groupId, setGroupId] = useState("all");
   const [focusId, setFocusId] = useState<string | null>(requested);
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [colorMode, setColorMode] = useState<ColorMode>("status");
+  const [lens, setLens] = useState<Lens>("harvest");
+  const [isolate, setIsolate] = useState<string | null>(null);
   const [plotId, setPlotId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,25 +96,17 @@ export function MapScreen() {
     return matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.tel}`);
   });
 
-  const listed = scoped
-    .filter((row) => status === "all" || row.status === status)
-    .sort((a, b) => {
-      const rank = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
-      if (rank !== 0) return rank;
-      if (a.days != null && b.days != null && a.days !== b.days) return a.days - b.days;
-      return a.plot.name.localeCompare(b.plot.name, "th");
-    });
-
+  const sections = useMemo(() => groupRows(lens, scoped), [lens, scoped]);
+  const open = sections.find((section) => section.key === isolate) ?? null;
+  const listed = open ? open.rows : sections.flatMap((section) => section.rows);
   const listedIds = new Set(listed.map((row) => row.plot.id));
-  const area = listed.reduce((sum, row) => sum + row.plot.areaRai, 0);
+  const area = scoped.reduce((sum, row) => sum + row.plot.areaRai, 0);
   const focusFarmer = farmers.find((farmer) => farmer.id === focusId) ?? null;
   const selected = rows.find((row) => row.plot.id === plotId) ?? null;
   const siblings = selected ? rows.filter((row) => row.farmer.id === selected.farmer.id && row.plot.id !== selected.plot.id) : [];
 
   function paint(row: Row) {
-    if (colorMode === "farmer") return farmerColor(row.farmer.id);
-    if (colorMode === "variety") return VARIETY_COLOR[row.plot.variety];
-    return STATUS[row.status].color;
+    return bucketColor(lens, row);
   }
 
   function clearFocus() {
@@ -110,29 +114,27 @@ export function MapScreen() {
     router.replace("/map");
   }
 
+  function chooseLens(next: Lens) {
+    setLens(next);
+    setIsolate(null);
+  }
+
+  function pinSection(key: string) {
+    const next = isolate === key ? null : key;
+    setIsolate(next);
+    if (!next || !plotId) return;
+    const row = rows.find((item) => item.plot.id === plotId);
+    if (row && bucketKey(lens, row) !== next) setPlotId(null);
+  }
+
   function choosePlot(id: string | null) {
     setPlotId(id);
     if (!id) return;
     const row = rows.find((item) => item.plot.id === id);
     if (!row) return;
-    if (status !== "all" && row.status !== status) setStatus("all");
+    if (isolate && bucketKey(lens, row) !== isolate) setIsolate(null);
     if (focusId && row.farmer.id !== focusId) clearFocus();
   }
-
-  const legend =
-    colorMode === "farmer"
-      ? scoped
-          .filter((row, index, list) => list.findIndex((item) => item.farmer.id === row.farmer.id) === index)
-          .map((row) => ({ key: row.farmer.id, label: farmerName(row.farmer), color: farmerColor(row.farmer.id) }))
-      : colorMode === "variety"
-        ? (Object.keys(VARIETY_COLOR) as Variety[])
-            .filter((variety) => scoped.some((row) => row.plot.variety === variety))
-            .map((variety) => ({ key: variety, label: variety, color: VARIETY_COLOR[variety] }))
-        : STATUS_ORDER.filter((key) => rows.some((row) => row.status === key)).map((key) => ({
-            key,
-            label: STATUS[key].label,
-            color: STATUS[key].color,
-          }));
 
   const mapPlots = rows
     .filter((row) => row.plot.polygon.length >= 4)
@@ -176,6 +178,25 @@ export function MapScreen() {
                   .map((group) => ({ value: group.id, label: group.name })),
               ]}
             />
+            <div>
+              <div className="mb-2 text-[12px] font-bold">ดูตาม</div>
+              <div role="radiogroup" aria-label="ดูตาม" className="grid grid-cols-3 gap-2">
+                {LENSES.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={lens === item.id}
+                    onClick={() => chooseLens(item.id)}
+                    className={`h-9 rounded-[6px] text-[14px] font-bold ${
+                      lens === item.id ? "bg-bar text-white" : "border-2 border-brand bg-white text-brand"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           {focusFarmer && (
             <div className="flex items-center gap-3 border-b border-frame bg-pick px-4 py-3">
@@ -189,90 +210,77 @@ export function MapScreen() {
               </button>
             </div>
           )}
-          <div className="space-y-3 border-b border-frame px-4 py-4">
-            <div>
-              <div className="mb-2 text-[12px] font-bold">สีแปลง</div>
-              <div className="grid grid-cols-3 gap-2">
-                {(
-                  [
-                    ["status", "สถานะ"],
-                    ["farmer", "คู่ค้า"],
-                    ["variety", "พันธุ์"],
-                  ] as const
-                ).map(([mode, label]) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    aria-pressed={colorMode === mode}
-                    onClick={() => setColorMode(mode)}
-                    className={`h-9 rounded-[6px] text-[14px] font-bold ${
-                      colorMode === mode ? "bg-bar text-white" : "border-2 border-brand bg-white text-brand"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {legend.map((item) => (
-                <span key={item.key} className="inline-flex items-center gap-1.5 text-[12px]">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
-                  {item.label}
-                </span>
-              ))}
-            </div>
+          <div className="flex items-center justify-between gap-3 border-b border-frame px-4 py-2 text-[12px]">
+            <span className="text-ink/60">
+              {open
+                ? `${open.label} · ${open.rows.length} จาก ${scoped.length} แปลง`
+                : `${scoped.length} แปลง · ${area} ไร่`}
+            </span>
+            {open && (
+              <button type="button" onClick={() => setIsolate(null)} className="shrink-0 font-bold text-link underline">
+                ดูทั้งหมด
+              </button>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2 border-b border-frame px-4 py-3">
-            <FilterChip active={status === "all"} onClick={() => setStatus("all")} label="ทั้งหมด" count={scoped.length} />
-            {STATUS_ORDER.filter((key) => scoped.some((row) => row.status === key)).map((key) => (
-              <FilterChip
-                key={key}
-                active={status === key}
-                onClick={() => setStatus((current) => (current === key ? "all" : key))}
-                label={STATUS[key].label}
-                count={scoped.filter((row) => row.status === key).length}
-                color={STATUS[key].color}
-              />
-            ))}
-          </div>
-          <div className="px-5 py-2 text-[12px] text-ink/60">
-            {listed.length} แปลง · {area} ไร่
-          </div>
-          <ul className="min-h-0 flex-1 overflow-y-auto">
-            {listed.length === 0 && <li className="px-5 py-6 text-[14px] text-ink/60">ไม่พบแปลงที่ตรงกับตัวกรอง</li>}
-            {listed.map((row, index) => {
-              const active = row.plot.id === plotId;
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {sections.length === 0 && <p className="px-5 py-6 text-[14px] text-ink/60">ไม่พบแปลงที่ตรงกับตัวกรอง</p>}
+            {sections.map((section) => {
+              const pinned = open?.key === section.key;
+              const folded = open != null && !pinned;
+              const rai = section.rows.reduce((sum, row) => sum + row.plot.areaRai, 0);
               return (
-                <li key={row.plot.id}>
+                <section key={section.key}>
                   <button
                     type="button"
-                    onClick={() => choosePlot(row.plot.id)}
-                    className={`flex w-full items-start gap-3 border-l-[3px] px-5 py-3 text-left ${
-                      active
-                        ? "border-l-bar bg-pick"
-                        : index % 2 === 1
-                          ? "border-l-transparent bg-table hover:bg-sub"
-                          : "border-l-transparent bg-white hover:bg-sub"
+                    aria-pressed={pinned}
+                    onClick={() => pinSection(section.key)}
+                    className={`sticky top-0 z-10 flex w-full items-center gap-2 border-b border-frame px-4 py-2 text-left ${
+                      pinned ? "bg-pick" : "bg-sub"
                     }`}
                   >
-                    <span className="mt-1 h-3 w-3 shrink-0 rounded-full" style={{ background: paint(row) }} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-[14px] font-bold">{row.plot.name}</span>
-                        <span className="shrink-0 text-[12px] font-bold" style={{ color: STATUS[row.status].color }}>
-                          {timing(row)}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 block truncate text-[12px] text-ink/60">
-                        {farmerName(row.farmer)} · {row.plot.areaRai} ไร่ · {row.plot.variety}
-                      </span>
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: section.color }} />
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-bold">{section.label}</span>
+                    <span className="shrink-0 text-[12px] tabular-nums text-ink/60">
+                      {section.rows.length} · {rai} ไร่
                     </span>
                   </button>
-                </li>
+                  {!folded && (
+                    <ul>
+                      {section.rows.map((row, index) => {
+                        const active = row.plot.id === plotId;
+                        return (
+                          <li key={row.plot.id}>
+                            <button
+                              type="button"
+                              onClick={() => choosePlot(row.plot.id)}
+                              className={`flex w-full items-start gap-3 border-l-[3px] px-4 py-3 text-left ${
+                                active
+                                  ? "border-l-bar bg-pick"
+                                  : index % 2 === 1
+                                    ? "border-l-transparent bg-table hover:bg-sub"
+                                    : "border-l-transparent bg-white hover:bg-sub"
+                              }`}
+                            >
+                              <span className="mt-1 h-3 w-3 shrink-0 rounded-full" style={{ background: paint(row) }} />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-baseline justify-between gap-2">
+                                  <span className="truncate text-[14px] font-bold">{row.plot.name}</span>
+                                  <span className="shrink-0 text-[12px] font-bold" style={{ color: STATUS[row.status].color }}>
+                                    {timing(row)}
+                                  </span>
+                                </span>
+                                <span className="mt-0.5 block truncate text-[12px] text-ink/60">{subtitle(row, lens)}</span>
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
               );
             })}
-          </ul>
+          </div>
         </aside>
         <section className="relative min-h-0">
           <FieldMap plots={mapPlots} selectedId={plotId} onSelect={choosePlot} />
@@ -345,6 +353,69 @@ export function MapScreen() {
   );
 }
 
+function bucketKey(lens: Lens, row: Row) {
+  if (lens === "farmer") return row.farmer.id;
+  if (lens === "variety") return row.plot.variety;
+  return row.status;
+}
+
+function bucketColor(lens: Lens, row: Row) {
+  if (lens === "farmer") return farmerColor(row.farmer.id);
+  if (lens === "variety") return VARIETY_COLOR[row.plot.variety];
+  return STATUS[row.status].color;
+}
+
+function groupRows(lens: Lens, rows: Row[]): Bucket[] {
+  const ordered = rows.slice().sort(byUrgency);
+  if (lens === "harvest") {
+    return STATUS_ORDER.flatMap((key) => {
+      const members = ordered.filter((row) => row.status === key);
+      if (members.length === 0) return [];
+      return [{ key, label: STATUS[key].label, color: STATUS[key].color, rows: members }];
+    });
+  }
+  if (lens === "variety") {
+    return (Object.keys(VARIETY_COLOR) as Variety[]).flatMap((variety) => {
+      const members = ordered.filter((row) => row.plot.variety === variety);
+      if (members.length === 0) return [];
+      return [{ key: variety, label: variety, color: VARIETY_COLOR[variety], rows: members }];
+    });
+  }
+  const farmers = ordered.filter((row, index, list) => list.findIndex((item) => item.farmer.id === row.farmer.id) === index);
+  farmers.sort((a, b) => {
+    const left = soonest(ordered, a.farmer.id);
+    const right = soonest(ordered, b.farmer.id);
+    if (left != null && right != null && left !== right) return left - right;
+    if (left != null && right == null) return -1;
+    if (left == null && right != null) return 1;
+    return farmerName(a.farmer).localeCompare(farmerName(b.farmer), "th");
+  });
+  return farmers.map((row) => ({
+    key: row.farmer.id,
+    label: farmerName(row.farmer),
+    color: farmerColor(row.farmer.id),
+    rows: ordered.filter((item) => item.farmer.id === row.farmer.id),
+  }));
+}
+
+function soonest(rows: Row[], farmerId: string) {
+  const days = rows.filter((row) => row.farmer.id === farmerId && row.days != null).map((row) => row.days as number);
+  return days.length === 0 ? null : Math.min(...days);
+}
+
+function byUrgency(a: Row, b: Row) {
+  if (a.days != null && b.days != null && a.days !== b.days) return a.days - b.days;
+  if (a.days != null && b.days == null) return -1;
+  if (a.days == null && b.days != null) return 1;
+  return a.plot.name.localeCompare(b.plot.name, "th");
+}
+
+function subtitle(row: Row, lens: Lens) {
+  if (lens === "farmer") return `${row.plot.areaRai} ไร่ · ${row.plot.variety}`;
+  if (lens === "variety") return `${farmerName(row.farmer)} · ${row.plot.areaRai} ไร่`;
+  return `${farmerName(row.farmer)} · ${row.plot.areaRai} ไร่ · ${row.plot.variety}`;
+}
+
 function timing(row: Row) {
   if (row.status === "none") return "ยังไม่มีแผน";
   if (row.status === "delivered") return "รับแล้ว";
@@ -352,33 +423,4 @@ function timing(row: Row) {
   if (row.days < 0) return `เลย ${Math.abs(row.days)} วัน`;
   if (row.days === 0) return "เก็บวันนี้";
   return `อีก ${row.days} วัน`;
-}
-
-function FilterChip({
-  active,
-  onClick,
-  label,
-  count,
-  color,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count: number;
-  color?: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`inline-flex h-8 items-center gap-1.5 rounded-[6px] px-2.5 text-[12px] font-bold ${
-        active ? "bg-pick text-ink" : "border border-frame bg-white text-ink"
-      }`}
-    >
-      {color && <span className="h-2 w-2 rounded-full" style={{ background: color }} />}
-      {label}
-      <span className="tabular-nums text-ink/60">{count}</span>
-    </button>
-  );
 }

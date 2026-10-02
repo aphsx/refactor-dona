@@ -157,6 +157,10 @@ export function GroupManageScreen() {
       <div className={`overflow-hidden border border-frame ${tab === "listing" ? "rounded-[8px]" : "rounded-b-[8px] rounded-tr-[8px]"}`}>
         {tab === "listing" && (
           <>
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+              รายการกลุ่ม
+              <span className="text-[14px]">{page.total} กลุ่ม</span>
+            </div>
             <TableScroll>
             <table className={tableClass}>
               <thead className="bg-table">
@@ -330,6 +334,10 @@ export function MemberManageScreen() {
       <div className={`overflow-hidden border border-frame ${tab === "listing" ? "rounded-[8px]" : "rounded-b-[8px] rounded-tr-[8px]"}`}>
         {tab === "listing" && (
           <>
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+              รายการสมาชิก
+              <span className="text-[14px]">{page.total} คน</span>
+            </div>
             <TableScroll>
             <table className={tableClass}>
               <thead className="bg-table">
