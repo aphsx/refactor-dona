@@ -49,7 +49,8 @@ type Store = MillData & {
     farmerId: string,
     input: { name: string; areaRai: number; variety: Variety; plantedOn: string; harvestOn: string; estKg: number },
   ) => string | null;
-  savePlot: (plotId: string, input: { name: string; areaRai: number; variety: Variety }) => string | null;
+  savePlot: (plotId: string, input: { name: string; areaRai: number; variety: Variety; subdistrict?: string; district?: string; province?: string }) => string | null;
+  saveBoundary: (plotId: string, polygon: [number, number][], areaRai: number) => string | null;
   removePlot: (plotId: string) => string | null;
   savePlanting: (
     plotId: string,
@@ -270,7 +271,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const schedule = validSchedule(name, input);
         if (schedule) return schedule;
         const plotId = `p-${draft.plots.length + 1}-${name.length}`;
-        draft.plots.push({ id: plotId, farmerId, name, areaRai: input.areaRai, variety: input.variety, polygon: [] });
+        draft.plots.push({
+          id: plotId,
+          farmerId,
+          name,
+          areaRai: input.areaRai,
+          variety: input.variety,
+          subdistrict: "",
+          district: "",
+          province: "",
+          polygon: [],
+        });
         draft.plantings.push({
           id: `r-${draft.plantings.length + 1}`,
           plotId,
@@ -293,6 +304,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         plot.name = name;
         plot.areaRai = input.areaRai;
         plot.variety = input.variety;
+        if (input.subdistrict != null) plot.subdistrict = input.subdistrict.trim();
+        if (input.district != null) plot.district = input.district.trim();
+        if (input.province != null) plot.province = input.province.trim();
+        return null;
+      });
+    },
+    saveBoundary(plotId, polygon, areaRai) {
+      return commit((draft) => {
+        const plot = draft.plots.find((item) => item.id === plotId);
+        if (!plot) return "ไม่พบแปลง";
+        if (polygon.length < 4 || polygon[0][0] !== polygon[polygon.length - 1][0] || polygon[0][1] !== polygon[polygon.length - 1][1]) {
+          return "รูปแปลงต้องมีอย่างน้อย 3 จุด";
+        }
+        if (!validArea(areaRai)) return "พื้นที่ต้องมากกว่า 0";
+        plot.polygon = polygon;
+        plot.areaRai = areaRai;
         return null;
       });
     },

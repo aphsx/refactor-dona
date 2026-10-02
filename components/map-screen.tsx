@@ -7,12 +7,19 @@ import { Search, X } from "lucide-react";
 import { useMill } from "@/components/store";
 import { SearchSelect, matchesQuery } from "@/components/ui";
 import {
+  centroid,
+  closeRing,
   currentPlanting,
   daysUntil,
   farmerColor,
   farmerName,
+  formatCoord,
   formatKg,
+  formatRai,
   formatThaiDate,
+  isClosedRing,
+  openRing,
+  polygonAreaRai,
   type Farmer,
   type Planting,
   type Plot,
@@ -64,17 +71,32 @@ export function MapScreen() {
   const router = useRouter();
   const params = useSearchParams();
   const requested = params.get("farmer");
-  const { plots, plantings, farmers, groups } = useMill();
+  const { plots, plantings, farmers, groups, saveBoundary } = useMill();
   const [query, setQuery] = useState("");
   const [groupId, setGroupId] = useState("all");
   const [focusId, setFocusId] = useState<string | null>(requested);
   const [lens, setLens] = useState<Lens>("harvest");
   const [isolate, setIsolate] = useState<string | null>(null);
   const [plotId, setPlotId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<[number, number][] | null>(null);
+  const [areaText, setAreaText] = useState("");
+  const [boundaryError, setBoundaryError] = useState("");
 
   useEffect(() => {
     setFocusId(requested);
   }, [requested]);
+
+  useEffect(() => {
+    setDraft(null);
+    setBoundaryError("");
+  }, [plotId]);
+
+  useEffect(() => {
+    if (draft && isClosedRing(draft)) {
+      const measured = polygonAreaRai(draft);
+      if (measured != null) setAreaText(String(measured));
+    }
+  }, [draft]);
 
   const rows = useMemo<Row[]>(() => {
     return plots.flatMap((plot) => {
@@ -134,6 +156,43 @@ export function MapScreen() {
     if (!row) return;
     if (isolate && bucketKey(lens, row) !== isolate) setIsolate(null);
     if (focusId && row.farmer.id !== focusId) clearFocus();
+  }
+
+  function placePoint(lng: number, lat: number) {
+    setBoundaryError("");
+    setDraft((current) => {
+      if (!current || isClosedRing(current)) return current;
+      const ring = openRing(current);
+      const next: [number, number] = [lng, lat];
+      if (ring.length >= 3 && nearPoint(ring[0], next)) return closeRing(ring);
+      return [...ring, next];
+    });
+  }
+
+  function undoPoint() {
+    setDraft((current) => {
+      if (!current) return current;
+      return openRing(current).slice(0, -1);
+    });
+  }
+
+  function finishShape() {
+    setDraft((current) => (current ? closeRing(openRing(current)) : current));
+  }
+
+  function saveShape() {
+    if (!selected || !draft || !isClosedRing(draft)) return;
+    const areaRai = Number(areaText.trim());
+    if (!Number.isFinite(areaRai) || areaRai <= 0) {
+      setBoundaryError("พื้นที่ต้องมากกว่า 0");
+      return;
+    }
+    const error = saveBoundary(selected.plot.id, draft, areaRai);
+    if (error) {
+      setBoundaryError(error);
+      return;
+    }
+    setDraft(null);
   }
 
   const mapPlots = rows
@@ -283,7 +342,13 @@ export function MapScreen() {
           </div>
         </aside>
         <section className="relative min-h-0">
-          <FieldMap plots={mapPlots} selectedId={plotId} onSelect={choosePlot} />
+          <FieldMap
+            plots={mapPlots}
+            selectedId={plotId}
+            onSelect={choosePlot}
+            draft={draft}
+            onDraftClick={draft != null && !isClosedRing(draft) ? placePoint : undefined}
+          />
           {selected && (
             <div className="absolute inset-x-4 bottom-4 z-20 overflow-hidden rounded-[8px] border border-frame bg-white shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
               <div className="flex">
@@ -301,8 +366,18 @@ export function MapScreen() {
                         {farmerName(selected.farmer)}
                         <span className="text-ink/40"> · </span>
                         {groups.find((group) => group.id === selected.farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}
-                        <span className="text-ink/40"> · </span>
-                        {selected.farmer.tel}
+                      </p>
+                      <p className="mt-1 text-[14px]">
+                        {[selected.plot.subdistrict, selected.plot.district, selected.plot.province].filter(Boolean).join(" / ") || "ยังไม่ระบุที่ตั้ง"}
+                      </p>
+                      <p className="mt-1 text-[14px]">
+                        {selected.plot.polygon.length >= 4 ? `พิกัด ${formatCoord(centroid(selected.plot.polygon))}` : "ยังไม่มีรูป"}
+                        {polygonAreaRai(selected.plot.polygon) != null && (
+                          <>
+                            <span className="text-ink/40"> · </span>
+                            จากรูป {formatRai(polygonAreaRai(selected.plot.polygon) ?? 0)}
+                          </>
+                        )}
                       </p>
                       <p className="mt-1 text-[14px]">
                         {selected.plot.areaRai} ไร่
@@ -326,6 +401,50 @@ export function MapScreen() {
                     >
                       <X size={16} strokeWidth={1.75} />
                     </button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {draft == null && (
+                      <button type="button" onClick={() => { setDraft([]); setBoundaryError(""); }} className={mapButton}>
+                        วาดขอบเขต
+                      </button>
+                    )}
+                    {draft != null && !isClosedRing(draft) && (
+                      <>
+                        <span className="text-[14px]">{openRing(draft).length} จุด · คลิกบนแผนที่ คลิกจุดแรกเพื่อปิดรูป</span>
+                        <button type="button" onClick={undoPoint} disabled={openRing(draft).length === 0} className={mapButton}>
+                          ลบจุด
+                        </button>
+                        <button type="button" onClick={finishShape} disabled={openRing(draft).length < 3} className={mapButton}>
+                          ปิดรูป
+                        </button>
+                        <button type="button" onClick={() => setDraft(null)} className={mapButton}>
+                          ยกเลิก
+                        </button>
+                      </>
+                    )}
+                    {draft != null && isClosedRing(draft) && (
+                      <>
+                        <label className="text-[14px] font-bold">
+                          พื้นที่ (ไร่)
+                          <input
+                            value={areaText}
+                            inputMode="decimal"
+                            onChange={(event) => setAreaText(event.target.value)}
+                            className="ml-2 h-9 w-24 rounded-[4px] border border-line px-2 font-normal"
+                          />
+                        </label>
+                        <button type="button" onClick={saveShape} className="inline-flex h-9 items-center rounded-[6px] bg-brand px-3 text-[14px] font-bold text-white">
+                          บันทึกขอบเขต
+                        </button>
+                        <button type="button" onClick={() => { setDraft([]); setAreaText(""); setBoundaryError(""); }} className={mapButton}>
+                          วาดใหม่
+                        </button>
+                        <button type="button" onClick={() => setDraft(null)} className={mapButton}>
+                          ยกเลิก
+                        </button>
+                      </>
+                    )}
+                    {boundaryError && <p className="w-full text-[14px] text-danger">{boundaryError}</p>}
                   </div>
                   {siblings.length > 0 && (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -352,6 +471,14 @@ export function MapScreen() {
     </div>
   );
 }
+
+function nearPoint(a: [number, number], b: [number, number]) {
+  const lng = a[0] - b[0];
+  const lat = a[1] - b[1];
+  return lng * lng + lat * lat < 0.00008 * 0.00008;
+}
+
+const mapButton = "inline-flex h-9 items-center rounded-[6px] border-2 border-brand bg-white px-3 text-[14px] font-bold text-brand disabled:border-[#D0D0D0] disabled:text-[#B0B0B0]";
 
 function bucketKey(lens: Lens, row: Row) {
   if (lens === "farmer") return row.farmer.id;

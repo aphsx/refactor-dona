@@ -7,7 +7,7 @@ import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPl
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { VARIETIES, daysUntil, farmerName, farmerVarieties, formatBaht, formatKg, formatThaiDate, openPlanting, plantingsOf, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { VARIETIES, centroid, daysUntil, farmerName, farmerVarieties, formatBaht, formatCoord, formatKg, formatRai, formatThaiDate, openPlanting, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void }
@@ -1070,13 +1070,16 @@ export function MemberPlan({
 }
 
 export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void }) {
-  const { plantings, savePlot, removePlot, savePlanting, removePlanting } = useMill();
+  const { farmers, groups, plantings, savePlot, removePlot, savePlanting, removePlanting } = useMill();
   const history = plantingsOf(plantings, plot.id);
   const current = openPlanting(plantings, plot.id);
   const locked = history.some((round) => round.delivered);
   const mark = current ? plantingMark(current) : null;
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
+  const [subdistrict, setSubdistrict] = useState(plot.subdistrict);
+  const [district, setDistrict] = useState(plot.district);
+  const [province, setProvince] = useState(plot.province);
   const [variety, setVariety] = useState<Variety>(plot.variety);
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? "");
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? "");
@@ -1084,10 +1087,17 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
+  const measured = polygonAreaRai(plot.polygon);
+  const point = plot.polygon.length >= 4 ? centroid(plot.polygon) : null;
+  const owner = farmers.find((farmer) => farmer.id === plot.farmerId) ?? null;
+  const group = groups.find((item) => item.id === owner?.groupId) ?? null;
   const savedKg = current ? String(current.estKg) : "";
   const dirty =
     name !== plot.name ||
     area !== String(plot.areaRai) ||
+    subdistrict !== plot.subdistrict ||
+    district !== plot.district ||
+    province !== plot.province ||
     variety !== plot.variety ||
     plantedOn !== (current?.plantedOn ?? "") ||
     harvestOn !== (current?.harvestOn ?? "") ||
@@ -1097,15 +1107,21 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setEditing(false);
     setName(plot.name);
     setArea(String(plot.areaRai));
+    setSubdistrict(plot.subdistrict);
+    setDistrict(plot.district);
+    setProvince(plot.province);
     setVariety(plot.variety);
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
-  }, [plot.id, plot.name, plot.areaRai, plot.variety, current?.id, current?.plantedOn, current?.harvestOn, current?.estKg]);
+  }, [plot.id, plot.name, plot.areaRai, plot.subdistrict, plot.district, plot.province, plot.variety, current?.id, current?.plantedOn, current?.harvestOn, current?.estKg]);
 
   function undo() {
     setName(plot.name);
     setArea(String(plot.areaRai));
+    setSubdistrict(plot.subdistrict);
+    setDistrict(plot.district);
+    setProvince(plot.province);
     setVariety(plot.variety);
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
@@ -1150,7 +1166,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
             tone: "confirm",
             message: `ยืนยันบันทึก ${name.trim()}`,
             accept: () => {
-              const plotError = savePlot(plot.id, { name, areaRai, variety });
+              const plotError = savePlot(plot.id, { name, areaRai, variety, subdistrict, district, province });
               if (plotError) {
                 setNotice({ tone: "error", message: plotError });
                 return;
@@ -1167,8 +1183,36 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
         }}
       >
         <label className="block text-[14px] font-bold leading-[1.4]">
+          เจ้าของแปลง
+          <input value={owner ? farmerName(owner) : "—"} disabled className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          กลุ่ม
+          <input value={group?.name ?? "ไม่มีกลุ่ม"} disabled className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          ตำบล
+          <input value={subdistrict} disabled={!editing} onChange={(event) => setSubdistrict(event.target.value)} className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          อำเภอ
+          <input value={district} disabled={!editing} onChange={(event) => setDistrict(event.target.value)} className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          จังหวัด
+          <input value={province} disabled={!editing} onChange={(event) => setProvince(event.target.value)} className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          พิกัด
+          <input value={point ? formatCoord(point) : "ยังไม่มีรูป"} disabled className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
           ชื่อแปลง
           <input value={name} disabled={!editing} onChange={(event) => setName(event.target.value)} className={fieldClass} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          พื้นที่จากรูป
+          <input value={measured == null ? "ยังไม่มีรูป" : formatRai(measured)} disabled className={fieldClass} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           พื้นที่ (ไร่)

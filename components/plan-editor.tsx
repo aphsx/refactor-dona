@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Save, Trash2, Undo2, X } from "lucide-react";
 import { useMill } from "@/components/store";
 import { ConfirmAlert, DateField, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
-import { VARIETIES, formatKg, formatThaiDate, type Variety } from "@/lib/mill";
+import { VARIETIES, formatKg, formatRai, formatThaiDate, polygonAreaRai, type Variety } from "@/lib/mill";
 
 export type PlanRow = {
   id: string;
@@ -18,7 +18,8 @@ export type PlanRow = {
 };
 
 export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => void }) {
-  const { plantings, savePlot, savePlanting, removePlot, removePlanting } = useMill();
+  const { plantings, plots, savePlot, savePlanting, removePlot, removePlanting } = useMill();
+  const measured = polygonAreaRai(plots.find((item) => item.id === plot.id)?.polygon ?? []);
   const current = plantings.find((item) => item.id === plot.plantingId && !item.delivered) ?? null;
   const locked = plantings.some((item) => item.plotId === plot.id && item.delivered);
   const [editing, setEditing] = useState(false);
@@ -129,6 +130,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
             <label className="block text-[14px] font-bold leading-[1.4]">
               พื้นที่ (ไร่)
               <input value={area} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
+              {measured != null && <span className="mt-1 block text-[12px] font-normal">จากรูป {formatRai(measured)} แก้ตัวเลขนี้ได้ถ้าคำนวณไม่ตรง</span>}
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               พันธุ์

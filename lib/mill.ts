@@ -25,6 +25,9 @@ export type Plot = {
   name: string;
   areaRai: number;
   variety: Variety;
+  subdistrict: string;
+  district: string;
+  province: string;
   polygon: [number, number][];
 };
 
@@ -195,12 +198,12 @@ export const FARMERS: Farmer[] = [
 ];
 
 export const PLOTS: Plot[] = [
-  { id: "p1", farmerId: "f1", name: "นาหน้าบ้าน", areaRai: 12, variety: "หอมมะลิ", polygon: at(0, 0) },
-  { id: "p6", farmerId: "f1", name: "นาหลังบ้าน", areaRai: 6, variety: "เหนียว", polygon: at(2, 1) },
-  { id: "p2", farmerId: "f2", name: "นาโคก", areaRai: 10, variety: "หอมมะลิ", polygon: at(1, 0) },
-  { id: "p3", farmerId: "f3", name: "นาเขา", areaRai: 18, variety: "ขาว", polygon: at(2, 0) },
-  { id: "p4", farmerId: "f4", name: "นาปลายทุ่ง", areaRai: 8, variety: "เหนียว", polygon: at(0, 1) },
-  { id: "p5", farmerId: "f5", name: "นาสวน", areaRai: 14, variety: "หอมมะลิ", polygon: at(1, 1) },
+  { id: "p1", farmerId: "f1", name: "นาหน้าบ้าน", areaRai: 12, variety: "หอมมะลิ", subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(0, 0) },
+  { id: "p6", farmerId: "f1", name: "นาหลังบ้าน", areaRai: 6, variety: "เหนียว", subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(2, 1) },
+  { id: "p2", farmerId: "f2", name: "นาโคก", areaRai: 10, variety: "หอมมะลิ", subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(1, 0) },
+  { id: "p3", farmerId: "f3", name: "นาเขา", areaRai: 18, variety: "ขาว", subdistrict: "โคกน้อย", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(2, 0) },
+  { id: "p4", farmerId: "f4", name: "นาปลายทุ่ง", areaRai: 8, variety: "เหนียว", subdistrict: "ปลายทุ่ง", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(0, 1) },
+  { id: "p5", farmerId: "f5", name: "นาสวน", areaRai: 14, variety: "หอมมะลิ", subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(1, 1) },
 ];
 
 export const PLANTINGS: Planting[] = [
@@ -296,8 +299,49 @@ export const LOTS: Lot[] = [
 ];
 
 export function centroid(points: [number, number][]) {
-  const ring = points.slice(0, -1);
+  const ring = openRing(points);
   const lng = ring.reduce((sum, point) => sum + point[0], 0) / ring.length;
   const lat = ring.reduce((sum, point) => sum + point[1], 0) / ring.length;
   return { lng, lat };
+}
+
+export function openRing(points: [number, number][]) {
+  if (points.length < 2) return points;
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (first[0] === last[0] && first[1] === last[1]) return points.slice(0, -1);
+  return points;
+}
+
+export function isClosedRing(points: [number, number][]) {
+  return points.length >= 4 && openRing(points).length === points.length - 1;
+}
+
+export function closeRing(points: [number, number][]) {
+  const ring = openRing(points);
+  if (ring.length < 3) return null;
+  return [...ring, ring[0]] as [number, number][];
+}
+
+export function polygonAreaRai(points: [number, number][]) {
+  const ring = openRing(points);
+  if (ring.length < 3) return null;
+  const lat0 = (ring.reduce((sum, point) => sum + point[1], 0) / ring.length) * (Math.PI / 180);
+  const metersPerLng = (Math.PI / 180) * 6378137 * Math.cos(lat0);
+  const metersPerLat = (Math.PI / 180) * 6378137;
+  let sum = 0;
+  for (let index = 0; index < ring.length; index++) {
+    const [lng1, lat1] = ring[index];
+    const [lng2, lat2] = ring[(index + 1) % ring.length];
+    sum += lng1 * metersPerLng * lat2 * metersPerLat - lng2 * metersPerLng * lat1 * metersPerLat;
+  }
+  return Math.round((Math.abs(sum) / 2 / 1600) * 100) / 100;
+}
+
+export function formatRai(rai: number) {
+  return `${new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(rai)} ไร่`;
+}
+
+export function formatCoord(point: { lng: number; lat: number }) {
+  return `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
 }

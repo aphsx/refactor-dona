@@ -6,7 +6,7 @@ import Map, { Layer, Marker, NavigationControl, Source, type MapLayerMouseEvent,
 
 setWorkerUrl("/maplibre/maplibre-gl-worker.js");
 import { LocateFixed, Map as MapIcon, Satellite } from "lucide-react";
-import { centroid } from "@/lib/mill";
+import { centroid, isClosedRing, openRing } from "@/lib/mill";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 type MapPlot = {
@@ -34,10 +34,14 @@ export function FieldMap({
   plots,
   selectedId,
   onSelect,
+  draft = null,
+  onDraftClick,
 }: {
   plots: MapPlot[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  draft?: [number, number][] | null;
+  onDraftClick?: (lng: number, lat: number) => void;
 }) {
   const mapRef = useRef<MapRef>(null);
   const [mode, setMode] = useState<"satellite" | "street">("satellite");
@@ -49,6 +53,27 @@ export function FieldMap({
   const selected = drawn.find((plot) => plot.id === selectedId) ?? null;
   const selectedPoint = selected ? centroid(selected.polygon) : null;
   const frameKey = `${selectedId ?? ""}|${mode}|${drawn.map((plot) => `${plot.id}:${plot.muted ? 1 : 0}`).join(",")}`;
+
+  const draftRing = draft ?? [];
+  const draftClosed = isClosedRing(draftRing);
+  const draftOpen = openRing(draftRing);
+  const draftData = useMemo(() => {
+    const ring = draft ?? [];
+    const open = openRing(ring);
+    if (open.length === 0) return null;
+    if (isClosedRing(ring)) {
+      return {
+        type: "Feature" as const,
+        properties: {},
+        geometry: { type: "Polygon" as const, coordinates: [ring] },
+      };
+    }
+    return {
+      type: "Feature" as const,
+      properties: {},
+      geometry: { type: "LineString" as const, coordinates: open },
+    };
+  }, [draft]);
 
   const data = useMemo(
     () => ({
@@ -86,6 +111,10 @@ export function FieldMap({
   }, [frameKey]);
 
   function selectFromMap(event: MapLayerMouseEvent) {
+    if (onDraftClick) {
+      onDraftClick(event.lngLat.lng, event.lngLat.lat);
+      return;
+    }
     const id = event.features?.[0]?.properties?.id;
     onSelect(id ? String(id) : null);
   }
@@ -103,7 +132,7 @@ export function FieldMap({
         onLoad={fitFrame}
         interactiveLayerIds={["plot-fill"]}
         onClick={selectFromMap}
-        cursor="pointer"
+        cursor={onDraftClick ? "crosshair" : "pointer"}
       >
         <NavigationControl position="top-right" showCompass={false} />
         <Source id="plots" type="geojson" data={data}>
@@ -125,6 +154,21 @@ export function FieldMap({
             }}
           />
         </Source>
+        {draftData && (
+          <Source id="draft" type="geojson" data={draftData}>
+            {draftClosed ? (
+              <Layer id="draft-fill" type="fill" paint={{ "fill-color": "#F4C35D", "fill-opacity": 0.45 }} />
+            ) : (
+              <Layer id="draft-line" type="line" paint={{ "line-color": "#F4C35D", "line-width": 2 }} />
+            )}
+            {draftClosed && <Layer id="draft-outline" type="line" paint={{ "line-color": "#F4C35D", "line-width": 2 }} />}
+          </Source>
+        )}
+        {draftOpen.map((point, index) => (
+          <Marker key={`${point[0]}:${point[1]}:${index}`} longitude={point[0]} latitude={point[1]} anchor="center">
+            <span className="block h-3 w-3 rounded-full border-2 border-white bg-[#F4C35D]" />
+          </Marker>
+        ))}
         {selected && selectedPoint && (
           <Marker longitude={selectedPoint.lng} latitude={selectedPoint.lat} anchor="bottom">
             <div className="mb-1 rounded-[6px] bg-white px-2 py-1 text-[12px] font-bold text-ink shadow-[0_2px_8px_rgba(0,0,0,0.16)]">
