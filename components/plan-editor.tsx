@@ -17,23 +17,30 @@ export type PlanRow = {
   estKg: number;
 };
 
+function kgField(value: number) {
+  return value > 0 ? String(value) : "";
+}
+
+function RequiredMark() {
+  return <span className="text-danger"> *</span>;
+}
+
 export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => void }) {
   const { plantings, plots, savePlot, savePlanting, removePlot, removePlanting } = useMill();
   const measured = polygonAreaRai(plots.find((item) => item.id === plot.id)?.polygon ?? []);
   const current = plantings.find((item) => item.id === plot.plantingId && !item.delivered) ?? null;
   const locked = plantings.some((item) => item.plotId === plot.id && item.delivered);
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(plot.name);
+  const fresh = !plot.plantingId;
+  const [editing, setEditing] = useState(fresh);
   const [area, setArea] = useState(String(plot.areaRai));
   const [variety, setVariety] = useState<Variety | "">(plot.variety ?? "");
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? plot.plantedOn);
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? plot.harvestOn);
-  const [estKg, setEstKg] = useState(String(current?.estKg ?? plot.estKg));
+  const [estKg, setEstKg] = useState(kgField(fresh ? 0 : (current?.estKg ?? plot.estKg)));
   const [notice, setNotice] = useState<null | { tone: "confirm"; message: string; accept: () => void } | { tone: "success" | "error"; message: string; done?: () => void }>(null);
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
-  const savedKg = String(current?.estKg ?? plot.estKg);
+  const savedKg = kgField(plot.plantingId ? (current?.estKg ?? plot.estKg) : 0);
   const dirty =
-    name !== plot.name ||
     area !== String(plot.areaRai) ||
     variety !== (plot.variety ?? "") ||
     plantedOn !== (current?.plantedOn ?? plot.plantedOn) ||
@@ -41,17 +48,15 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
     estKg !== savedKg;
 
   useEffect(() => {
-    setEditing(false);
-    setName(plot.name);
+    setEditing(!plot.plantingId);
     setArea(String(plot.areaRai));
     setVariety(plot.variety ?? "");
     setPlantedOn(current?.plantedOn ?? plot.plantedOn);
     setHarvestOn(current?.harvestOn ?? plot.harvestOn);
-    setEstKg(String(current?.estKg ?? plot.estKg));
-  }, [plot.id, plot.name, plot.areaRai, plot.variety, plot.plantedOn, plot.harvestOn, plot.estKg, current?.plantedOn, current?.harvestOn, current?.estKg]);
+    setEstKg(kgField(plot.plantingId ? (current?.estKg ?? plot.estKg) : 0));
+  }, [plot.id, plot.plantingId, plot.areaRai, plot.variety, plot.plantedOn, plot.harvestOn, plot.estKg, current?.plantedOn, current?.harvestOn, current?.estKg]);
 
   function undo() {
-    setName(plot.name);
     setArea(String(plot.areaRai));
     setVariety(plot.variety ?? "");
     setPlantedOn(current?.plantedOn ?? plot.plantedOn);
@@ -81,11 +86,8 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
           event.preventDefault();
           if (!editing) return;
           const areaRai = Number(area.trim());
-          const nextKg = Number(estKg.trim());
-          if (!name.trim()) {
-            setNotice({ tone: "error", message: "กรอกชื่อแปลง" });
-            return;
-          }
+          const trimmedKg = estKg.trim();
+          const nextKg = trimmedKg === "" ? 0 : Number(trimmedKg);
           if (!variety) {
             setNotice({ tone: "error", message: "เลือกพันธุ์" });
             return;
@@ -102,15 +104,15 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
             setNotice({ tone: "error", message: "กำหนดเก็บต้องไม่ก่อนวันปลูก" });
             return;
           }
-          if (!Number.isInteger(nextKg) || nextKg <= 0) {
+          if (trimmedKg !== "" && (!Number.isInteger(nextKg) || nextKg <= 0)) {
             setNotice({ tone: "error", message: "ที่คาดต้องเป็นจำนวนเต็มมากกว่า 0" });
             return;
           }
           setNotice({
             tone: "confirm",
-            message: `ยืนยันบันทึกแผน ${name.trim()}`,
+            message: `ยืนยันบันทึกแผน ${plot.name}`,
             accept: () => {
-              const plotError = savePlot(plot.id, { name, areaRai });
+              const plotError = savePlot(plot.id, { name: plot.name, areaRai });
               if (plotError) {
                 setNotice({ tone: "error", message: plotError });
                 return;
@@ -125,15 +127,17 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <label className="block text-[14px] font-bold leading-[1.4]">
             ชื่อแปลง
-            <input value={name} disabled={!editing} onChange={(event) => setName(event.target.value)} className={fieldClass} />
+            <input value={plot.name} disabled className={fieldClass} />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             พื้นที่ (ไร่)
+            <RequiredMark />
             <input value={area} disabled={!editing} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
             {measured != null && <span className="mt-1 block text-[12px] font-normal">จากรูป {formatRai(measured)} แก้ตัวเลขนี้ได้ถ้าคำนวณไม่ตรง</span>}
           </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               พันธุ์
+              <RequiredMark />
               {editing ? (
                 <Select
                   label="พันธุ์"
@@ -148,6 +152,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
             </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             วันปลูก
+            <RequiredMark />
             <DateField
               label="วันปลูก"
               className="mt-1"
@@ -162,6 +167,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             กำหนดเก็บ
+            <RequiredMark />
             <DateField label="กำหนดเก็บ" className="mt-1" value={harvestOn} disabled={!editing} min={plantedOn} onChange={setHarvestOn} />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">

@@ -420,7 +420,7 @@ function validSchedule(name: string, input: { plantedOn: string; harvestOn: stri
   if (!isoDate(input.plantedOn)) return `วันปลูกของ ${name} ไม่ถูกต้อง`;
   if (!isoDate(input.harvestOn)) return `กำหนดเก็บของ ${name} ไม่ถูกต้อง`;
   if (input.harvestOn < input.plantedOn) return `กำหนดเก็บของ ${name} ต้องไม่ก่อนวันปลูก`;
-  if (!Number.isInteger(input.estKg) || input.estKg <= 0) return `ที่คาดของ ${name} ต้องมากกว่า 0`;
+  if (input.estKg !== 0 && (!Number.isInteger(input.estKg) || input.estKg <= 0)) return `ที่คาดของ ${name} ต้องมากกว่า 0`;
   return null;
 }
 

@@ -221,7 +221,7 @@ export function GroupManageScreen() {
 }
 
 export function MemberManageScreen() {
-  const { groups, farmers, plots, plantings, assignFarmer } = useMill();
+  const { groups, farmers, assignFarmer } = useMill();
   const [tab, setTab] = useState<"listing" | "detail" | "plots" | "plan">("listing");
   const [draftName, setDraftName] = useState("");
   const [draftGroup, setDraftGroup] = useState("");
@@ -246,7 +246,6 @@ export function MemberManageScreen() {
     if (key === "name") return farmerName(farmer);
     if (key === "tel") return farmer.tel;
     if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
-    if (key === "variety") return farmerVarieties(plots, plantings, farmer.id);
     return farmer.deliveredKg;
   });
   const page = usePagination(ordered, `${name}:${groupId}`);
@@ -350,7 +349,6 @@ export function MemberManageScreen() {
                   <SortableTh label="คู่ค้า" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="รับเข้าแล้ว" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
@@ -358,7 +356,7 @@ export function MemberManageScreen() {
               <tbody>
                 {page.rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-6 text-ink/60">
+                    <td colSpan={5} className="px-5 py-6 text-ink/60">
                       ไม่พบสมาชิก
                     </td>
                   </tr>
@@ -370,7 +368,6 @@ export function MemberManageScreen() {
                       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                       <td className="px-5 py-3">{farmer.tel}</td>
                       <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}</td>
-                      <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
                       <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                       <td className="px-5 py-3 text-right">
                         {leads ? (
@@ -1108,19 +1105,27 @@ export function MemberPlan({
     return row.estKg;
   });
   const [plotId, setPlotId] = useState<string | null>(initialPlotId);
+  const [adding, setAdding] = useState(false);
   const listed = ordered.find((plot) => plot.id === plotId) ?? null;
   const draft = listed || !plotId ? null : owned.find((plot) => plot.id === plotId) ?? null;
   const selected = listed ?? (draft ? { ...draft, plantingId: "", variety: null, plantedOn: "", harvestOn: "", estKg: 0, status: "", statusClass: "" } : null);
+  const available = owned.filter((plot) => !openPlanting(plantings, plot.id));
 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
         <div className="text-[16px] font-bold">แผนการปลูก · {farmerName(farmer)}</div>
-        {onClose && (
-          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
-            ปิด
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+            <Glyph icon={Plus} />
+            เพิ่มแผน
+          </SecondaryButton>
+          {onClose && (
+            <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+              ปิด
+            </button>
+          )}
+        </div>
       </div>
       <TableScroll>
         <table className={tableClass}>
@@ -1151,14 +1156,83 @@ export function MemberPlan({
                   <td className={`px-5 py-3 font-bold ${plot.statusClass}`}>{plot.status}</td>
                   <td className="px-5 py-3">{plot.plantedOn ? formatThaiDate(plot.plantedOn) : "—"}</td>
                   <td className="px-5 py-3">{plot.harvestOn ? formatThaiDate(plot.harvestOn) : "—"}</td>
-                  <td className="px-5 py-3">{plot.plantingId ? formatKg(plot.estKg) : "—"}</td>
+                  <td className="px-5 py-3">{plot.estKg > 0 ? formatKg(plot.estKg) : "—"}</td>
                 </tr>
             ))}
           </tbody>
         </table>
       </TableScroll>
       {selected && <PlanEditor key={selected.plantingId || selected.id} plot={selected} onClose={() => setPlotId(null)} />}
+      {adding && (
+        <ChoosePlanPlot
+          plots={available}
+          empty={owned.length === 0 ? "ยังไม่มีแปลง" : "ทุกแปลงมีแผนอยู่แล้ว"}
+          onClose={() => setAdding(false)}
+          onChoose={(id) => {
+            setPlotId(id);
+            setAdding(false);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function ChoosePlanPlot({
+  plots,
+  empty,
+  onClose,
+  onChoose,
+}: {
+  plots: Plot[];
+  empty: string;
+  onClose: () => void;
+  onChoose: (plotId: string) => void;
+}) {
+  const [plotId, setPlotId] = useState("");
+  const [error, setError] = useState("");
+  return (
+    <Dialog title="เลือกแปลง" onClose={onClose}>
+      {plots.length === 0 ? (
+        <p className="text-[14px] text-ink/60">{empty}</p>
+      ) : (
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!plotId) {
+              setError("เลือกแปลง");
+              return;
+            }
+            onChoose(plotId);
+          }}
+        >
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            แปลง
+            <RequiredMark />
+            <SearchSelect
+              label="แปลง"
+              className="mt-1"
+              placeholder="เลือกแปลง"
+              value={plotId}
+              onChange={setPlotId}
+              options={plots.map((plot) => ({ value: plot.id, label: `${plot.name} · ${plot.areaRai} ไร่` }))}
+            />
+          </label>
+          {error && <p className="text-[14px] text-danger">{error}</p>}
+          <div className="flex justify-end gap-3">
+            <SecondaryButton onClick={onClose}>
+              <Glyph icon={X} />
+              ยกเลิก
+            </SecondaryButton>
+            <PrimaryButton type="submit">
+              <Glyph icon={Plus} />
+              ทำแผน
+            </PrimaryButton>
+          </div>
+        </form>
+      )}
+    </Dialog>
   );
 }
 
