@@ -49,12 +49,12 @@ type Store = MillData & {
     farmerId: string,
     input: { name: string; areaRai: number; variety: Variety; plantedOn: string; harvestOn: string; estKg: number },
   ) => string | null;
-  savePlot: (plotId: string, input: { name: string; areaRai: number; variety: Variety; subdistrict?: string; district?: string; province?: string }) => string | null;
+  savePlot: (plotId: string, input: { name: string; areaRai: number; subdistrict?: string; district?: string; province?: string }) => string | null;
   saveBoundary: (plotId: string, polygon: [number, number][], areaRai: number) => string | null;
   removePlot: (plotId: string) => string | null;
   savePlanting: (
     plotId: string,
-    input: { plantingId: string | null; plantedOn: string; harvestOn: string; estKg: number },
+    input: { plantingId: string | null; variety: Variety; plantedOn: string; harvestOn: string; estKg: number },
   ) => string | null;
   removePlanting: (plantingId: string) => string | null;
 };
@@ -267,24 +267,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const name = input.name.trim();
         if (!name) return "กรอกชื่อแปลง";
         if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";
-        if (!PRICES[input.variety]) return "เลือกพันธุ์";
-        const schedule = validSchedule(name, input);
-        if (schedule) return schedule;
         const plotId = `p-${draft.plots.length + 1}-${name.length}`;
         draft.plots.push({
           id: plotId,
           farmerId,
           name,
           areaRai: input.areaRai,
-          variety: input.variety,
           subdistrict: "",
           district: "",
           province: "",
           polygon: [],
         });
+        if (!input.plantedOn && !input.harvestOn) return null;
+        if (!PRICES[input.variety]) return "เลือกพันธุ์";
+        const schedule = validSchedule(name, input);
+        if (schedule) return schedule;
         draft.plantings.push({
           id: `r-${draft.plantings.length + 1}`,
           plotId,
+          variety: input.variety,
           plantedOn: input.plantedOn,
           harvestOn: input.harvestOn,
           estKg: input.estKg,
@@ -300,10 +301,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const name = input.name.trim();
         if (!name) return "กรอกชื่อแปลง";
         if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";
-        if (!PRICES[input.variety]) return "เลือกพันธุ์";
         plot.name = name;
         plot.areaRai = input.areaRai;
-        plot.variety = input.variety;
         if (input.subdistrict != null) plot.subdistrict = input.subdistrict.trim();
         if (input.district != null) plot.district = input.district.trim();
         if (input.province != null) plot.province = input.province.trim();
@@ -339,11 +338,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!plot) return "ไม่พบแปลง";
         const schedule = validSchedule(plot.name, input);
         if (schedule) return schedule;
+        if (!PRICES[input.variety]) return "เลือกพันธุ์";
         if (input.plantingId == null) {
           if (draft.plantings.some((item) => item.plotId === plotId && !item.delivered)) return "แปลงนี้มีแผนที่ยังไม่รับ";
           draft.plantings.push({
             id: `r-${draft.plantings.length + 1}`,
             plotId,
+            variety: input.variety,
             plantedOn: input.plantedOn,
             harvestOn: input.harvestOn,
             estKg: input.estKg,
@@ -354,6 +355,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const planting = draft.plantings.find((item) => item.id === input.plantingId);
         if (!planting || planting.plotId !== plotId) return "ไม่พบแผน";
         if (planting.delivered) return "รอบนี้รับเข้าแล้ว แก้ไม่ได้";
+        planting.variety = input.variety;
         planting.plantedOn = input.plantedOn;
         planting.harvestOn = input.harvestOn;
         planting.estKg = input.estKg;

@@ -7,7 +7,7 @@ import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPl
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { VARIETIES, centroid, daysUntil, farmerName, farmerVarieties, formatBaht, formatCoord, formatKg, formatRai, formatThaiDate, openPlanting, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { VARIETIES, centroid, currentPlanting, daysUntil, farmerName, farmerVarieties, formatBaht, formatCoord, formatKg, formatRai, formatThaiDate, openPlanting, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void }
@@ -217,8 +217,8 @@ export function GroupManageScreen() {
 }
 
 export function MemberManageScreen() {
-  const { groups, farmers, plots, assignFarmer } = useMill();
-  const [tab, setTab] = useState<"listing" | "detail" | "plan">("listing");
+  const { groups, farmers, plots, plantings, assignFarmer } = useMill();
+  const [tab, setTab] = useState<"listing" | "detail" | "plots" | "plan">("listing");
   const [draftName, setDraftName] = useState("");
   const [draftGroup, setDraftGroup] = useState("");
   const [name, setName] = useState("");
@@ -242,7 +242,7 @@ export function MemberManageScreen() {
     if (key === "name") return farmerName(farmer);
     if (key === "tel") return farmer.tel;
     if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
-    if (key === "variety") return farmerVarieties(plots, farmer.id);
+    if (key === "variety") return farmerVarieties(plots, plantings, farmer.id);
     return farmer.deliveredKg;
   });
   const page = usePagination(ordered, `${name}:${groupId}`);
@@ -272,6 +272,7 @@ export function MemberManageScreen() {
         {detail && (
           <>
             <StatusTab label="รายละเอียดสมาชิก" active={tab === "detail"} onClick={() => setTab("detail")} />
+            <StatusTab label="แปลงของสมาชิก" active={tab === "plots"} onClick={() => setTab("plots")} />
             <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
           </>
         )}
@@ -365,7 +366,7 @@ export function MemberManageScreen() {
                       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                       <td className="px-5 py-3">{farmer.tel}</td>
                       <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}</td>
-                      <td className="px-5 py-3">{farmerVarieties(plots, farmer.id)}</td>
+                      <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
                       <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                       <td className="px-5 py-3 text-right">
                         {leads ? (
@@ -402,7 +403,8 @@ export function MemberManageScreen() {
             />
           </>
         )}
-        {tab === "detail" && detail && <MemberDetail farmer={detail} onClose={closeDetail} onAddRound={(plotId) => openPlan(plotId)} />}
+        {tab === "detail" && detail && <MemberDetail farmer={detail} onClose={closeDetail} />}
+        {tab === "plots" && detail && <MemberPlots farmer={detail} onAddRound={(plotId) => openPlan(plotId)} onClose={closeDetail} />}
         {tab === "plan" && detail && <MemberPlan key={`${detail.id}:${planPlotId ?? "list"}`} farmer={detail} initialPlotId={planPlotId} onClose={closeDetail} />}
       </div>
       {moving && assignGroupId && <MoveFarmer groupId={assignGroupId} onClose={() => setMoving(false)} onAssign={assignFarmer} />}
@@ -487,7 +489,7 @@ function GroupDirectory() {
 }
 
 function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => void }) {
-  const { farmers, plots, updateGroup, assignFarmer } = useMill();
+  const { farmers, plots, plantings, updateGroup, assignFarmer } = useMill();
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(group.name);
   const [draftLeader, setDraftLeader] = useState(group.leaderId);
@@ -498,7 +500,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
   const ordered = orderBy(members, listingSort.sort, (farmer, key) => {
     if (key === "name") return farmerName(farmer);
     if (key === "tel") return farmer.tel;
-    return farmerVarieties(plots, farmer.id);
+    return farmerVarieties(plots, plantings, farmer.id);
   });
   const page = usePagination(ordered, group.id);
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
@@ -609,7 +611,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
               <tr key={farmer.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                 <td className="px-5 py-3">{farmer.tel}</td>
-                <td className="px-5 py-3">{farmerVarieties(plots, farmer.id)}</td>
+                <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
                 <td className="px-5 py-3 text-right">
                   {leadsGroup ? (
                     <span className="text-[12px] font-bold text-ink/50">หัวหน้ากลุ่ม</span>
@@ -649,7 +651,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
   );
 }
 
-function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose: () => void; onAddRound: (plotId: string) => void }) {
+function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void }) {
   const { groups, farmers, plots, plantings, updateFarmer } = useMill();
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState(farmer.firstName);
@@ -781,7 +783,6 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
           </div>
         </form>
       <MemberStanding farmer={farmer} plots={fields} plantings={plantings} leads={leads} />
-      <PlotTable plots={fields} plantings={plantings} farmerId={farmer.id} onAddRound={onAddRound} />
       <ReceivedRounds plots={fields} plantings={plantings} />
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
@@ -820,6 +821,57 @@ function MemberStanding({ farmer, plots, plantings, leads }: { farmer: Farmer; p
   );
 }
 
+function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRound: (plotId: string) => void; onClose: () => void }) {
+  const { plots, plantings, addPlot, removePlot } = useMill();
+  const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const fields = plots.filter((plot) => plot.farmerId === farmer.id);
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+        <div className="text-[16px] font-bold">แปลงของสมาชิก · {farmerName(farmer)}</div>
+        <div className="flex items-center gap-3">
+          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+            <Glyph icon={Plus} />
+            เพิ่มแปลง
+          </SecondaryButton>
+          <Link href={`/map?farmer=${farmer.id}`} className="text-[14px] font-bold underline">
+            ดูบนแผนที่
+          </Link>
+          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+            ปิด
+          </button>
+        </div>
+      </div>
+      <PlotTable
+        plots={fields}
+        plantings={plantings}
+        farmerId={farmer.id}
+        onAddRound={onAddRound}
+        onRemove={(plot) =>
+          setNotice({
+            tone: "confirm",
+            message: `ยืนยันลบแปลง ${plot.name}`,
+            accept: () => setNotice(reported(removePlot(plot.id), "ลบแปลงแล้ว")),
+          })
+        }
+      />
+      {adding && (
+        <PlotDialog
+          title="เพิ่มแปลง"
+          name=""
+          area=""
+          schedule={false}
+          onClose={() => setAdding(false)}
+          onSave={(name, areaRai) => addPlot(farmer.id, { name, areaRai, variety: "หอมมะลิ", plantedOn: "", harvestOn: "", estKg: 0 })}
+        />
+      )}
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+    </>
+  );
+}
+
 function plotHarvest(planting: Planting | null) {
   if (!planting) return { label: "ยังไม่มีแผน", className: "text-ink/60" };
   if (planting.delivered) return { label: "รับแล้ว", className: "text-ok" };
@@ -834,32 +886,28 @@ function PlotTable({
   plantings,
   farmerId,
   onAddRound,
+  onRemove,
 }: {
   plots: Plot[];
   plantings: Planting[];
   farmerId: string;
   onAddRound: (plotId: string) => void;
+  onRemove: (plot: Plot) => void;
 }) {
   const listingSort = useTableSort(farmerId);
   const ordered = orderBy(plots, listingSort.sort, (plot, key) => {
-    const round = openPlanting(plantings, plot.id);
+    const round = currentPlanting(plantings, plot.id);
     if (key === "name") return plot.name;
     if (key === "area") return plot.areaRai;
-    if (key === "variety") return plot.variety;
+    if (key === "place") return [plot.subdistrict, plot.district, plot.province].filter(Boolean).join(" ");
+    if (key === "variety") return round?.variety ?? "";
     if (key === "planted") return round?.plantedOn ?? "";
     if (key === "harvest") return round?.harvestOn ?? "";
     if (key === "kg") return round?.estKg ?? -1;
     return round ? plantingMark(round).label : "ยังไม่มีแผน";
   });
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
-        <div className="text-[16px] font-bold">แปลงของสมาชิก</div>
-        <Link href={`/map?farmer=${farmerId}`} className="text-[14px] font-bold underline">
-          ดูบนแผนที่
-        </Link>
-      </div>
-      <TableScroll>
+    <TableScroll>
 <table className={tableClass}>
         <thead className="bg-table">
           <tr>
@@ -882,24 +930,30 @@ function PlotTable({
             </tr>
           )}
           {ordered.map((plot, index) => {
-            const round = openPlanting(plantings, plot.id);
+            const round = currentPlanting(plantings, plot.id);
             const harvest = plotHarvest(round);
             return (
               <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-                <td className="px-5 py-3">{plot.variety}</td>
+                <td className="px-5 py-3">{round?.variety ?? "—"}</td>
                 <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
                 <td className="px-5 py-3">{round ? formatThaiDate(round.harvestOn) : "—"}</td>
                 <td className="px-5 py-3">{round ? formatKg(round.estKg) : "—"}</td>
                 <td className={`px-5 py-3 font-bold ${harvest.className}`}>{harvest.label}</td>
                 <td className="px-5 py-3 text-right">
-                  {!round && (
-                    <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
-                      <Glyph icon={Plus} />
-                      เพิ่มรอบ
+                  <div className="flex justify-end gap-2">
+                    {!round && (
+                      <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
+                        <Glyph icon={Plus} />
+                        เพิ่มรอบ
+                      </SecondaryButton>
+                    )}
+                    <SecondaryButton className="h-9" onClick={() => onRemove(plot)}>
+                      <Glyph icon={Trash2} />
+                      ลบแปลง
                     </SecondaryButton>
-                  )}
+                  </div>
                 </td>
               </tr>
             );
@@ -907,7 +961,6 @@ function PlotTable({
         </tbody>
       </table>
 </TableScroll>
-    </div>
   );
 }
 
@@ -976,49 +1029,47 @@ export function MemberPlan({
   initialPlotId?: string | null;
   onClose?: () => void;
 }) {
-  const { plots, plantings, addPlot } = useMill();
+  const { plots, plantings } = useMill();
   const owned = plots.filter((plot) => plot.farmerId === farmer.id);
-  const rounds = owned.map((plot) => {
+  const rounds = owned.flatMap((plot) => {
     const round = openPlanting(plantings, plot.id);
-    return {
+    if (!round) return [];
+    const mark = plantingMark(round);
+    return [{
       ...plot,
-      plantingId: round?.id ?? "",
-      plantedOn: round?.plantedOn ?? "",
-      harvestOn: round?.harvestOn ?? "",
-      estKg: round?.estKg ?? 0,
-      status: round ? plantingMark(round).label : "ยังไม่มีแผน",
-      statusClass: round ? plantingMark(round).className : "text-ink/60",
-    };
+      plantingId: round.id,
+      variety: round.variety,
+      plantedOn: round.plantedOn,
+      harvestOn: round.harvestOn,
+      estKg: round.estKg,
+      status: mark.label,
+      statusClass: mark.className,
+    }];
   });
   const listingSort = useTableSort(farmer.id);
   const ordered = orderBy(rounds, listingSort.sort, (row, key) => {
     if (key === "plot") return row.name;
     if (key === "area") return row.areaRai;
-    if (key === "variety") return row.variety;
+    if (key === "variety") return row.variety ?? "";
     if (key === "status") return row.status;
     if (key === "planted") return row.plantedOn;
     if (key === "harvest") return row.harvestOn;
     return row.estKg;
   });
   const [plotId, setPlotId] = useState<string | null>(initialPlotId);
-  const [adding, setAdding] = useState(false);
-  const selected = ordered.find((plot) => plot.id === plotId) ?? null;
+  const listed = ordered.find((plot) => plot.id === plotId) ?? null;
+  const draft = listed || !plotId ? null : owned.find((plot) => plot.id === plotId) ?? null;
+  const selected = listed ?? (draft ? { ...draft, plantingId: "", variety: null, plantedOn: "", harvestOn: "", estKg: 0, status: "", statusClass: "" } : null);
 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
         <div className="text-[16px] font-bold">แผนการปลูก · {farmerName(farmer)}</div>
-        <div className="flex items-center gap-3">
-          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
-            <Glyph icon={Plus} />
-            เพิ่มแปลง
-          </SecondaryButton>
-          {onClose && (
-            <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
-              ปิด
-            </button>
-          )}
-        </div>
+        {onClose && (
+          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+            ปิด
+          </button>
+        )}
       </div>
       <TableScroll>
         <table className={tableClass}>
@@ -1037,7 +1088,7 @@ export function MemberPlan({
             {ordered.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-5 py-6 text-ink/60">
-                  ยังไม่มีแปลง
+                  ยังไม่มีแผน
                 </td>
               </tr>
             )}
@@ -1045,7 +1096,7 @@ export function MemberPlan({
                 <tr key={plot.id} onClick={(event) => openRow(event, () => setPlotId(plot.id))} className={rowTone(index, plot.id === plotId)}>
                   <td className="px-5 py-3 font-bold">{plot.name}</td>
                   <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-                  <td className="px-5 py-3">{plot.variety}</td>
+                  <td className="px-5 py-3">{plot.variety ?? "—"}</td>
                   <td className={`px-5 py-3 font-bold ${plot.statusClass}`}>{plot.status}</td>
                   <td className="px-5 py-3">{plot.plantedOn ? formatThaiDate(plot.plantedOn) : "—"}</td>
                   <td className="px-5 py-3">{plot.harvestOn ? formatThaiDate(plot.harvestOn) : "—"}</td>
@@ -1056,15 +1107,6 @@ export function MemberPlan({
         </table>
       </TableScroll>
       {selected && <PlanEditor key={selected.plantingId || selected.id} plot={selected} onClose={() => setPlotId(null)} />}
-      {adding && (
-        <PlotDialog
-          title="เพิ่มแปลง"
-          name=""
-          area=""
-          onClose={() => setAdding(false)}
-          onSave={(name, areaRai, variety, schedule) => addPlot(farmer.id, { name, areaRai, variety, ...schedule })}
-        />
-      )}
     </>
   );
 }
@@ -1080,7 +1122,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const [subdistrict, setSubdistrict] = useState(plot.subdistrict);
   const [district, setDistrict] = useState(plot.district);
   const [province, setProvince] = useState(plot.province);
-  const [variety, setVariety] = useState<Variety>(plot.variety);
+  const [variety, setVariety] = useState<Variety>(current?.variety ?? "หอมมะลิ");
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? "");
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? "");
   const [estKg, setEstKg] = useState(current ? String(current.estKg) : "");
@@ -1098,7 +1140,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     subdistrict !== plot.subdistrict ||
     district !== plot.district ||
     province !== plot.province ||
-    variety !== plot.variety ||
+    variety !== (current?.variety ?? "หอมมะลิ") ||
     plantedOn !== (current?.plantedOn ?? "") ||
     harvestOn !== (current?.harvestOn ?? "") ||
     estKg !== savedKg;
@@ -1110,11 +1152,11 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setSubdistrict(plot.subdistrict);
     setDistrict(plot.district);
     setProvince(plot.province);
-    setVariety(plot.variety);
+    setVariety(current?.variety ?? "หอมมะลิ");
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
-  }, [plot.id, plot.name, plot.areaRai, plot.subdistrict, plot.district, plot.province, plot.variety, current?.id, current?.plantedOn, current?.harvestOn, current?.estKg]);
+  }, [plot.id, plot.name, plot.areaRai, plot.subdistrict, plot.district, plot.province, current?.id, current?.variety, current?.plantedOn, current?.harvestOn, current?.estKg]);
 
   function undo() {
     setName(plot.name);
@@ -1122,7 +1164,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setSubdistrict(plot.subdistrict);
     setDistrict(plot.district);
     setProvince(plot.province);
-    setVariety(plot.variety);
+    setVariety(current?.variety ?? "หอมมะลิ");
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
@@ -1166,14 +1208,14 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
             tone: "confirm",
             message: `ยืนยันบันทึก ${name.trim()}`,
             accept: () => {
-              const plotError = savePlot(plot.id, { name, areaRai, variety, subdistrict, district, province });
+              const plotError = savePlot(plot.id, { name, areaRai, subdistrict, district, province });
               if (plotError) {
                 setNotice({ tone: "error", message: plotError });
                 return;
               }
               setNotice(
                 reported(
-                  savePlanting(plot.id, { plantingId: current?.id ?? null, plantedOn, harvestOn, estKg: nextKg }),
+                  savePlanting(plot.id, { plantingId: current?.id ?? null, variety, plantedOn, harvestOn, estKg: nextKg }),
                   "บันทึกแล้ว",
                   () => setEditing(false),
                 ),
@@ -1382,16 +1424,18 @@ export function PlotDialog({
             พื้นที่ (ไร่)
             <input value={areaRai} inputMode="decimal" onChange={(event) => setAreaRai(event.target.value)} className={`${inputClass} mt-1`} />
           </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            พันธุ์
-            <Select
-              label="พันธุ์"
-              className="mt-1"
-              value={variety}
-              onChange={(next) => setVariety(next as Variety)}
-              options={VARIETIES.map((item) => ({ value: item, label: item }))}
-            />
-          </label>
+          {schedule && (
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              พันธุ์
+              <Select
+                label="พันธุ์"
+                className="mt-1"
+                value={variety}
+                onChange={(next) => setVariety(next as Variety)}
+                options={VARIETIES.map((item) => ({ value: item, label: item }))}
+              />
+            </label>
+          )}
           {schedule && (
             <>
               <label className="block text-[14px] font-bold leading-[1.4]">

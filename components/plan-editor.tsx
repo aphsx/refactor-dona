@@ -11,7 +11,7 @@ export type PlanRow = {
   plantingId: string;
   name: string;
   areaRai: number;
-  variety: Variety;
+  variety: Variety | null;
   plantedOn: string;
   harvestOn: string;
   estKg: number;
@@ -25,7 +25,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
-  const [variety, setVariety] = useState<Variety>(plot.variety);
+  const [variety, setVariety] = useState<Variety | "">(plot.variety ?? "");
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? plot.plantedOn);
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? plot.harvestOn);
   const [estKg, setEstKg] = useState(String(current?.estKg ?? plot.estKg));
@@ -35,7 +35,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
   const dirty =
     name !== plot.name ||
     area !== String(plot.areaRai) ||
-    variety !== plot.variety ||
+    variety !== (plot.variety ?? "") ||
     plantedOn !== (current?.plantedOn ?? plot.plantedOn) ||
     harvestOn !== (current?.harvestOn ?? plot.harvestOn) ||
     estKg !== savedKg;
@@ -44,7 +44,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
     setEditing(false);
     setName(plot.name);
     setArea(String(plot.areaRai));
-    setVariety(plot.variety);
+    setVariety(plot.variety ?? "");
     setPlantedOn(current?.plantedOn ?? plot.plantedOn);
     setHarvestOn(current?.harvestOn ?? plot.harvestOn);
     setEstKg(String(current?.estKg ?? plot.estKg));
@@ -53,7 +53,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
   function undo() {
     setName(plot.name);
     setArea(String(plot.areaRai));
-    setVariety(plot.variety);
+    setVariety(plot.variety ?? "");
     setPlantedOn(current?.plantedOn ?? plot.plantedOn);
     setHarvestOn(current?.harvestOn ?? plot.harvestOn);
     setEstKg(savedKg);
@@ -86,6 +86,10 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
             setNotice({ tone: "error", message: "กรอกชื่อแปลง" });
             return;
           }
+          if (!variety) {
+            setNotice({ tone: "error", message: "เลือกพันธุ์" });
+            return;
+          }
           if (!Number.isFinite(areaRai) || areaRai <= 0) {
             setNotice({ tone: "error", message: "พื้นที่ต้องมากกว่า 0" });
             return;
@@ -106,12 +110,12 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
             tone: "confirm",
             message: `ยืนยันบันทึกแผน ${name.trim()}`,
             accept: () => {
-              const plotError = savePlot(plot.id, { name, areaRai, variety });
+              const plotError = savePlot(plot.id, { name, areaRai });
               if (plotError) {
                 setNotice({ tone: "error", message: plotError });
                 return;
               }
-              finish(savePlanting(plot.id, { plantingId: current?.id ?? (plot.plantingId || null), plantedOn, harvestOn, estKg: nextKg }), "บันทึกแผนแล้ว", () =>
+              finish(savePlanting(plot.id, { plantingId: current?.id ?? (plot.plantingId || null), variety, plantedOn, harvestOn, estKg: nextKg }), "บันทึกแผนแล้ว", () =>
                 setEditing(false),
               );
             },
@@ -128,17 +132,20 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
             <input value={area} disabled={!editing} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
             {measured != null && <span className="mt-1 block text-[12px] font-normal">จากรูป {formatRai(measured)} แก้ตัวเลขนี้ได้ถ้าคำนวณไม่ตรง</span>}
           </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            พันธุ์
-            <Select
-              label="พันธุ์"
-              className="mt-1"
-              value={variety}
-              disabled={!editing}
-              onChange={(next) => setVariety(next as Variety)}
-              options={VARIETIES.map((item) => ({ value: item, label: item }))}
-            />
-          </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              พันธุ์
+              {editing ? (
+                <Select
+                  label="พันธุ์"
+                  className="mt-1"
+                  value={variety}
+                  onChange={(next) => setVariety(next as Variety)}
+                  options={VARIETIES.map((item) => ({ value: item, label: item }))}
+                />
+              ) : (
+                <input value={variety || "—"} disabled className={fieldClass} />
+              )}
+            </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             วันปลูก
             <DateField

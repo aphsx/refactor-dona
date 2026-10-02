@@ -56,6 +56,7 @@ type Row = {
   plot: Plot;
   farmer: Farmer;
   planting: Planting | null;
+  variety: Variety | null;
   status: StatusKey;
   days: number | null;
 };
@@ -105,7 +106,7 @@ export function MapScreen() {
       const planting = currentPlanting(plantings, plot.id);
       const days = planting && !planting.delivered ? daysUntil(planting.harvestOn) : null;
       const kind: StatusKey = !planting ? "none" : planting.delivered ? "delivered" : days != null && days <= 7 ? "due" : "upcoming";
-      return [{ plot, farmer, planting, status: kind, days }];
+      return [{ plot, farmer, planting, variety: planting?.variety ?? null, status: kind, days }];
     });
   }, [plots, plantings, farmers]);
 
@@ -382,7 +383,7 @@ export function MapScreen() {
                       <p className="mt-1 text-[14px]">
                         {selected.plot.areaRai} ไร่
                         <span className="text-ink/40"> · </span>
-                        {selected.plot.variety}
+                        {selected.variety ?? "ยังไม่ปลูก"}
                         {selected.planting && (
                           <>
                             <span className="text-ink/40"> · </span>
@@ -482,13 +483,13 @@ const mapButton = "inline-flex h-9 items-center rounded-[6px] border-2 border-br
 
 function bucketKey(lens: Lens, row: Row) {
   if (lens === "farmer") return row.farmer.id;
-  if (lens === "variety") return row.plot.variety;
+  if (lens === "variety") return row.variety ?? "none";
   return row.status;
 }
 
 function bucketColor(lens: Lens, row: Row) {
   if (lens === "farmer") return farmerColor(row.farmer.id);
-  if (lens === "variety") return VARIETY_COLOR[row.plot.variety];
+  if (lens === "variety") return row.variety ? VARIETY_COLOR[row.variety] : STATUS.none.color;
   return STATUS[row.status].color;
 }
 
@@ -502,11 +503,13 @@ function groupRows(lens: Lens, rows: Row[]): Bucket[] {
     });
   }
   if (lens === "variety") {
-    return (Object.keys(VARIETY_COLOR) as Variety[]).flatMap((variety) => {
-      const members = ordered.filter((row) => row.plot.variety === variety);
+    const planted = (Object.keys(VARIETY_COLOR) as Variety[]).flatMap((variety) => {
+      const members = ordered.filter((row) => row.variety === variety);
       if (members.length === 0) return [];
       return [{ key: variety, label: variety, color: VARIETY_COLOR[variety], rows: members }];
     });
+    const bare = ordered.filter((row) => row.variety == null);
+    return bare.length === 0 ? planted : [...planted, { key: "none", label: "ยังไม่ปลูก", color: STATUS.none.color, rows: bare }];
   }
   const farmers = ordered.filter((row, index, list) => list.findIndex((item) => item.farmer.id === row.farmer.id) === index);
   farmers.sort((a, b) => {
@@ -538,9 +541,10 @@ function byUrgency(a: Row, b: Row) {
 }
 
 function subtitle(row: Row, lens: Lens) {
-  if (lens === "farmer") return `${row.plot.areaRai} ไร่ · ${row.plot.variety}`;
+  const variety = row.variety ?? "ยังไม่ปลูก";
+  if (lens === "farmer") return `${row.plot.areaRai} ไร่ · ${variety}`;
   if (lens === "variety") return `${farmerName(row.farmer)} · ${row.plot.areaRai} ไร่`;
-  return `${farmerName(row.farmer)} · ${row.plot.areaRai} ไร่ · ${row.plot.variety}`;
+  return `${farmerName(row.farmer)} · ${row.plot.areaRai} ไร่ · ${variety}`;
 }
 
 function timing(row: Row) {

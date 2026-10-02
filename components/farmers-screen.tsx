@@ -6,13 +6,13 @@ import { PageHeader, Pagination, SortableTh, TableScroll, orderBy, tableClass, u
 import { farmerName, farmerVarieties, formatBaht, formatKg } from "@/lib/mill";
 
 export function FarmersScreen() {
-  const { farmers, plots, groups } = useMill();
+  const { farmers, plots, plantings, groups } = useMill();
   const listingSort = useTableSort();
   const ordered = orderBy(farmers, listingSort.sort, (farmer, key) => {
     if (key === "name") return farmerName(farmer);
     if (key === "tel") return farmer.tel;
     if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
-    if (key === "variety") return farmerVarieties(plots, farmer.id);
+    if (key === "variety") return farmerVarieties(plots, plantings, farmer.id);
     if (key === "paid") return farmer.unpaidBaht;
     if (key === "plots") return plots.filter((plot) => plot.farmerId === farmer.id).length;
     return farmer.deliveredKg;
@@ -46,7 +46,7 @@ export function FarmersScreen() {
                   <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                   <td className="px-5 py-3">{farmer.tel}</td>
                   <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>
-                  <td className="px-5 py-3">{farmerVarieties(plots, farmer.id)}</td>
+                  <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
                   <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                   <td className="px-5 py-3">{farmer.unpaidBaht === 0 ? "จ่ายแล้ว" : formatBaht(farmer.unpaidBaht)}</td>
                   <td className="px-5 py-3">{fieldCount}</td>

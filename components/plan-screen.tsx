@@ -6,9 +6,9 @@ import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { Calendar, Plus, RotateCcw, Search } from "lucide-react";
 import { ConfirmAlert, DateField, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, Select, SortableTh, TableScroll, inputClass, isWildcard, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort, type SortState } from "@/components/ui";
-import { VARIETIES, daysUntil, farmerName, formatKg, formatThaiDate, type Farmer, type Plot } from "@/lib/mill";
+import { VARIETIES, daysUntil, farmerName, formatKg, formatThaiDate, type Farmer, type Plot, type Variety } from "@/lib/mill";
 
-type SeasonRow = Plot & { plantingId: string; plantedOn: string; harvestOn: string; estKg: number };
+type SeasonRow = Plot & { variety: Variety; plantingId: string; plantedOn: string; harvestOn: string; estKg: number };
 type HarvestQuery = { from: string; to: string; groupId: string; variety: string };
 type MemberQuery = {
   name: string;
@@ -57,8 +57,8 @@ export function PlanScreen() {
         const farmer = farmers.find((item) => item.id === plot.farmerId);
         if (applied.groupId === "none" && farmer?.groupId != null) return [];
         if (applied.groupId !== "all" && applied.groupId !== "none" && farmer?.groupId !== applied.groupId) return [];
-        if (applied.variety !== "all" && plot.variety !== applied.variety) return [];
-        return [{ ...plot, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
+        if (applied.variety !== "all" && planting.variety !== applied.variety) return [];
+        return [{ ...plot, variety: planting.variety, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
       });
   }, [plantings, plots, farmers, applied]);
 
@@ -191,10 +191,10 @@ export function MemberSeasonScreen() {
       .flatMap((planting) => {
         const plot = plots.find((item) => item.id === planting.plotId);
         if (!plot) return [];
-        if (applied.variety !== "all" && plot.variety !== applied.variety) return [];
+        if (applied.variety !== "all" && planting.variety !== applied.variety) return [];
         if (!inRange(planting.plantedOn, applied.plantedFrom, applied.plantedTo)) return [];
         if (!inRange(planting.harvestOn, applied.harvestFrom, applied.harvestTo)) return [];
-        return [{ ...plot, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
+        return [{ ...plot, variety: planting.variety, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
       });
   }, [plantings, plots, applied]);
   const plotFilter =

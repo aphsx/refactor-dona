@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMill } from "@/components/store";
 import { Kpi, PageHeader, Pagination, SearchSelect, SortableTh, StatusTab, TableScroll, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { daysUntil, farmerName, formatKg, formatThaiDate, type Plot } from "@/lib/mill";
+import { daysUntil, farmerName, formatKg, formatThaiDate, type Plot, type Variety } from "@/lib/mill";
 
-type SupplyRow = Plot & { plantingId: string; harvestOn: string; estKg: number; delivered: boolean };
+type SupplyRow = Plot & { variety: Variety; plantingId: string; harvestOn: string; estKg: number; delivered: boolean };
 
 type WindowFilter = "ใกล้เก็บเกี่ยว" | "เดือนนี้" | "ยังไม่เข้า" | "รับแล้ว";
 
@@ -22,7 +22,7 @@ export function SupplyScreen() {
       const farmer = farmers.find((item) => item.id === plot.farmerId);
       if (groupId === "none" && farmer?.groupId != null) return [];
       if (groupId !== "all" && groupId !== "none" && farmer?.groupId !== groupId) return [];
-      return [{ ...plot, plantingId: planting.id, harvestOn: planting.harvestOn, estKg: planting.estKg, delivered: planting.delivered }];
+      return [{ ...plot, variety: planting.variety, plantingId: planting.id, harvestOn: planting.harvestOn, estKg: planting.estKg, delivered: planting.delivered }];
     });
   }, [plantings, plots, farmers, groupId]);
 

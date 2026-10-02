@@ -24,7 +24,6 @@ export type Plot = {
   farmerId: string;
   name: string;
   areaRai: number;
-  variety: Variety;
   subdistrict: string;
   district: string;
   province: string;
@@ -34,6 +33,7 @@ export type Plot = {
 export type Planting = {
   id: string;
   plotId: string;
+  variety: Variety;
   plantedOn: string;
   harvestOn: string;
   estKg: number;
@@ -92,8 +92,9 @@ export const PRICES: Record<Variety, number> = {
   เหนียว: 13,
 };
 
-export function farmerVarieties(plots: Plot[], farmerId: string) {
-  const names = [...new Set(plots.filter((plot) => plot.farmerId === farmerId).map((plot) => plot.variety))];
+export function farmerVarieties(plots: Plot[], plantings: Planting[], farmerId: string) {
+  const ids = new Set(plots.filter((plot) => plot.farmerId === farmerId).map((plot) => plot.id));
+  const names = [...new Set(plantings.filter((planting) => ids.has(planting.plotId)).map((planting) => planting.variety))];
   return names.length === 0 ? "—" : names.join(" · ");
 }
 
@@ -198,22 +199,25 @@ export const FARMERS: Farmer[] = [
 ];
 
 export const PLOTS: Plot[] = [
-  { id: "p1", farmerId: "f1", name: "นาหน้าบ้าน", areaRai: 12, variety: "หอมมะลิ", subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(0, 0) },
-  { id: "p6", farmerId: "f1", name: "นาหลังบ้าน", areaRai: 6, variety: "เหนียว", subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(2, 1) },
-  { id: "p2", farmerId: "f2", name: "นาโคก", areaRai: 10, variety: "หอมมะลิ", subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(1, 0) },
-  { id: "p3", farmerId: "f3", name: "นาเขา", areaRai: 18, variety: "ขาว", subdistrict: "โคกน้อย", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(2, 0) },
-  { id: "p4", farmerId: "f4", name: "นาปลายทุ่ง", areaRai: 8, variety: "เหนียว", subdistrict: "ปลายทุ่ง", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(0, 1) },
-  { id: "p5", farmerId: "f5", name: "นาสวน", areaRai: 14, variety: "หอมมะลิ", subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(1, 1) },
+  { id: "p1", farmerId: "f1", name: "นาหน้าบ้าน", areaRai: 12, subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(0, 0) },
+  { id: "p6", farmerId: "f1", name: "นาหลังบ้าน", areaRai: 6, subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(2, 1) },
+  { id: "p2", farmerId: "f2", name: "นาโคก", areaRai: 10, subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(1, 0) },
+  { id: "p3", farmerId: "f3", name: "นาเขา", areaRai: 18, subdistrict: "โคกน้อย", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(2, 0) },
+  { id: "p4", farmerId: "f4", name: "นาปลายทุ่ง", areaRai: 8, subdistrict: "ปลายทุ่ง", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(0, 1) },
+  { id: "p5", farmerId: "f5", name: "นาสวน", areaRai: 14, subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(1, 1) },
+  { id: "p7", farmerId: "f1", name: "นาว่าง", areaRai: 4, subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(0, 2) },
+  { id: "p8", farmerId: "f2", name: "นาใหม่", areaRai: 5, subdistrict: "บ้านดอน", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(1, 2) },
+  { id: "p9", farmerId: "f3", name: "นารอปลูก", areaRai: 9, subdistrict: "โคกน้อย", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", polygon: at(3, 0) },
 ];
 
 export const PLANTINGS: Planting[] = [
-  { id: "r1a", plotId: "p1", plantedOn: "2025-11-10", harvestOn: "2026-03-01", estKg: 7600, delivered: true },
-  { id: "r1", plotId: "p1", plantedOn: "2026-06-15", harvestOn: "2026-10-04", estKg: 8400, delivered: false },
-  { id: "r6", plotId: "p6", plantedOn: "2026-07-02", harvestOn: "2026-10-22", estKg: 3900, delivered: false },
-  { id: "r2", plotId: "p2", plantedOn: "2026-06-18", harvestOn: "2026-10-06", estKg: 6500, delivered: false },
-  { id: "r3", plotId: "p3", plantedOn: "2026-06-25", harvestOn: "2026-10-15", estKg: 12000, delivered: false },
-  { id: "r4", plotId: "p4", plantedOn: "2026-07-10", harvestOn: "2026-11-02", estKg: 5000, delivered: false },
-  { id: "r5", plotId: "p5", plantedOn: "2026-05-20", harvestOn: "2026-09-18", estKg: 9100, delivered: true },
+  { id: "r1a", plotId: "p1", variety: "หอมมะลิ", plantedOn: "2025-11-10", harvestOn: "2026-03-01", estKg: 7600, delivered: true },
+  { id: "r1", plotId: "p1", variety: "หอมมะลิ", plantedOn: "2026-06-15", harvestOn: "2026-10-04", estKg: 8400, delivered: false },
+  { id: "r6", plotId: "p6", variety: "เหนียว", plantedOn: "2026-07-02", harvestOn: "2026-10-22", estKg: 3900, delivered: false },
+  { id: "r2", plotId: "p2", variety: "หอมมะลิ", plantedOn: "2026-06-18", harvestOn: "2026-10-06", estKg: 6500, delivered: false },
+  { id: "r3", plotId: "p3", variety: "ขาว", plantedOn: "2026-06-25", harvestOn: "2026-10-15", estKg: 12000, delivered: false },
+  { id: "r4", plotId: "p4", variety: "เหนียว", plantedOn: "2026-07-10", harvestOn: "2026-11-02", estKg: 5000, delivered: false },
+  { id: "r5", plotId: "p5", variety: "หอมมะลิ", plantedOn: "2026-05-20", harvestOn: "2026-09-18", estKg: 9100, delivered: true },
 ];
 
 export function plantingsOf(plantings: Planting[], plotId: string) {
