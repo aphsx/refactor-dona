@@ -133,7 +133,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
             พื้นที่ (ไร่)
             <RequiredMark />
             <input value={area} disabled={!editing} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
-            {measured != null && <span className="mt-1 block text-[12px] font-normal">จากรูป {formatRai(measured)} แก้ตัวเลขนี้ได้ถ้าคำนวณไม่ตรง</span>}
+            {measured != null && <span className="mt-1 block text-[12px] font-normal">{formatRai(measured)} แก้ตัวเลขนี้ได้ถ้าคำนวณไม่ตรง</span>}
           </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               พันธุ์

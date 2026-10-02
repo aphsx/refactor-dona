@@ -209,7 +209,7 @@ export function MapScreen() {
                             {polygonAreaRai(selected.plot.polygon) != null && (
                               <>
                                 <span className="text-ink/40"> · </span>
-                                จากรูป {formatRai(polygonAreaRai(selected.plot.polygon) ?? 0)}
+                                {formatRai(polygonAreaRai(selected.plot.polygon) ?? 0)}
                               </>
                             )}
                           </p>
@@ -300,7 +300,7 @@ function DrawStep({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[16px] font-bold">{closed ? "ยืนยันรูป" : replacing ? "แก้ไขขอบเขต" : "วาดขอบเขต"} · {name}</h2>
-          <p className="mt-1 text-[14px]">{closed ? `จากรูป ${formatRai(measured ?? 0)} แก้ตัวเลขได้ถ้าคำนวณไม่ตรง` : hint}</p>
+          <p className="mt-1 text-[14px]">{closed ? `${formatRai(measured ?? 0)} แก้ตัวเลขได้ถ้าคำนวณไม่ตรง` : hint}</p>
         </div>
         <button type="button" onClick={onCancel} className="shrink-0 text-[14px] font-bold text-link underline">
           ยกเลิก

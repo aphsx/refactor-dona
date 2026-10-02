@@ -449,7 +449,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
           <input value={point ? formatCoord(point) : "ยังไม่มีรูป"} disabled className={fieldClass} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
-          พื้นที่จากรูป
+          พื้นที่วัดได้
           <input value={measured == null ? "ยังไม่มีรูป" : `${measured} ไร่`} disabled className={fieldClass} />
         </label>
         <div className="flex flex-wrap gap-3 sm:col-span-2">

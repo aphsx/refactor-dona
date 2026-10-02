@@ -1383,7 +1383,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
           <input value={name} disabled={!editing} onChange={(event) => setName(event.target.value)} className={fieldClass} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
-          พื้นที่จากรูป
+          พื้นที่วัดได้
           <input value={measured == null ? "ยังไม่มีรูป" : formatRai(measured)} disabled className={fieldClass} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1673,7 +1673,7 @@ export function PlotDialog({
               {boundary.length > 0 ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
             </button>
             <p className="mt-1 text-[12px] font-normal text-ink/60">
-              {boundary.length > 0 ? `วาดแล้ว · จากรูป ${formatRai(polygonAreaRai(boundary) ?? 0)} · ที่อยู่ถูกใส่จากตำแหน่งรูป แก้ตัวเลขได้ถ้าไม่ตรง` : "คลิกเพื่อวาดรูปแปลง แล้วพื้นที่กับที่อยู่จะถูกใส่ให้"}
+              {boundary.length > 0 ? `วาดแล้ว · ${formatRai(polygonAreaRai(boundary) ?? 0)} · ที่อยู่ถูกใส่จากตำแหน่งรูป แก้ตัวเลขได้ถ้าไม่ตรง` : "คลิกเพื่อวาดรูปแปลง แล้วพื้นที่กับที่อยู่จะถูกใส่ให้"}
             </p>
           </label>
           <PlaceSelects
@@ -1829,7 +1829,7 @@ export function DrawBoundary({
         )}
         {closed && measured != null && (
           <>
-            <span className="text-[14px] font-bold">จากรูป {formatRai(measured)}</span>
+            <span className="text-[14px] font-bold">{formatRai(measured)}</span>
             <PrimaryButton type="button" className="h-9" onClick={() => onUse(draft)}>
               ใช้พื้นที่นี้
             </PrimaryButton>
