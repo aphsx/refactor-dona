@@ -522,6 +522,107 @@ export function SearchSelect(props: Omit<Parameters<typeof Select>[0], "search" 
   return <Select search {...props} />;
 }
 
+export function SuggestInput({
+  value,
+  onChange,
+  suggestions,
+  label,
+  className = "",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  suggestions: string[];
+  label: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
+  const shown = value.trim() ? suggestions.filter((item) => matchesQuery(value, item)).slice(0, 8) : [];
+
+  function place() {
+    const rect = inputRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setBox({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    place();
+    function onPointer(event: MouseEvent) {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest("[data-suggest]")) return;
+      setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className={className}>
+      <input
+        ref={inputRef}
+        value={value}
+        aria-label={label}
+        aria-expanded={open && shown.length > 0}
+        aria-controls={listId}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => {
+          place();
+          setOpen(true);
+        }}
+        className={inputClass}
+      />
+      {open &&
+        box &&
+        shown.length > 0 &&
+        createPortal(
+          <ul
+            id={listId}
+            data-suggest
+            role="listbox"
+            style={{ position: "fixed", top: box.top, left: box.left, width: box.width, zIndex: 80 }}
+            className="max-h-60 overflow-y-auto rounded-[4px] border border-line bg-white py-1 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+          >
+            {shown.map((item, index) => (
+              <li key={`${item}-${index}`}>
+                <button
+                  type="button"
+                  role="option"
+                  onClick={() => {
+                    onChange(item);
+                    setOpen(false);
+                  }}
+                  className="flex w-full px-3 py-2 text-left text-[14px] font-normal hover:bg-pick"
+                >
+                  {item}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 const WEEKDAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
 function isoDate(date: Date) {

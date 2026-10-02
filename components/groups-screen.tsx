@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Map as MapIcon, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
-import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
+import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerName, farmerVarieties, formatBaht, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtNames, placeAt, provinceNames, subdistrictNames } from "@/lib/thai-place";
 
@@ -117,7 +117,13 @@ export function GroupManageScreen() {
           >
             <label className="block text-[14px] font-bold leading-[1.4]">
               ชื่อกลุ่ม
-              <input value={draftName} onChange={(event) => setDraftName(event.target.value)} className={`${inputClass} mt-1`} />
+              <SuggestInput
+                label="ชื่อกลุ่ม"
+                className="mt-1"
+                value={draftName}
+                onChange={setDraftName}
+                suggestions={[...groups].sort((a, b) => a.name.localeCompare(b.name, "th")).map((group) => group.name)}
+              />
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               หัวหน้ากลุ่ม
