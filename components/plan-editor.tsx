@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Save, Trash2, Undo2, X } from "lucide-react";
 import { useMill } from "@/components/store";
 import { ConfirmAlert, DateField, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
-import { VARIETIES, formatKg, formatRai, formatThaiDate, polygonAreaRai, type Variety } from "@/lib/mill";
+import { VARIETIES, formatRai, formatThaiDate, polygonAreaRai, type Variety } from "@/lib/mill";
 
 export type PlanRow = {
   id: string;
@@ -30,7 +30,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? plot.harvestOn);
   const [estKg, setEstKg] = useState(String(current?.estKg ?? plot.estKg));
   const [notice, setNotice] = useState<null | { tone: "confirm"; message: string; accept: () => void } | { tone: "success" | "error"; message: string; done?: () => void }>(null);
-  const fieldClass = `${inputClass} mt-1`;
+  const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
   const savedKg = String(current?.estKg ?? plot.estKg);
   const dirty =
     name !== plot.name ||
@@ -69,9 +69,6 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
       <div className="flex items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
         <div>
           <div className="text-[16px] font-bold">แผนรอบ · {plot.name}</div>
-          <div className="text-[14px]">
-            {plot.areaRai} ไร่ · {plot.variety}
-          </div>
         </div>
         <button type="button" onClick={onClose} className="inline-flex h-8 items-center gap-1 rounded-full bg-white px-3 text-[12px] font-bold text-bar">
           <X size={14} strokeWidth={1.75} aria-hidden />
@@ -121,66 +118,50 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
           });
         }}
       >
-        {editing ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              ชื่อแปลง
-              <input value={name} onChange={(event) => setName(event.target.value)} className={fieldClass} />
-            </label>
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              พื้นที่ (ไร่)
-              <input value={area} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
-              {measured != null && <span className="mt-1 block text-[12px] font-normal">จากรูป {formatRai(measured)} แก้ตัวเลขนี้ได้ถ้าคำนวณไม่ตรง</span>}
-            </label>
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              พันธุ์
-              <Select
-                label="พันธุ์"
-                className="mt-1"
-                value={variety}
-                onChange={(next) => setVariety(next as Variety)}
-                options={VARIETIES.map((item) => ({ value: item, label: item }))}
-              />
-            </label>
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              วันปลูก
-              <DateField
-                label="วันปลูก"
-                className="mt-1"
-                value={plantedOn}
-                max={harvestOn}
-                onChange={(next) => {
-                  setPlantedOn(next);
-                  if (harvestOn && next && harvestOn < next) setHarvestOn(next);
-                }}
-              />
-            </label>
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              กำหนดเก็บ
-              <DateField label="กำหนดเก็บ" className="mt-1" value={harvestOn} min={plantedOn} onChange={setHarvestOn} />
-            </label>
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              ที่คาด (กก.)
-              <input value={estKg} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={fieldClass} />
-            </label>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-[8px] border border-frame px-4 py-3">
-              <div className="text-[12px] text-ink/70">วันปลูก</div>
-              <div className="mt-1 text-[16px] font-bold">{formatThaiDate(plot.plantedOn)}</div>
-            </div>
-            <div className="rounded-[8px] border border-frame px-4 py-3">
-              <div className="text-[12px] text-ink/70">กำหนดเก็บ</div>
-              <div className="mt-1 text-[16px] font-bold">{formatThaiDate(plot.harvestOn)}</div>
-            </div>
-            <div className="rounded-[8px] border border-frame px-4 py-3">
-              <div className="text-[12px] text-ink/70">ที่คาด</div>
-              <div className="mt-1 text-[16px] font-bold tabular-nums">{formatKg(plot.estKg)}</div>
-            </div>
-          </div>
-        )}
-        {locked && <p className="mt-4 text-[14px]">รอบที่รับแล้วลบแปลงไม่ได้</p>}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ชื่อแปลง
+            <input value={name} disabled={!editing} onChange={(event) => setName(event.target.value)} className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            พื้นที่ (ไร่)
+            <input value={area} disabled={!editing} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
+            {measured != null && <span className="mt-1 block text-[12px] font-normal">จากรูป {formatRai(measured)} แก้ตัวเลขนี้ได้ถ้าคำนวณไม่ตรง</span>}
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            พันธุ์
+            <Select
+              label="พันธุ์"
+              className="mt-1"
+              value={variety}
+              disabled={!editing}
+              onChange={(next) => setVariety(next as Variety)}
+              options={VARIETIES.map((item) => ({ value: item, label: item }))}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            วันปลูก
+            <DateField
+              label="วันปลูก"
+              className="mt-1"
+              value={plantedOn}
+              disabled={!editing}
+              max={harvestOn}
+              onChange={(next) => {
+                setPlantedOn(next);
+                if (harvestOn && next && harvestOn < next) setHarvestOn(next);
+              }}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            กำหนดเก็บ
+            <DateField label="กำหนดเก็บ" className="mt-1" value={harvestOn} disabled={!editing} min={plantedOn} onChange={setHarvestOn} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ที่คาด (กก.)
+            <input value={estKg} disabled={!editing} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={fieldClass} />
+          </label>
+        </div>
         <div className="mt-4 flex flex-wrap gap-3">
           {editing ? (
             <>
