@@ -101,7 +101,7 @@ export function GroupManageScreen() {
       <div className="flex items-end gap-1">
         <StatusTab label="กลุ่ม" active={tab === "listing"} onClick={closeDetail} />
         {tab === "detail" && selected && (
-          <span className="flex h-10 items-center rounded-t-[6px] bg-bar px-4 text-[14px] font-bold text-white">รายละเอียดกลุ่ม</span>
+          <StatusTab label="รายละเอียดกลุ่ม" active onClick={() => setTab("detail")} />
         )}
       </div>
       {tab === "listing" && (

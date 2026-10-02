@@ -259,7 +259,7 @@ export function StatusTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-t-[6px] px-4 font-bold ${active ? "h-10 bg-bar text-white" : "h-9 bg-table text-ink"}`}
+      className={`rounded-t-[6px] px-5 font-bold text-[16px] ${active ? "h-12 bg-bar text-white" : "h-11 bg-table text-ink"}`}
     >
       {label}
     </button>
