@@ -42,7 +42,7 @@ type Store = MillData & {
   updateGroup: (groupId: string, name: string, leaderId: string) => string | null;
   updateFarmer: (
     farmerId: string,
-    input: { firstName: string; lastName: string; tel: string; groupId: string | null },
+    input: { firstName: string; lastName: string; tel: string; address: string; groupId: string | null },
   ) => string | null;
   assignFarmer: (farmerId: string, groupId: string | null) => string | null;
   addPlot: (
@@ -238,6 +238,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         farmer.firstName = firstName;
         farmer.lastName = lastName;
         farmer.tel = tel;
+        farmer.address = input.address.trim();
         return null;
       });
     },

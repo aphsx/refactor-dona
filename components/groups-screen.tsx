@@ -650,35 +650,41 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
 }
 
 function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose: () => void; onAddRound: (plotId: string) => void }) {
-  const { groups, plots, plantings, updateFarmer } = useMill();
+  const { groups, farmers, plots, plantings, updateFarmer } = useMill();
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState(farmer.firstName);
   const [lastName, setLastName] = useState(farmer.lastName);
   const [tel, setTel] = useState(farmer.tel);
+  const [address, setAddress] = useState(farmer.address);
   const [groupId, setGroupId] = useState(farmer.groupId ?? "");
   const [notice, setNotice] = useState<Notice | null>(null);
   const fields = plots.filter((plot) => plot.farmerId === farmer.id);
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
   const leads = groups.find((item) => item.leaderId === farmer.id) ?? null;
+  const selectedGroup = groups.find((item) => item.id === (groupId || null)) ?? null;
+  const leader = farmers.find((item) => item.id === selectedGroup?.leaderId) ?? null;
 
   useEffect(() => {
     setEditing(false);
     setFirstName(farmer.firstName);
     setLastName(farmer.lastName);
     setTel(farmer.tel);
+    setAddress(farmer.address);
     setGroupId(farmer.groupId ?? "");
-  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.groupId]);
+  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.address, farmer.groupId]);
 
   const dirty =
     firstName !== farmer.firstName ||
     lastName !== farmer.lastName ||
     tel !== farmer.tel ||
+    address !== farmer.address ||
     (groupId || null) !== farmer.groupId;
 
   function undo() {
     setFirstName(farmer.firstName);
     setLastName(farmer.lastName);
     setTel(farmer.tel);
+    setAddress(farmer.address);
     setGroupId(farmer.groupId ?? "");
     if (!dirty) setEditing(false);
   }
@@ -710,7 +716,7 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
               accept: () =>
                 setNotice(
                   reported(
-                    updateFarmer(farmer.id, { firstName, lastName, tel, groupId: nextGroup }),
+                    updateFarmer(farmer.id, { firstName, lastName, tel, address, groupId: nextGroup }),
                     moving ? "ย้ายกลุ่มแล้ว" : "บันทึกสมาชิกแล้ว",
                     () => setEditing(false),
                   ),
@@ -730,7 +736,11 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
             เบอร์โทร
             <input value={tel} disabled={!editing} onChange={(event) => setTel(event.target.value)} className={fieldClass} />
           </label>
-          <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ที่อยู่
+            <input value={address} disabled={!editing} onChange={(event) => setAddress(event.target.value)} className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
             กลุ่ม
             <SearchSelect
               label="กลุ่ม"
@@ -745,6 +755,10 @@ function MemberDetail({ farmer, onClose, onAddRound }: { farmer: Farmer; onClose
                   .map((item) => ({ value: item.id, label: item.name })),
               ]}
             />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            หัวหน้ากลุ่ม
+            <input value={leader ? farmerName(leader) : "—"} disabled className={fieldClass} />
           </label>
           <div className="flex flex-wrap gap-3 sm:col-span-2">
             {editing ? (
@@ -786,7 +800,8 @@ function MemberStanding({ farmer, plots, plantings, leads }: { farmer: Farmer; p
       <div className="grid gap-4 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4">
         <Fact label="รับเข้าแล้ว" value={formatKg(farmer.deliveredKg)} />
         <Fact label="คงค้างจ่าย" value={farmer.unpaidBaht === 0 ? "จ่ายแล้ว" : formatBaht(farmer.unpaidBaht)} />
-        <Fact label="พื้นที่" value={plots.length === 0 ? "ยังไม่มีแปลง" : `${area} ไร่ · ${plots.length} แปลง`} />
+        <Fact label="จำนวนแปลง" value={plots.length === 0 ? "ยังไม่มีแปลง" : `${plots.length} แปลง`} />
+        <Fact label="พื้นที่รวม" value={plots.length === 0 ? "—" : `${area} ไร่`} />
         <Fact label="ยังไม่เข้า" value={formatKg(waiting)} />
       </div>
       {!leads && (

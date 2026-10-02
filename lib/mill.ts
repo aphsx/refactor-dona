@@ -7,6 +7,7 @@ export type Farmer = {
   firstName: string;
   lastName: string;
   tel: string;
+  address: string;
   groupId: string | null;
   deliveredKg: number;
   unpaidBaht: number;
@@ -186,11 +187,11 @@ export const GROUPS: SupplierGroup[] = [
 ];
 
 export const FARMERS: Farmer[] = [
-  { id: "f1", firstName: "สมชาย", lastName: "ใจดี", tel: "081-234-5678", groupId: "g1", deliveredKg: 51760, unpaidBaht: 277280 },
-  { id: "f2", firstName: "สมหญิง", lastName: "ศรีนา", tel: "089-111-2233", groupId: "g1", deliveredKg: 28400, unpaidBaht: 0 },
-  { id: "f3", firstName: "ประสิทธิ์", lastName: "ทองดี", tel: "086-555-4433", groupId: "g2", deliveredKg: 41200, unpaidBaht: 96400 },
-  { id: "f4", firstName: "มาลี", lastName: "เขียวขจี", tel: "082-333-4455", groupId: null, deliveredKg: 15600, unpaidBaht: 45200 },
-  { id: "f5", firstName: "แก้ว", lastName: "นวลจันทร์", tel: "089-777-6655", groupId: "g1", deliveredKg: 33800, unpaidBaht: 0 },
+  { id: "f1", firstName: "สมชาย", lastName: "ใจดี", tel: "081-234-5678", address: "123 หมู่ 3 บ้านดอน", groupId: "g1", deliveredKg: 51760, unpaidBaht: 277280 },
+  { id: "f2", firstName: "สมหญิง", lastName: "ศรีนา", tel: "089-111-2233", address: "45 หมู่ 3 บ้านดอน", groupId: "g1", deliveredKg: 28400, unpaidBaht: 0 },
+  { id: "f3", firstName: "ประสิทธิ์", lastName: "ทองดี", tel: "086-555-4433", address: "78 หมู่ 7 โคกน้อย", groupId: "g2", deliveredKg: 41200, unpaidBaht: 96400 },
+  { id: "f4", firstName: "มาลี", lastName: "เขียวขจี", tel: "082-333-4455", address: "19 หมู่ 5 ปลายทุ่ง", groupId: null, deliveredKg: 15600, unpaidBaht: 45200 },
+  { id: "f5", firstName: "แก้ว", lastName: "นวลจันทร์", tel: "089-777-6655", address: "90 หมู่ 3 บ้านดอน", groupId: "g1", deliveredKg: 33800, unpaidBaht: 0 },
 ];
 
 export const PLOTS: Plot[] = [
