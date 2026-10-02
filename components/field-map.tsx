@@ -24,6 +24,8 @@ const satelliteStyle = {
       type: "raster" as const,
       tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
       tileSize: 256,
+      // Real imagery for this area stops at 18. Beyond that Esri returns a blank tile, so keep scaling 18.
+      maxzoom: 18,
       attribution: "Esri, Maxar, Earthstar Geographics",
     },
   },
@@ -129,7 +131,7 @@ export function FieldMap({
         ref={mapRef}
         style={{ width: "100%", height: "100%" }}
         initialViewState={{ longitude: 100.124, latitude: 14.521, zoom: 15 }}
-        maxZoom={17}
+        maxZoom={20}
         mapStyle={mapStyle}
         onLoad={fitFrame}
         interactiveLayerIds={["plot-fill"]}
