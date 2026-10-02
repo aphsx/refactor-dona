@@ -27,16 +27,14 @@ export function FarmersScreen() {
       <PageHeader current="เกษตรกร" />
       <div className="overflow-hidden rounded-[8px] border border-frame">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-          <div className="flex items-baseline gap-3">
-            บัญชีรับซื้อ
-            <span className="text-[14px] font-normal">
-              {farmers.length} คน · {groups.length} กลุ่ม
-            </span>
+          บัญชีรับซื้อ
+          <div className="flex items-center gap-3">
+            <span className="text-[14px] font-normal">{farmers.length} คน</span>
+            <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+              <Glyph icon={Plus} />
+              เพิ่มเกษตรกร
+            </SecondaryButton>
           </div>
-          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
-            <Glyph icon={Plus} />
-            เพิ่มเกษตรกร
-          </SecondaryButton>
         </div>
         <TableScroll>
 <table className={tableClass}>
