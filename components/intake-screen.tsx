@@ -69,7 +69,7 @@ export function IntakeScreen() {
             <tr>
               <SortableTh label="คิว" column="queue" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="ทะเบียน" column="plate" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="คู่ค้า" column="farmer" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="เกษตรกร" column="farmer" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="ความชื้น" column="moisture" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -141,7 +141,7 @@ function CreateTicket({
         onSubmit={(event) => {
           event.preventDefault();
           if (!farmerId || !plate.trim()) {
-            setError("เลือกคู่ค้าและกรอกทะเบียนรถ");
+            setError("เลือกเกษตรกรและกรอกทะเบียนรถ");
             return;
           }
           const message = onCreate(farmerId, plate.trim(), variety);
@@ -153,7 +153,7 @@ function CreateTicket({
         }}
       >
         <label className="block text-[14px] font-bold leading-[1.4]">
-          คู่ค้า
+          เกษตรกร
           <div className="mt-1">
             <FarmerSelect value={farmerId} onChange={setFarmerId} />
           </div>

@@ -804,5 +804,5 @@ export function FarmerSelect({
     .slice()
     .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
     .map((farmer) => ({ value: farmer.id, label: farmerName(farmer) }));
-  return <SearchSelect label="คู่ค้า" value={value} onChange={onChange} placeholder="เลือกคู่ค้า" options={[{ value: "", label: "เลือกคู่ค้า" }, ...options]} />;
+  return <SearchSelect label="เกษตรกร" value={value} onChange={onChange} placeholder="เลือกเกษตรกร" options={[{ value: "", label: "เลือกเกษตรกร" }, ...options]} />;
 }

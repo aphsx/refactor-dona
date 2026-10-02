@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, CalendarDays, ChevronDown, Factory, Layers, Map, Menu, Sprout, Users, Warehouse, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, Layers, Map, Menu, Sprout, Users, type LucideIcon } from "lucide-react";
 import { StoreProvider, useMill } from "@/components/store";
 import { daysUntil } from "@/lib/mill";
 
@@ -17,7 +17,7 @@ const NAV: NavItem[] = [
     icon: Sprout,
     children: [
       { href: "/plan", label: "แผนรวม" },
-      { href: "/plan/members", label: "รายสมาชิก" },
+      { href: "/plan/members", label: "รายเกษตรกร" },
     ],
   },
   { href: "/supply", label: "แผนรับข้าว", icon: CalendarDays },
@@ -31,15 +31,15 @@ const NAV: NavItem[] = [
     ],
   },
   {
-    label: "คู่ค้า",
+    label: "เกษตรกร",
     icon: Users,
     children: [
-      { href: "/farmers", label: "คู่ค้า" },
-      { href: "/farmers/manage", label: "จัดการสมาชิก" },
+      { href: "/farmers", label: "เกษตรกร" },
+      { href: "/farmers/manage", label: "จัดการเกษตรกร" },
     ],
   },
-  { href: "/stock", label: "ไซโล", icon: Warehouse },
-  { href: "/mill", label: "ล็อตสี", icon: Factory },
+  // { href: "/stock", label: "ไซโล", icon: Warehouse },
+  // { href: "/mill", label: "ล็อตสี", icon: Factory },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

@@ -163,7 +163,7 @@ export function MapScreen() {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="ค้นชื่อแปลง หรือคู่ค้า"
+              placeholder="ค้นชื่อแปลง หรือเกษตรกร"
               aria-label="ค้นแปลง"
               className="h-10 w-full rounded-[4px] border border-line bg-white pl-9 pr-3 text-[14px] placeholder:text-ink/20"
             />

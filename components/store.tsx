@@ -41,6 +41,16 @@ type Store = MillData & {
   closeLot: (lotId: string) => string | null;
   createGroup: (name: string, leaderId: string) => string | null;
   updateGroup: (groupId: string, name: string, leaderId: string) => string | null;
+  createFarmer: (input: {
+    firstName: string;
+    lastName: string;
+    tel: string;
+    address: string;
+    subdistrict: string;
+    district: string;
+    province: string;
+    groupId: string | null;
+  }) => string | null;
   updateFarmer: (
     farmerId: string,
     input: {
@@ -111,7 +121,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createTicket(farmerId, plate, variety) {
       return commit((draft) => {
         const farmer = draft.farmers.find((item) => item.id === farmerId);
-        if (!farmer) return "ไม่พบคู่ค้า";
+        if (!farmer) return "ไม่พบเกษตรกร";
         if (!PRICES[variety]) return "เลือกพันธุ์";
         const queue = draft.tickets.reduce((max, ticket) => Math.max(max, ticket.queue), 0) + 1;
         draft.tickets.push({
@@ -237,15 +247,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return null;
       });
     },
-    updateFarmer(farmerId, input) {
+    createFarmer(input) {
       return commit((draft) => {
-        const farmer = draft.farmers.find((item) => item.id === farmerId);
-        if (!farmer) return "ไม่พบคู่ค้า";
         const firstName = input.firstName.trim();
         const lastName = input.lastName.trim();
         const tel = input.tel.trim();
         if (!firstName || !lastName) return "กรอกชื่อ";
         if (!tel) return "กรอกเบอร์โทร";
+        if (!input.address.trim()) return "กรอกที่อยู่";
+        if (input.groupId != null && !draft.groups.some((group) => group.id === input.groupId)) return "ไม่พบกลุ่ม";
+        draft.farmers.push({
+          id: `f-${draft.farmers.length + 1}`,
+          firstName,
+          lastName,
+          tel,
+          address: input.address.trim(),
+          subdistrict: input.subdistrict.trim(),
+          district: input.district.trim(),
+          province: input.province.trim(),
+          groupId: input.groupId,
+          deliveredKg: 0,
+          unpaidBaht: 0,
+        });
+        return null;
+      });
+    },
+    updateFarmer(farmerId, input) {
+      return commit((draft) => {
+        const farmer = draft.farmers.find((item) => item.id === farmerId);
+        if (!farmer) return "ไม่พบเกษตรกร";
+        const firstName = input.firstName.trim();
+        const lastName = input.lastName.trim();
+        const tel = input.tel.trim();
+        if (!firstName || !lastName) return "กรอกชื่อ";
+        if (!tel) return "กรอกเบอร์โทร";
+        if (!input.address.trim()) return "กรอกที่อยู่";
         if (input.groupId !== farmer.groupId) {
           if (input.groupId == null) {
             if (draft.groups.some((group) => group.leaderId === farmerId)) return "หัวหน้ากลุ่มออกจากกลุ่มไม่ได้";
@@ -270,7 +306,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     assignFarmer(farmerId, groupId) {
       return commit((draft) => {
         const farmer = draft.farmers.find((item) => item.id === farmerId);
-        if (!farmer) return "ไม่พบคู่ค้า";
+        if (!farmer) return "ไม่พบเกษตรกร";
         if (groupId == null) {
           if (draft.groups.some((group) => group.leaderId === farmerId)) return "หัวหน้ากลุ่มออกจากกลุ่มไม่ได้";
           farmer.groupId = null;
@@ -287,7 +323,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addPlot(farmerId, input) {
       return commit((draft) => {
         const farmer = draft.farmers.find((item) => item.id === farmerId);
-        if (!farmer) return "ไม่พบคู่ค้า";
+        if (!farmer) return "ไม่พบเกษตรกร";
         const name = input.name.trim();
         if (!name) return "กรอกชื่อแปลง";
         if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";

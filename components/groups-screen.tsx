@@ -8,7 +8,7 @@ import { Map as MapIcon, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, U
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerName, farmerVarieties, formatBaht, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtNames, placeAt, provinceNames, subdistrictNames } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -275,20 +275,20 @@ export function MemberManageScreen() {
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
-      <PageHeader current="จัดการสมาชิก" />
+      <PageHeader current="จัดการเกษตรกร" />
       <div className="flex items-end gap-1">
-        <StatusTab label="จัดการสมาชิก" active={tab === "listing"} onClick={closeDetail} />
+        <StatusTab label="จัดการเกษตรกร" active={tab === "listing"} onClick={closeDetail} />
         {detail && (
           <>
-            <StatusTab label="รายละเอียดสมาชิก" active={tab === "detail"} onClick={() => setTab("detail")} />
-            <StatusTab label="แปลงของสมาชิก" active={tab === "plots"} onClick={() => setTab("plots")} />
+            <StatusTab label="รายละเอียดเกษตรกร" active={tab === "detail"} onClick={() => setTab("detail")} />
+            <StatusTab label="แปลงของเกษตรกร" active={tab === "plots"} onClick={() => setTab("plots")} />
             <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
           </>
         )}
       </div>
       {tab === "listing" && (
         <div className="mb-6 overflow-hidden rounded-b-[8px] rounded-tr-[8px] border border-frame">
-          <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาสมาชิก</div>
+          <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาเกษตรกร</div>
           <form
             className="grid gap-4 px-6 py-5 sm:grid-cols-2"
             onSubmit={(event) => {
@@ -345,14 +345,14 @@ export function MemberManageScreen() {
         {tab === "listing" && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-              รายการสมาชิก
+              รายการเกษตรกร
               <span className="text-[14px]">{page.total} คน</span>
             </div>
             <TableScroll>
             <table className={tableClass}>
               <thead className="bg-table">
                 <tr>
-                  <SortableTh label="คู่ค้า" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="รับเข้าแล้ว" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -363,7 +363,7 @@ export function MemberManageScreen() {
                 {page.rows.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-5 py-6 text-ink/60">
-                      ไม่พบสมาชิก
+                      ไม่พบเกษตรกร
                     </td>
                   </tr>
                 )}
@@ -598,7 +598,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
 <table className={tableClass}>
         <thead className="bg-table">
           <tr>
-            <SortableTh label="คู่ค้า" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -713,7 +713,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
   return (
     <>
       <div className="flex items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-        รายละเอียดสมาชิก
+        รายละเอียดเกษตรกร
         <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
           ปิด
         </button>
@@ -730,7 +730,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
               ? nextGroup
                 ? `ยืนยันย้าย ${farmerName(farmer)} ไป ${target?.name ?? "กลุ่มใหม่"}`
                 : `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`
-              : "ยืนยันบันทึกข้อมูลสมาชิก";
+              : "ยืนยันบันทึกข้อมูลเกษตรกร";
             setNotice({
               tone: "confirm",
               message,
@@ -738,7 +738,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
                 setNotice(
                   reported(
                     updateFarmer(farmer.id, { firstName, lastName, tel, address, subdistrict, district, province, groupId: nextGroup }),
-                    moving ? "ย้ายกลุ่มแล้ว" : "บันทึกสมาชิกแล้ว",
+                    moving ? "ย้ายกลุ่มแล้ว" : "บันทึกเกษตรกรแล้ว",
                     () => setEditing(false),
                   ),
                 ),
@@ -759,6 +759,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             ที่อยู่
+            <RequiredMark />
             <input value={address} disabled={!editing} onChange={(event) => setAddress(event.target.value)} className={fieldClass} />
           </label>
           <PlaceSelects
@@ -830,7 +831,6 @@ function MemberStanding({ farmer, plots, plantings, leads }: { farmer: Farmer; p
       <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">สถานะรับซื้อ</div>
       <div className="grid gap-4 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4">
         <Fact label="รับเข้าแล้ว" value={formatKg(farmer.deliveredKg)} />
-        <Fact label="คงค้างจ่าย" value={farmer.unpaidBaht === 0 ? "จ่ายแล้ว" : formatBaht(farmer.unpaidBaht)} />
         <Fact label="จำนวนแปลง" value={plots.length === 0 ? "ยังไม่มีแปลง" : `${plots.length} แปลง`} />
         <Fact label="พื้นที่รวม" value={plots.length === 0 ? "—" : `${area} ไร่`} />
         <Fact label="ยังไม่เข้า" value={formatKg(waiting)} />
@@ -860,7 +860,7 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
-        <div className="text-[16px] font-bold">แปลงของสมาชิก · {farmerName(farmer)}</div>
+        <div className="text-[16px] font-bold">แปลงของเกษตรกร · {farmerName(farmer)}</div>
         <div className="flex items-center gap-3">
           <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
             <Glyph icon={Plus} />
@@ -1423,7 +1423,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
           ที่คาด (กก.)
           <input value={estKg} disabled={!editing} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={fieldClass} />
         </label>
-        {locked && <p className="text-[14px] sm:col-span-2">รอบที่รับแล้วอยู่ที่รายละเอียดสมาชิก</p>}
+        {locked && <p className="text-[14px] sm:col-span-2">รอบที่รับแล้วอยู่ที่รายละเอียดเกษตรกร</p>}
         <div className="flex flex-wrap gap-3 sm:col-span-2">
           {editing ? (
             <>
@@ -1494,7 +1494,7 @@ function placeOptions(names: string[], current: string) {
   return options;
 }
 
-function PlaceSelects({
+export function PlaceSelects({
   province,
   district,
   subdistrict,
@@ -1940,7 +1940,7 @@ function MoveFarmer({
           onSubmit={(event) => {
             event.preventDefault();
             if (!person) {
-              setNotice({ tone: "error", message: "เลือกคู่ค้า" });
+              setNotice({ tone: "error", message: "เลือกเกษตรกร" });
               return;
             }
             setNotice({
@@ -1951,7 +1951,7 @@ function MoveFarmer({
           }}
         >
           <label className="block text-[14px] font-bold leading-[1.4]">
-            คู่ค้า
+            เกษตรกร
             <div className="mt-1">
               <FarmerSelect value={farmerId} onChange={setFarmerId} />
             </div>

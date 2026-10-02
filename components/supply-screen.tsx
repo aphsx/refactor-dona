@@ -146,7 +146,7 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
         <thead className="bg-table">
           <tr>
             <SortableTh label="แปลง" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="คู่ค้า" column="farmer" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="เกษตรกร" column="farmer" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="พื้นที่" column="area" sort={listingSort.sort} onSort={listingSort.toggleSort} />

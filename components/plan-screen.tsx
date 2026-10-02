@@ -240,9 +240,9 @@ export function MemberSeasonScreen() {
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
-      <PageHeader current="รายสมาชิก" />
+      <PageHeader current="รายเกษตรกร" />
       <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
-        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาสมาชิก</div>
+        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาเกษตรกร</div>
         <form
           className="grid gap-4 px-6 py-5 md:grid-cols-2 xl:grid-cols-4"
           onSubmit={(event) => {
@@ -461,7 +461,7 @@ function PlotRoundTable({
           <SortableTh label="กำหนดเก็บ" column="harvest" sort={sort} onSort={onSort} />
           <SortableTh label="สถานะ" column="status" sort={sort} onSort={onSort} />
           <SortableTh label="แปลง" column="plot" sort={sort} onSort={onSort} />
-          <SortableTh label="สมาชิก" column="farmer" sort={sort} onSort={onSort} />
+          <SortableTh label="เกษตรกร" column="farmer" sort={sort} onSort={onSort} />
           <SortableTh label="กลุ่ม" column="group" sort={sort} onSort={onSort} />
           <SortableTh label="พันธุ์" column="variety" sort={sort} onSort={onSort} />
           <SortableTh label="ที่คาด" column="kg" sort={sort} onSort={onSort} />
