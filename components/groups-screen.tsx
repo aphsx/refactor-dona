@@ -168,8 +168,12 @@ export function GroupManageScreen() {
         {tab === "listing" && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-              รายการกลุ่ม
-              <span className="text-[14px]">{page.total} กลุ่ม</span>
+              <div className="flex items-baseline gap-3">
+                รายการกลุ่ม
+                <span className="text-[14px] font-normal">
+                  {farmers.length} คน · {groups.length} กลุ่ม
+                </span>
+              </div>
             </div>
             <TableScroll>
             <table className={tableClass}>
@@ -345,8 +349,12 @@ export function MemberManageScreen() {
         {tab === "listing" && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-              รายการเกษตรกร
-              <span className="text-[14px]">{page.total} คน</span>
+              <div className="flex items-baseline gap-3">
+                รายการเกษตรกร
+                <span className="text-[14px] font-normal">
+                  {farmers.length} คน · {groups.length} กลุ่ม
+                </span>
+              </div>
             </div>
             <TableScroll>
             <table className={tableClass}>
@@ -438,8 +446,12 @@ function GroupDirectory() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-        กลุ่มรับซื้อ
-        <span className="text-[14px]">{groups.length} กลุ่ม</span>
+        <div className="flex items-baseline gap-3">
+          กลุ่มรับซื้อ
+          <span className="text-[14px] font-normal">
+            {farmers.length} คน · {groups.length} กลุ่ม
+          </span>
+        </div>
       </div>
       <TableScroll>
 <table className={tableClass}>

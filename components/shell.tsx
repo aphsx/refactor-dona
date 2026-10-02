@@ -11,7 +11,6 @@ type NavChild = { href: string; label: string };
 type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavChild[] };
 
 const NAV: NavItem[] = [
-  // { href: "/", label: "รับซื้อวันนี้", icon: Scale },
   {
     label: "แผนรอบปลูก",
     icon: Sprout,
@@ -38,8 +37,6 @@ const NAV: NavItem[] = [
       { href: "/farmers/manage", label: "จัดการเกษตรกร" },
     ],
   },
-  // { href: "/stock", label: "ไซโล", icon: Warehouse },
-  // { href: "/mill", label: "ล็อตสี", icon: Factory },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

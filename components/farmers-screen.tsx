@@ -27,7 +27,12 @@ export function FarmersScreen() {
       <PageHeader current="เกษตรกร" />
       <div className="overflow-hidden rounded-[8px] border border-frame">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-          บัญชีรับซื้อ
+          <div className="flex items-baseline gap-3">
+            บัญชีรับซื้อ
+            <span className="text-[14px] font-normal">
+              {farmers.length} คน · {groups.length} กลุ่ม
+            </span>
+          </div>
           <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
             <Glyph icon={Plus} />
             เพิ่มเกษตรกร

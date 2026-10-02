@@ -13,7 +13,6 @@ export type Farmer = {
   province: string;
   groupId: string | null;
   deliveredKg: number;
-  unpaidBaht: number;
 };
 
 export type SupplierGroup = {
@@ -41,58 +40,6 @@ export type Planting = {
   harvestOn: string;
   estKg: number;
   delivered: boolean;
-};
-
-export type Ticket = {
-  id: string;
-  queue: number;
-  plate: string;
-  farmerId: string;
-  variety: Variety;
-  status: "รอชั่ง" | "เข้าไซโล";
-  grossKg: number | null;
-  moisture: number | null;
-  netKg: number | null;
-  pricePerKg: number;
-  amountBaht: number | null;
-};
-
-export type SiloStage = "ชื้น" | "แห้ง" | "ต้นข้าว" | "ข้าวหัก" | "รำ";
-
-export type Silo = {
-  id: string;
-  name: string;
-  stage: SiloStage;
-  variety: Variety | "รวม";
-  kg: number;
-  capacityKg: number;
-};
-
-export type Lot = {
-  id: string;
-  code: string;
-  variety: Variety;
-  inputKg: number;
-  status: "สีอยู่" | "ปิดแล้ว";
-  headKg: number | null;
-  brokenKg: number | null;
-  branKg: number | null;
-  huskKg: number | null;
-};
-
-export const MOISTURE_STANDARD = 15;
-
-export const MILL_YIELD = [
-  { key: "head", label: "ต้นข้าว", ratio: 0.52 },
-  { key: "broken", label: "ข้าวหัก", ratio: 0.14 },
-  { key: "bran", label: "รำ", ratio: 0.08 },
-  { key: "husk", label: "แกลบ", ratio: 0.21 },
-] as const;
-
-export const PRICES: Record<Variety, number> = {
-  หอมมะลิ: 15.5,
-  ขาว: 11.2,
-  เหนียว: 13,
 };
 
 export function farmerVarieties(plots: Plot[], plantings: Planting[], farmerId: string) {
@@ -139,35 +86,6 @@ export function formatKg(kg: number) {
   return `${new Intl.NumberFormat("th-TH").format(Math.round(kg))} กก.`;
 }
 
-export function formatTon(kg: number) {
-  return `${(kg / 1000).toLocaleString("th-TH", { maximumFractionDigits: 1 })} ตัน`;
-}
-
-export function formatBaht(amount: number) {
-  return new Intl.NumberFormat("th-TH", {
-    style: "currency",
-    currency: "THB",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
-export function settle(grossKg: number, moisture: number, pricePerKg: number) {
-  const over = Math.max(0, moisture - MOISTURE_STANDARD);
-  const deductKg = Math.round(grossKg * (over / 100));
-  const netKg = grossKg - deductKg;
-  const amountBaht = Math.round(netKg * pricePerKg * 100) / 100;
-  return { deductKg, netKg, amountBaht };
-}
-
-export function splitLot(inputKg: number) {
-  const headKg = Math.round(inputKg * 0.52);
-  const brokenKg = Math.round(inputKg * 0.14);
-  const branKg = Math.round(inputKg * 0.08);
-  const huskKg = Math.round(inputKg * 0.21);
-  return { headKg, brokenKg, branKg, huskKg };
-}
-
 function plot(lng: number, lat: number, width: number, height: number): [number, number][] {
   return [
     [lng, lat],
@@ -194,11 +112,11 @@ export const GROUPS: SupplierGroup[] = [
 ];
 
 export const FARMERS: Farmer[] = [
-  { id: "f1", firstName: "สมชาย", lastName: "ใจดี", tel: "081-234-5678", address: "123 หมู่ 3", subdistrict: "ท่าพี่เลี้ยง", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: "g1", deliveredKg: 51760, unpaidBaht: 277280 },
-  { id: "f2", firstName: "สมหญิง", lastName: "ศรีนา", tel: "089-111-2233", address: "45 หมู่ 3", subdistrict: "ท่าพี่เลี้ยง", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: "g1", deliveredKg: 28400, unpaidBaht: 0 },
-  { id: "f3", firstName: "ประสิทธิ์", lastName: "ทองดี", tel: "086-555-4433", address: "78 หมู่ 7", subdistrict: "รั้วใหญ่", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: "g2", deliveredKg: 41200, unpaidBaht: 96400 },
-  { id: "f4", firstName: "มาลี", lastName: "เขียวขจี", tel: "082-333-4455", address: "19 หมู่ 5", subdistrict: "ท่าระหัด", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: null, deliveredKg: 15600, unpaidBaht: 45200 },
-  { id: "f5", firstName: "แก้ว", lastName: "นวลจันทร์", tel: "089-777-6655", address: "90 หมู่ 3", subdistrict: "ท่าพี่เลี้ยง", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: "g1", deliveredKg: 33800, unpaidBaht: 0 },
+  { id: "f1", firstName: "สมชาย", lastName: "ใจดี", tel: "081-234-5678", address: "123 หมู่ 3", subdistrict: "ท่าพี่เลี้ยง", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: "g1", deliveredKg: 51760 },
+  { id: "f2", firstName: "สมหญิง", lastName: "ศรีนา", tel: "089-111-2233", address: "45 หมู่ 3", subdistrict: "ท่าพี่เลี้ยง", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: "g1", deliveredKg: 28400 },
+  { id: "f3", firstName: "ประสิทธิ์", lastName: "ทองดี", tel: "086-555-4433", address: "78 หมู่ 7", subdistrict: "รั้วใหญ่", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: "g2", deliveredKg: 41200 },
+  { id: "f4", firstName: "มาลี", lastName: "เขียวขจี", tel: "082-333-4455", address: "19 หมู่ 5", subdistrict: "ท่าระหัด", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: null, deliveredKg: 15600 },
+  { id: "f5", firstName: "แก้ว", lastName: "นวลจันทร์", tel: "089-777-6655", address: "90 หมู่ 3", subdistrict: "ท่าพี่เลี้ยง", district: "เมืองสุพรรณบุรี", province: "สุพรรณบุรี", groupId: "g1", deliveredKg: 33800 },
 ];
 
 export const PLOTS: Plot[] = [
@@ -234,76 +152,6 @@ export function openPlanting(plantings: Planting[], plotId: string) {
 export function currentPlanting(plantings: Planting[], plotId: string) {
   return openPlanting(plantings, plotId) ?? plantingsOf(plantings, plotId)[0] ?? null;
 }
-
-export const TICKETS: Ticket[] = [
-  {
-    id: "t1",
-    queue: 1,
-    plate: "81-4521",
-    farmerId: "f1",
-    variety: "หอมมะลิ",
-    status: "เข้าไซโล",
-    grossKg: 12000,
-    moisture: 17,
-    netKg: 11760,
-    pricePerKg: 15.5,
-    amountBaht: 182280,
-  },
-  {
-    id: "t2",
-    queue: 2,
-    plate: "70-8834",
-    farmerId: "f2",
-    variety: "หอมมะลิ",
-    status: "รอชั่ง",
-    grossKg: null,
-    moisture: null,
-    netKg: null,
-    pricePerKg: 15.5,
-    amountBaht: null,
-  },
-  {
-    id: "t3",
-    queue: 3,
-    plate: "83-2208",
-    farmerId: "f3",
-    variety: "ขาว",
-    status: "รอชั่ง",
-    grossKg: null,
-    moisture: null,
-    netKg: null,
-    pricePerKg: 11.2,
-    amountBaht: null,
-  },
-];
-
-export const SILOS: Silo[] = [
-  { id: "s-jw", name: "ไซโล A", stage: "ชื้น", variety: "หอมมะลิ", kg: 186000, capacityKg: 500000 },
-  { id: "s-jd", name: "ไซโล B", stage: "แห้ง", variety: "หอมมะลิ", kg: 240000, capacityKg: 500000 },
-  { id: "s-ww", name: "ไซโล C", stage: "ชื้น", variety: "ขาว", kg: 42000, capacityKg: 200000 },
-  { id: "s-wd", name: "ไซโล D", stage: "แห้ง", variety: "ขาว", kg: 96000, capacityKg: 300000 },
-  { id: "s-gw", name: "ไซโล E", stage: "ชื้น", variety: "เหนียว", kg: 18000, capacityKg: 150000 },
-  { id: "s-gd", name: "ไซโล F", stage: "แห้ง", variety: "เหนียว", kg: 54000, capacityKg: 150000 },
-  { id: "s-jh", name: "โกดัง 1", stage: "ต้นข้าว", variety: "หอมมะลิ", kg: 72000, capacityKg: 200000 },
-  { id: "s-wh", name: "โกดัง 2", stage: "ต้นข้าว", variety: "ขาว", kg: 31000, capacityKg: 120000 },
-  { id: "s-gh", name: "โกดัง 3", stage: "ต้นข้าว", variety: "เหนียว", kg: 14000, capacityKg: 80000 },
-  { id: "s-br", name: "โกดัง 4", stage: "ข้าวหัก", variety: "รวม", kg: 22000, capacityKg: 80000 },
-  { id: "s-bn", name: "โกดัง 5", stage: "รำ", variety: "รวม", kg: 9000, capacityKg: 40000 },
-];
-
-export const LOTS: Lot[] = [
-  {
-    id: "l1",
-    code: "ส-2601",
-    variety: "หอมมะลิ",
-    inputKg: 20000,
-    status: "ปิดแล้ว",
-    headKg: 10400,
-    brokenKg: 2800,
-    branKg: 1600,
-    huskKg: 4200,
-  },
-];
 
 export function centroid(points: [number, number][]) {
   const ring = openRing(points);
