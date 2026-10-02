@@ -8,8 +8,8 @@ import { Map as MapIcon, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, U
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { VARIETIES, centroid, currentPlanting, daysUntil, farmerName, farmerVarieties, formatBaht, formatCoord, formatKg, formatRai, formatThaiDate, openPlanting, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
-import { districtNames, provinceNames, subdistrictNames } from "@/lib/thai-place";
+import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerName, farmerVarieties, formatBaht, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { districtNames, placeAt, provinceNames, subdistrictNames } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
@@ -1496,15 +1496,18 @@ export function PlotDialog({
     name: string,
     areaRai: number,
     variety: Variety,
-    place: { subdistrict: string; district: string; province: string },
+    place: { subdistrict: string; district: string; province: string; polygon: [number, number][] },
     schedule: { plantedOn: string; harvestOn: string; estKg: number },
   ) => string | null;
 }) {
-  const { farmers, groups } = useMill();
+  const { farmers, groups, plots } = useMill();
   const owner = farmers.find((farmer) => farmer.id === farmerId) ?? null;
   const group = groups.find((item) => item.id === owner?.groupId) ?? null;
   const [plotName, setPlotName] = useState(name);
   const [areaRai, setAreaRai] = useState(area);
+  const [boundary, setBoundary] = useState<[number, number][]>([]);
+  const [drawing, setDrawing] = useState(false);
+  const [draft, setDraft] = useState<[number, number][]>([]);
   const [subdistrict, setSubdistrict] = useState(owner?.subdistrict ?? "");
   const [district, setDistrict] = useState(owner?.district ?? "");
   const [province, setProvince] = useState(owner?.province ?? "");
@@ -1554,7 +1557,7 @@ export function PlotDialog({
               accept: () =>
                 setNotice(
                   reported(
-                    onSave(plotName, nextArea, variety, { subdistrict, district, province }, { plantedOn, harvestOn, estKg: nextKg }),
+                    onSave(plotName, nextArea, variety, { subdistrict, district, province, polygon: boundary }, { plantedOn, harvestOn, estKg: nextKg }),
                     "บันทึกแปลงแล้ว",
                     onClose,
                   ),
@@ -1579,6 +1582,19 @@ export function PlotDialog({
             พื้นที่ (ไร่)
             <RequiredMark />
             <input value={areaRai} inputMode="decimal" onChange={(event) => setAreaRai(event.target.value)} className={fieldClass} />
+            <button
+              type="button"
+              onClick={() => {
+                setDraft([]);
+                setDrawing(true);
+              }}
+              className="mt-2 text-[14px] font-bold text-brand underline"
+            >
+              วาดบนแผนที่
+            </button>
+            <p className="mt-1 text-[12px] font-normal text-ink/60">
+              {boundary.length > 0 ? `วาดแล้ว · จากรูป ${formatRai(polygonAreaRai(boundary) ?? 0)} · ที่อยู่ถูกใส่จากตำแหน่งรูป แก้ตัวเลขได้ถ้าไม่ตรง` : "คลิกเพื่อวาดรูปแปลง แล้วพื้นที่กับที่อยู่จะถูกใส่ให้"}
+            </p>
           </label>
           <PlaceSelects
             province={province}
@@ -1644,9 +1660,114 @@ export function PlotDialog({
           </div>
         </form>
       </Dialog>
+      {drawing && (
+        <DrawBoundary
+          plots={plots.filter((plot) => plot.farmerId === farmerId && plot.polygon.length >= 4)}
+          draft={draft}
+          onDraft={setDraft}
+          onUse={(ring) => {
+            const measured = polygonAreaRai(ring);
+            if (measured == null) return;
+            const point = centroid(ring);
+            const place = placeAt(point.lng, point.lat);
+            setBoundary(ring);
+            setAreaRai(String(measured));
+            if (place) {
+              setProvince(place.province);
+              setDistrict(place.district);
+              setSubdistrict(place.subdistrict);
+            }
+            setDrawing(false);
+          }}
+          onClose={() => setDrawing(false)}
+        />
+      )}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
+}
+
+function DrawBoundary({
+  plots,
+  draft,
+  onDraft,
+  onUse,
+  onClose,
+}: {
+  plots: Plot[];
+  draft: [number, number][];
+  onDraft: (next: [number, number][]) => void;
+  onUse: (ring: [number, number][]) => void;
+  onClose: () => void;
+}) {
+  const closed = isClosedRing(draft);
+  const measured = polygonAreaRai(draft);
+  function placePoint(lng: number, lat: number) {
+    if (closed) return;
+    const ring = openRing(draft);
+    const next: [number, number] = [lng, lat];
+    if (ring.length >= 3 && nearPoint(ring[0], next)) {
+      const shape = closeRing(ring);
+      if (shape) onDraft(shape);
+      return;
+    }
+    onDraft([...ring, next]);
+  }
+  return (
+    <Dialog title="วาดขอบเขตแปลง" wide onClose={onClose}>
+      <p className="mb-3 text-[14px]">คลิกบนแผนที่เพื่อวางจุด แล้วคลิกจุดแรกหรือกดปิดรูป ที่อยู่จะถูกใส่จากตำแหน่งรูป</p>
+      <div className="h-[calc(100vh-20rem)]">
+        <FieldMap
+          plots={plots.map((plot) => ({ id: plot.id, name: plot.name, color: "#1A9D72", muted: true, polygon: plot.polygon }))}
+          selectedId={null}
+          onSelect={() => {}}
+          draft={draft}
+          onDraftClick={closed ? undefined : placePoint}
+          bottomInset={48}
+        />
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {!closed && (
+          <>
+            <span className="text-[14px]">{openRing(draft).length} จุด</span>
+            <SecondaryButton className="h-9" onClick={() => onDraft(openRing(draft).slice(0, -1))} disabled={openRing(draft).length === 0}>
+              ลบจุด
+            </SecondaryButton>
+            <SecondaryButton
+              className="h-9"
+              disabled={openRing(draft).length < 3}
+              onClick={() => {
+                const shape = closeRing(openRing(draft));
+                if (shape) onDraft(shape);
+              }}
+            >
+              ปิดรูป
+            </SecondaryButton>
+          </>
+        )}
+        {closed && measured != null && (
+          <>
+            <span className="text-[14px] font-bold">จากรูป {formatRai(measured)}</span>
+            <PrimaryButton type="button" className="h-9" onClick={() => onUse(draft)}>
+              ใช้พื้นที่นี้
+            </PrimaryButton>
+            <SecondaryButton className="h-9" onClick={() => onDraft([])}>
+              วาดใหม่
+            </SecondaryButton>
+          </>
+        )}
+        <SecondaryButton className="h-9" onClick={onClose}>
+          ยกเลิก
+        </SecondaryButton>
+      </div>
+    </Dialog>
+  );
+}
+
+function nearPoint(a: [number, number], b: [number, number]) {
+  const lng = a[0] - b[0];
+  const lat = a[1] - b[1];
+  return lng * lng + lat * lat < 0.00008 * 0.00008;
 }
 
 function Fact({ label, value }: { label: string; value: string }) {

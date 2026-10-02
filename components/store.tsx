@@ -10,6 +10,7 @@ import {
   SILOS,
   PRICES,
   TICKETS,
+  isClosedRing,
   settle,
   splitLot,
   type Farmer,
@@ -66,6 +67,7 @@ type Store = MillData & {
       subdistrict: string;
       district: string;
       province: string;
+      polygon: [number, number][];
     },
   ) => string | null;
   savePlot: (plotId: string, input: { name: string; areaRai: number; subdistrict?: string; district?: string; province?: string }) => string | null;
@@ -293,6 +295,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const district = input.district.trim();
         const province = input.province.trim();
         if (!subdistrict || !district || !province) return "กรอกตำบล อำเภอ และจังหวัด";
+        if (input.polygon.length > 0 && !isClosedRing(input.polygon)) return "รูปแปลงต้องมีอย่างน้อย 3 จุด";
         const plotId = `p-${draft.plots.length + 1}-${name.length}`;
         draft.plots.push({
           id: plotId,
@@ -302,7 +305,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           subdistrict,
           district,
           province,
-          polygon: [],
+          polygon: input.polygon,
         });
         if (!input.plantedOn && !input.harvestOn) return null;
         if (!PRICES[input.variety]) return "เลือกพันธุ์";
