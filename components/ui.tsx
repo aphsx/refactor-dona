@@ -132,14 +132,16 @@ export function Dialog({
   title,
   onClose,
   children,
+  wide = false,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  wide?: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-[560px] overflow-hidden rounded-[8px] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+      <div className={`w-full overflow-hidden rounded-[8px] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] ${wide ? "max-w-[960px]" : "max-w-[560px]"}`}>
         <div className="flex items-center justify-between bg-bar px-6 py-4 text-[16px] font-bold text-white">
           {title}
           <button

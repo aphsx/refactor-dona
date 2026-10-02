@@ -42,12 +42,31 @@ type Store = MillData & {
   updateGroup: (groupId: string, name: string, leaderId: string) => string | null;
   updateFarmer: (
     farmerId: string,
-    input: { firstName: string; lastName: string; tel: string; address: string; groupId: string | null },
+    input: {
+      firstName: string;
+      lastName: string;
+      tel: string;
+      address: string;
+      subdistrict: string;
+      district: string;
+      province: string;
+      groupId: string | null;
+    },
   ) => string | null;
   assignFarmer: (farmerId: string, groupId: string | null) => string | null;
   addPlot: (
     farmerId: string,
-    input: { name: string; areaRai: number; variety: Variety; plantedOn: string; harvestOn: string; estKg: number },
+    input: {
+      name: string;
+      areaRai: number;
+      variety: Variety;
+      plantedOn: string;
+      harvestOn: string;
+      estKg: number;
+      subdistrict: string;
+      district: string;
+      province: string;
+    },
   ) => string | null;
   savePlot: (plotId: string, input: { name: string; areaRai: number; subdistrict?: string; district?: string; province?: string }) => string | null;
   saveBoundary: (plotId: string, polygon: [number, number][], areaRai: number) => string | null;
@@ -240,6 +259,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         farmer.lastName = lastName;
         farmer.tel = tel;
         farmer.address = input.address.trim();
+        farmer.subdistrict = input.subdistrict.trim();
+        farmer.district = input.district.trim();
+        farmer.province = input.province.trim();
         return null;
       });
     },
@@ -267,15 +289,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const name = input.name.trim();
         if (!name) return "กรอกชื่อแปลง";
         if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";
+        const subdistrict = input.subdistrict.trim();
+        const district = input.district.trim();
+        const province = input.province.trim();
+        if (!subdistrict || !district || !province) return "กรอกตำบล อำเภอ และจังหวัด";
         const plotId = `p-${draft.plots.length + 1}-${name.length}`;
         draft.plots.push({
           id: plotId,
           farmerId,
           name,
           areaRai: input.areaRai,
-          subdistrict: "",
-          district: "",
-          province: "",
+          subdistrict,
+          district,
+          province,
           polygon: [],
         });
         if (!input.plantedOn && !input.harvestOn) return null;

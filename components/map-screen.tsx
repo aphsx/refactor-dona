@@ -72,13 +72,14 @@ export function MapScreen() {
   const router = useRouter();
   const params = useSearchParams();
   const requested = params.get("farmer");
+  const requestedPlot = params.get("plot");
   const { plots, plantings, farmers, groups, saveBoundary } = useMill();
   const [query, setQuery] = useState("");
   const [groupId, setGroupId] = useState("all");
   const [focusId, setFocusId] = useState<string | null>(requested);
   const [lens, setLens] = useState<Lens>("harvest");
   const [isolate, setIsolate] = useState<string | null>(null);
-  const [plotId, setPlotId] = useState<string | null>(null);
+  const [plotId, setPlotId] = useState<string | null>(requestedPlot);
   const [draft, setDraft] = useState<[number, number][] | null>(null);
   const [areaText, setAreaText] = useState("");
   const [boundaryError, setBoundaryError] = useState("");
@@ -86,6 +87,10 @@ export function MapScreen() {
   useEffect(() => {
     setFocusId(requested);
   }, [requested]);
+
+  useEffect(() => {
+    setPlotId(requestedPlot);
+  }, [requestedPlot]);
 
   useEffect(() => {
     setDraft(null);

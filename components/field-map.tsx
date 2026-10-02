@@ -36,12 +36,14 @@ export function FieldMap({
   onSelect,
   draft = null,
   onDraftClick,
+  bottomInset,
 }: {
   plots: MapPlot[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   draft?: [number, number][] | null;
   onDraftClick?: (lng: number, lat: number) => void;
+  bottomInset?: number;
 }) {
   const mapRef = useRef<MapRef>(null);
   const [mode, setMode] = useState<"satellite" | "street">("satellite");
@@ -100,7 +102,7 @@ export function FieldMap({
         [Math.min(...lngs), Math.min(...lats)],
         [Math.max(...lngs), Math.max(...lats)],
       ],
-      { padding: { top: 64, right: 48, bottom: selectedId ? 200 : 64, left: 48 }, duration: 500, maxZoom: 16 },
+      { padding: { top: 64, right: 48, bottom: bottomInset ?? (selectedId ? 200 : 64), left: 48 }, duration: 500, maxZoom: 16 },
     );
   }
 

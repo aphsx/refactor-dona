@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
+import { Map as MapIcon, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { VARIETIES, centroid, currentPlanting, daysUntil, farmerName, farmerVarieties, formatBaht, formatCoord, formatKg, formatRai, formatThaiDate, openPlanting, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { districtNames, provinceNames, subdistrictNames } from "@/lib/thai-place";
+
+const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void }
@@ -658,6 +662,9 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
   const [lastName, setLastName] = useState(farmer.lastName);
   const [tel, setTel] = useState(farmer.tel);
   const [address, setAddress] = useState(farmer.address);
+  const [subdistrict, setSubdistrict] = useState(farmer.subdistrict);
+  const [district, setDistrict] = useState(farmer.district);
+  const [province, setProvince] = useState(farmer.province);
   const [groupId, setGroupId] = useState(farmer.groupId ?? "");
   const [notice, setNotice] = useState<Notice | null>(null);
   const fields = plots.filter((plot) => plot.farmerId === farmer.id);
@@ -672,14 +679,20 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     setLastName(farmer.lastName);
     setTel(farmer.tel);
     setAddress(farmer.address);
+    setSubdistrict(farmer.subdistrict);
+    setDistrict(farmer.district);
+    setProvince(farmer.province);
     setGroupId(farmer.groupId ?? "");
-  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.address, farmer.groupId]);
+  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.address, farmer.subdistrict, farmer.district, farmer.province, farmer.groupId]);
 
   const dirty =
     firstName !== farmer.firstName ||
     lastName !== farmer.lastName ||
     tel !== farmer.tel ||
     address !== farmer.address ||
+    subdistrict !== farmer.subdistrict ||
+    district !== farmer.district ||
+    province !== farmer.province ||
     (groupId || null) !== farmer.groupId;
 
   function undo() {
@@ -687,6 +700,9 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     setLastName(farmer.lastName);
     setTel(farmer.tel);
     setAddress(farmer.address);
+    setSubdistrict(farmer.subdistrict);
+    setDistrict(farmer.district);
+    setProvince(farmer.province);
     setGroupId(farmer.groupId ?? "");
     if (!dirty) setEditing(false);
   }
@@ -718,7 +734,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
               accept: () =>
                 setNotice(
                   reported(
-                    updateFarmer(farmer.id, { firstName, lastName, tel, address, groupId: nextGroup }),
+                    updateFarmer(farmer.id, { firstName, lastName, tel, address, subdistrict, district, province, groupId: nextGroup }),
                     moving ? "ย้ายกลุ่มแล้ว" : "บันทึกสมาชิกแล้ว",
                     () => setEditing(false),
                   ),
@@ -742,6 +758,17 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             ที่อยู่
             <input value={address} disabled={!editing} onChange={(event) => setAddress(event.target.value)} className={fieldClass} />
           </label>
+          <PlaceSelects
+            province={province}
+            district={district}
+            subdistrict={subdistrict}
+            disabled={!editing}
+            onChange={(place) => {
+              setProvince(place.province);
+              setDistrict(place.district);
+              setSubdistrict(place.subdistrict);
+            }}
+          />
           <label className="block text-[14px] font-bold leading-[1.4]">
             กลุ่ม
             <SearchSelect
@@ -836,9 +863,6 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
             <Glyph icon={Plus} />
             เพิ่มแปลง
           </SecondaryButton>
-          <Link href={`/map?farmer=${farmer.id}`} className="text-[14px] font-bold underline">
-            ดูบนแผนที่
-          </Link>
           <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
             ปิด
           </button>
@@ -862,9 +886,12 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
           title="เพิ่มแปลง"
           name=""
           area=""
+          farmerId={farmer.id}
           schedule={false}
           onClose={() => setAdding(false)}
-          onSave={(name, areaRai) => addPlot(farmer.id, { name, areaRai, variety: "หอมมะลิ", plantedOn: "", harvestOn: "", estKg: 0 })}
+          onSave={(name, areaRai, _variety, place) =>
+            addPlot(farmer.id, { name, areaRai, variety: "หอมมะลิ", plantedOn: "", harvestOn: "", estKg: 0, ...place })
+          }
         />
       )}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
@@ -873,11 +900,11 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
 }
 
 function plotHarvest(planting: Planting | null) {
-  if (!planting) return { label: "ยังไม่มีแผน", className: "text-ink/60" };
-  if (planting.delivered) return { label: "รับแล้ว", className: "text-ok" };
+  if (!planting) return { label: "ยังไม่ปลูก", className: "text-ink/60" };
+  if (planting.delivered) return { label: "เก็บแล้ว", className: "text-ok" };
   const left = daysUntil(planting.harvestOn);
-  if (left <= 0) return { label: "ถึงกำหนด", className: "text-brand" };
-  if (left <= 7) return { label: "ใกล้เก็บเกี่ยว", className: "text-brand" };
+  if (left < 0) return { label: `เลย ${-left} วัน`, className: "text-brand" };
+  if (left === 0) return { label: "ถึงกำหนด", className: "text-brand" };
   return { label: `อีก ${left} วัน`, className: "" };
 }
 
@@ -894,6 +921,7 @@ function PlotTable({
   onAddRound: (plotId: string) => void;
   onRemove: (plot: Plot) => void;
 }) {
+  const [mapPlot, setMapPlot] = useState<Plot | null>(null);
   const listingSort = useTableSort(farmerId);
   const ordered = orderBy(plots, listingSort.sort, (plot, key) => {
     const round = currentPlanting(plantings, plot.id);
@@ -904,9 +932,11 @@ function PlotTable({
     if (key === "planted") return round?.plantedOn ?? "";
     if (key === "harvest") return round?.harvestOn ?? "";
     if (key === "kg") return round?.estKg ?? -1;
-    return round ? plantingMark(round).label : "ยังไม่มีแผน";
+    return plotHarvest(round).label;
   });
+  const shaped = mapPlot != null && mapPlot.polygon.length >= 4;
   return (
+    <>
     <TableScroll>
 <table className={tableClass}>
         <thead className="bg-table">
@@ -943,6 +973,10 @@ function PlotTable({
                 <td className={`px-5 py-3 font-bold ${harvest.className}`}>{harvest.label}</td>
                 <td className="px-5 py-3 text-right">
                   <div className="flex justify-end gap-2">
+                    <SecondaryButton className="h-9" onClick={() => setMapPlot(plot)}>
+                      <Glyph icon={MapIcon} />
+                      ดูบนแผนที่
+                    </SecondaryButton>
                     {!round && (
                       <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
                         <Glyph icon={Plus} />
@@ -961,6 +995,23 @@ function PlotTable({
         </tbody>
       </table>
 </TableScroll>
+    {mapPlot && (
+      <Dialog title={`แผนที่ · ${mapPlot.name}`} wide onClose={() => setMapPlot(null)}>
+        {shaped ? (
+          <div className="h-[calc(100vh-12rem)]">
+            <FieldMap
+              plots={[{ id: mapPlot.id, name: mapPlot.name, color: "#1A9D72", muted: false, polygon: mapPlot.polygon }]}
+              selectedId={mapPlot.id}
+              onSelect={() => {}}
+              bottomInset={64}
+            />
+          </div>
+        ) : (
+          <p className="text-[14px] text-ink/60">ยังไม่มีรูปแปลง</p>
+        )}
+      </Dialog>
+    )}
+    </>
   );
 }
 
@@ -1232,18 +1283,17 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
           กลุ่ม
           <input value={group?.name ?? "ไม่มีกลุ่ม"} disabled className={fieldClass} />
         </label>
-        <label className="block text-[14px] font-bold leading-[1.4]">
-          ตำบล
-          <input value={subdistrict} disabled={!editing} onChange={(event) => setSubdistrict(event.target.value)} className={fieldClass} />
-        </label>
-        <label className="block text-[14px] font-bold leading-[1.4]">
-          อำเภอ
-          <input value={district} disabled={!editing} onChange={(event) => setDistrict(event.target.value)} className={fieldClass} />
-        </label>
-        <label className="block text-[14px] font-bold leading-[1.4]">
-          จังหวัด
-          <input value={province} disabled={!editing} onChange={(event) => setProvince(event.target.value)} className={fieldClass} />
-        </label>
+        <PlaceSelects
+          province={province}
+          district={district}
+          subdistrict={subdistrict}
+          disabled={!editing}
+          onChange={(place) => {
+            setProvince(place.province);
+            setDistrict(place.district);
+            setSubdistrict(place.subdistrict);
+          }}
+        />
         <label className="block text-[14px] font-bold leading-[1.4]">
           พิกัด
           <input value={point ? formatCoord(point) : "ยังไม่มีรูป"} disabled className={fieldClass} />
@@ -1354,10 +1404,84 @@ function parseAmount(value: string) {
   return Number.isFinite(amount) ? amount : Number.NaN;
 }
 
+function RequiredMark() {
+  return <span className="text-danger"> *</span>;
+}
+
+function placeOptions(names: string[], current: string) {
+  const options = names.map((name) => ({ value: name, label: name }));
+  if (current && !options.some((option) => option.value === current)) options.unshift({ value: current, label: current });
+  return options;
+}
+
+function PlaceSelects({
+  province,
+  district,
+  subdistrict,
+  disabled = false,
+  required = false,
+  onChange,
+}: {
+  province: string;
+  district: string;
+  subdistrict: string;
+  disabled?: boolean;
+  required?: boolean;
+  onChange: (place: { province: string; district: string; subdistrict: string }) => void;
+}) {
+  const provinces = useMemo(() => placeOptions(provinceNames(), province), [province]);
+  const districts = useMemo(() => placeOptions(districtNames(province), district), [province, district]);
+  const subdistricts = useMemo(() => placeOptions(subdistrictNames(province, district), subdistrict), [province, district, subdistrict]);
+  return (
+    <>
+      <label className="block text-[14px] font-bold leading-[1.4]">
+        จังหวัด
+        {required && <RequiredMark />}
+        <SearchSelect
+          label="จังหวัด"
+          className="mt-1"
+          placeholder="เลือกจังหวัด"
+          value={province}
+          disabled={disabled}
+          options={provinces}
+          onChange={(next) => onChange({ province: next, district: "", subdistrict: "" })}
+        />
+      </label>
+      <label className="block text-[14px] font-bold leading-[1.4]">
+        อำเภอ
+        {required && <RequiredMark />}
+        <SearchSelect
+          label="อำเภอ"
+          className="mt-1"
+          placeholder={province ? "เลือกอำเภอ" : "เลือกจังหวัดก่อน"}
+          value={district}
+          disabled={disabled || !province}
+          options={districts}
+          onChange={(next) => onChange({ province, district: next, subdistrict: "" })}
+        />
+      </label>
+      <label className="block text-[14px] font-bold leading-[1.4]">
+        ตำบล
+        {required && <RequiredMark />}
+        <SearchSelect
+          label="ตำบล"
+          className="mt-1"
+          placeholder={district ? "เลือกตำบล" : "เลือกอำเภอก่อน"}
+          value={subdistrict}
+          disabled={disabled || !district}
+          options={subdistricts}
+          onChange={(next) => onChange({ province, district, subdistrict: next })}
+        />
+      </label>
+    </>
+  );
+}
+
 export function PlotDialog({
   title,
   name,
   area,
+  farmerId,
   schedule = true,
   onClose,
   onSave,
@@ -1365,17 +1489,31 @@ export function PlotDialog({
   title: string;
   name: string;
   area: string;
+  farmerId: string;
   schedule?: boolean;
   onClose: () => void;
-  onSave: (name: string, areaRai: number, variety: Variety, schedule: { plantedOn: string; harvestOn: string; estKg: number }) => string | null;
+  onSave: (
+    name: string,
+    areaRai: number,
+    variety: Variety,
+    place: { subdistrict: string; district: string; province: string },
+    schedule: { plantedOn: string; harvestOn: string; estKg: number },
+  ) => string | null;
 }) {
+  const { farmers, groups } = useMill();
+  const owner = farmers.find((farmer) => farmer.id === farmerId) ?? null;
+  const group = groups.find((item) => item.id === owner?.groupId) ?? null;
   const [plotName, setPlotName] = useState(name);
   const [areaRai, setAreaRai] = useState(area);
+  const [subdistrict, setSubdistrict] = useState(owner?.subdistrict ?? "");
+  const [district, setDistrict] = useState(owner?.district ?? "");
+  const [province, setProvince] = useState(owner?.province ?? "");
   const [variety, setVariety] = useState<Variety>("หอมมะลิ");
   const [plantedOn, setPlantedOn] = useState("");
   const [harvestOn, setHarvestOn] = useState("");
   const [estKg, setEstKg] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
+  const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
 
   return (
     <>
@@ -1388,6 +1526,10 @@ export function PlotDialog({
             const nextKg = parseAmount(estKg);
             if (!plotName.trim()) {
               setNotice({ tone: "error", message: "กรอกชื่อแปลง" });
+              return;
+            }
+            if (!subdistrict.trim() || !district.trim() || !province.trim()) {
+              setNotice({ tone: "error", message: "กรอกตำบล อำเภอ และจังหวัด" });
               return;
             }
             if (!Number.isFinite(nextArea) || nextArea <= 0) {
@@ -1411,22 +1553,48 @@ export function PlotDialog({
               message: `ยืนยัน${title}`,
               accept: () =>
                 setNotice(
-                  reported(onSave(plotName, nextArea, variety, { plantedOn, harvestOn, estKg: nextKg }), schedule ? "บันทึกแปลงแล้ว" : "แก้แปลงแล้ว", onClose),
+                  reported(
+                    onSave(plotName, nextArea, variety, { subdistrict, district, province }, { plantedOn, harvestOn, estKg: nextKg }),
+                    "บันทึกแปลงแล้ว",
+                    onClose,
+                  ),
                 ),
             });
           }}
         >
           <label className="block text-[14px] font-bold leading-[1.4]">
+            เจ้าของแปลง
+            <input value={owner ? farmerName(owner) : "—"} disabled className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            กลุ่ม
+            <input value={group?.name ?? "ไม่มีกลุ่ม"} disabled className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
             ชื่อแปลง
-            <input value={plotName} onChange={(event) => setPlotName(event.target.value)} className={`${inputClass} mt-1`} />
+            <RequiredMark />
+            <input value={plotName} onChange={(event) => setPlotName(event.target.value)} className={fieldClass} />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             พื้นที่ (ไร่)
-            <input value={areaRai} inputMode="decimal" onChange={(event) => setAreaRai(event.target.value)} className={`${inputClass} mt-1`} />
+            <RequiredMark />
+            <input value={areaRai} inputMode="decimal" onChange={(event) => setAreaRai(event.target.value)} className={fieldClass} />
           </label>
+          <PlaceSelects
+            province={province}
+            district={district}
+            subdistrict={subdistrict}
+            required
+            onChange={(place) => {
+              setProvince(place.province);
+              setDistrict(place.district);
+              setSubdistrict(place.subdistrict);
+            }}
+          />
           {schedule && (
             <label className="block text-[14px] font-bold leading-[1.4]">
               พันธุ์
+              <RequiredMark />
               <Select
                 label="พันธุ์"
                 className="mt-1"
@@ -1440,6 +1608,7 @@ export function PlotDialog({
             <>
               <label className="block text-[14px] font-bold leading-[1.4]">
                 วันปลูก
+                <RequiredMark />
                 <DateField
                   label="วันปลูก"
                   className="mt-1"
@@ -1453,11 +1622,13 @@ export function PlotDialog({
               </label>
               <label className="block text-[14px] font-bold leading-[1.4]">
                 กำหนดเก็บ
+                <RequiredMark />
                 <DateField label="กำหนดเก็บ" className="mt-1" value={harvestOn} min={plantedOn} onChange={setHarvestOn} />
               </label>
               <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
                 ที่คาด (กก.)
-                <input value={estKg} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={`${inputClass} mt-1`} />
+                <RequiredMark />
+                <input value={estKg} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={fieldClass} />
               </label>
             </>
           )}
