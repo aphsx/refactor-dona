@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
+import { getApiOrigin } from "./lib/env";
 
-const apiOrigin = process.env.DONA_API_URL ?? "http://127.0.0.1:8080";
+const apiOrigin = getApiOrigin();
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   async rewrites() {
     return [
       {
