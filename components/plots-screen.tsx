@@ -310,7 +310,7 @@ export function PlotManageScreen() {
           schedule={false}
           onClose={closeAdd}
           onSave={(plotName, areaRai, _variety, place) =>
-            addPlot(ownerId, { name: plotName, areaRai, varietyId: "jasmine", plantedOn: "", harvestOn: "", estKg: 0, ...place })
+            addPlot(ownerId, { name: plotName, areaRai, varietyId: 1, plantedOn: "", harvestOn: "", estKg: 0, ...place })
           }
         />
       )}

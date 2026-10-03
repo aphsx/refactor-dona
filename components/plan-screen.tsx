@@ -58,7 +58,7 @@ export function PlanScreen() {
         const farmer = farmers.find((item) => item.id === plot.farmerId);
         if (applied.groupId === "none" && farmer?.groupId != null) return [];
         if (applied.groupId !== "all" && applied.groupId !== "none" && farmer?.groupId !== applied.groupId) return [];
-        if (applied.variety !== "all" && planting.varietyId !== applied.variety) return [];
+        if (applied.variety !== "all" && planting.varietyId !== Number(applied.variety)) return [];
         return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
       });
   }, [plantings, plots, farmers, applied]);
@@ -126,7 +126,7 @@ export function PlanScreen() {
               className="mt-1"
               value={draft.variety}
               onChange={(variety) => setDraft({ ...draft, variety })}
-              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: item.id, label: item.name }))]}
+              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))]}
             />
           </label>
           <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-4">
@@ -192,7 +192,7 @@ export function MemberSeasonScreen() {
       .flatMap((planting) => {
         const plot = plots.find((item) => item.id === planting.plotId);
         if (!plot) return [];
-        if (applied.variety !== "all" && planting.varietyId !== applied.variety) return [];
+        if (applied.variety !== "all" && planting.varietyId !== Number(applied.variety)) return [];
         if (!inRange(planting.plantedOn, applied.plantedFrom, applied.plantedTo)) return [];
         if (!inRange(planting.harvestOn, applied.harvestFrom, applied.harvestTo)) return [];
         return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
@@ -280,7 +280,7 @@ export function MemberSeasonScreen() {
               className="mt-1"
               value={draft.variety}
               onChange={(variety) => setDraft({ ...draft, variety })}
-              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: item.id, label: item.name }))]}
+              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))]}
             />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">

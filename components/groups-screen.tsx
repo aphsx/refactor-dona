@@ -910,7 +910,7 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
           schedule={false}
           onClose={() => setAdding(false)}
           onSave={(name, areaRai, _variety, place) =>
-            addPlot(farmer.id, { name, areaRai, varietyId: "jasmine", plantedOn: "", harvestOn: "", estKg: 0, ...place })
+            addPlot(farmer.id, { name, areaRai, varietyId: 1, plantedOn: "", harvestOn: "", estKg: 0, ...place })
           }
         />
       )}
@@ -1278,7 +1278,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const [subdistrict, setSubdistrict] = useState(plot.subdistrict);
   const [district, setDistrict] = useState(plot.district);
   const [province, setProvince] = useState(plot.province);
-  const [variety, setVariety] = useState<Variety>(current?.varietyId ?? "jasmine");
+  const [variety, setVariety] = useState<Variety>(current?.varietyId ?? 1);
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? "");
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? "");
   const [estKg, setEstKg] = useState(current ? String(current.estKg) : "");
@@ -1296,7 +1296,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     subdistrict !== plot.subdistrict ||
     district !== plot.district ||
     province !== plot.province ||
-    variety !== (current?.varietyId ?? "jasmine") ||
+    variety !== (current?.varietyId ?? 1) ||
     plantedOn !== (current?.plantedOn ?? "") ||
     harvestOn !== (current?.harvestOn ?? "") ||
     estKg !== savedKg;
@@ -1308,7 +1308,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setSubdistrict(plot.subdistrict);
     setDistrict(plot.district);
     setProvince(plot.province);
-    setVariety(current?.varietyId ?? "jasmine");
+    setVariety(current?.varietyId ?? 1);
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
@@ -1320,7 +1320,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setSubdistrict(plot.subdistrict);
     setDistrict(plot.district);
     setProvince(plot.province);
-    setVariety(current?.varietyId ?? "jasmine");
+    setVariety(current?.varietyId ?? 1);
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
@@ -1420,10 +1420,10 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
           <Select
             label="พันธุ์"
             className="mt-1"
-            value={variety}
+            value={String(variety)}
             disabled={!editing}
-            onChange={(next) => setVariety(next as Variety)}
-            options={VARIETIES.map((item) => ({ value: item.id, label: item.name }))}
+            onChange={(next) => setVariety(Number(next) as Variety)}
+            options={VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))}
           />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1622,7 +1622,7 @@ export function PlotDialog({
   const [subdistrict, setSubdistrict] = useState(owner?.subdistrict ?? "");
   const [district, setDistrict] = useState(owner?.district ?? "");
   const [province, setProvince] = useState(owner?.province ?? "");
-  const [variety, setVariety] = useState<Variety>("jasmine");
+  const [variety, setVariety] = useState<Variety>(1);
   const [plantedOn, setPlantedOn] = useState("");
   const [harvestOn, setHarvestOn] = useState("");
   const [estKg, setEstKg] = useState("");
@@ -1725,9 +1725,9 @@ export function PlotDialog({
               <Select
                 label="พันธุ์"
                 className="mt-1"
-                value={variety}
-                onChange={(next) => setVariety(next as Variety)}
-                options={VARIETIES.map((item) => ({ value: item.id, label: item.name }))}
+                value={String(variety)}
+                onChange={(next) => setVariety(Number(next) as Variety)}
+                options={VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))}
               />
             </label>
           )}

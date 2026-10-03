@@ -1,12 +1,12 @@
-export type Variety = "jasmine" | "white" | "glutinous";
+export type Variety = 1 | 2 | 3;
 
 export const VARIETIES: { id: Variety; name: string }[] = [
-  { id: "jasmine", name: "หอมมะลิ" },
-  { id: "white", name: "ขาว" },
-  { id: "glutinous", name: "เหนียว" },
+  { id: 1, name: "หอมมะลิ" },
+  { id: 2, name: "ขาว" },
+  { id: 3, name: "เหนียว" },
 ];
 
-export function varietyName(id: string) {
+export function varietyName(id: number) {
   return VARIETIES.find((item) => item.id === id)?.name ?? "—";
 }
 

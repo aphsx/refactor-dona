@@ -143,9 +143,9 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
                 <Select
                   label="พันธุ์"
                   className="mt-1"
-                  value={variety}
-                  onChange={(next) => setVariety(next as Variety)}
-                  options={VARIETIES.map((item) => ({ value: item.id, label: item.name }))}
+                  value={variety === "" ? "" : String(variety)}
+                  onChange={(next) => setVariety(next ? (Number(next) as Variety) : "")}
+                  options={VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))}
                 />
               ) : (
                 <input value={variety ? varietyName(variety) : "—"} disabled className={fieldClass} />
