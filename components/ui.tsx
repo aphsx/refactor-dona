@@ -205,6 +205,8 @@ export function ConfirmAlert({
   onConfirm: () => void | Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  // Sync lock: React state alone loses double-clicks before re-render.
+  const locked = useRef(false);
 
   return (
     <AlertFrame>
@@ -212,16 +214,27 @@ export function ConfirmAlert({
       <p className="mt-4 text-[18px] font-bold">{message}</p>
       {busy && <p className="mt-2 text-[14px] text-ink/60">กำลังบันทึก…</p>}
       <div className="mt-6 flex justify-center gap-3">
-        <SecondaryButton disabled={busy} onClick={onCancel}>
+        <SecondaryButton
+          disabled={busy}
+          onClick={() => {
+            if (locked.current) return;
+            onCancel();
+          }}
+        >
           <Glyph icon={X} />
           ยกเลิก
         </SecondaryButton>
         <PrimaryButton
           disabled={busy}
           onClick={() => {
-            if (busy) return;
+            if (locked.current) return;
+            locked.current = true;
             setBusy(true);
-            void Promise.resolve(onConfirm()).finally(() => setBusy(false));
+            void Promise.resolve(onConfirm()).catch(() => {
+              // Only unlock on failure so the user can retry. Success replaces this dialog.
+              locked.current = false;
+              setBusy(false);
+            });
           }}
         >
           <Glyph icon={Check} />

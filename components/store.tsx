@@ -69,6 +69,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [actingRole] = useState<PermissionRole>("mill");
   const dataRef = useRef(data);
   dataRef.current = data;
+  /** Blocks duplicate createPlot from rapid confirm clicks (same farmer/name/area/ring). */
+  const createPlotInflight = useRef(new Set<string>());
 
   useEffect(() => {
     setApiActor({ role: actingRole });
@@ -160,10 +162,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ),
     assignFarmer: (farmerId, groupId) => mutate(() => api.assignFarmerGroup(farmerId, groupId)),
     addPlot: async (farmerId, input) => {
+      const name = input.name.trim();
+      const dedupeKey = [
+        farmerId,
+        name,
+        input.areaRai,
+        input.provinceId,
+        input.districtId,
+        input.subdistrictId,
+        JSON.stringify(input.polygon),
+      ].join("|");
+      if (createPlotInflight.current.has(dedupeKey)) {
+        return "กำลังบันทึกแปลงนี้อยู่แล้ว";
+      }
+      createPlotInflight.current.add(dedupeKey);
       try {
         const body = {
           farmerId,
-          name: input.name.trim(),
+          name,
           areaRai: input.areaRai,
           provinceId: input.provinceId,
           districtId: input.districtId,
@@ -187,6 +203,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return null;
       } catch (error) {
         return apiMessage(error);
+      } finally {
+        // Keep the key briefly so a second click that already passed UI checks still collapses.
+        window.setTimeout(() => createPlotInflight.current.delete(dedupeKey), 4000);
       }
     },
     savePlot: (plotId, input) =>

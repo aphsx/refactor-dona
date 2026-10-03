@@ -1635,6 +1635,7 @@ export function PlotDialog({
   const [preview, setPreview] = useState<Blob | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [draft, setDraft] = useState<[number, number][]>([]);
+  const savingRef = useRef(false);
   const [subdistrictId, setSubdistrictId] = useState(owner?.subdistrictId ?? 0);
   const [districtId, setDistrictId] = useState(owner?.districtId ?? 0);
   const [provinceId, setProvinceId] = useState(owner?.provinceId ?? 0);
@@ -1678,23 +1679,33 @@ export function PlotDialog({
               setNotice({ tone: "error", message: "ที่คาดต้องเป็นจำนวนเต็มมากกว่า 0" });
               return;
             }
+            if (savingRef.current) return;
             setNotice({
               tone: "confirm",
               message: `ยืนยัน${title}`,
-              accept: async () =>
-                setNotice(
-                  await reported(
-                    onSave(
-                      plotName,
-                      nextArea,
-                      variety,
-                      { provinceId, districtId, subdistrictId, polygon: boundary, preview },
-                      { plantedOn, harvestOn, estKg: nextKg },
+              accept: async () => {
+                if (savingRef.current) return;
+                savingRef.current = true;
+                // Drop confirm immediately so a second click cannot re-enter create.
+                setNotice({ tone: "success", message: "กำลังบันทึก…" });
+                try {
+                  setNotice(
+                    await reported(
+                      onSave(
+                        plotName,
+                        nextArea,
+                        variety,
+                        { provinceId, districtId, subdistrictId, polygon: boundary, preview },
+                        { plantedOn, harvestOn, estKg: nextKg },
+                      ),
+                      "บันทึกแปลงแล้ว",
+                      onClose,
                     ),
-                    "บันทึกแปลงแล้ว",
-                    onClose,
-                  ),
-                ),
+                  );
+                } finally {
+                  savingRef.current = false;
+                }
+              },
             });
           }}
         >
