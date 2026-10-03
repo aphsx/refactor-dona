@@ -30,18 +30,50 @@ body {
   font-family: var(--font-noto), var(--font-thai), "Noto Sans Thai", "Noto Sans", sans-serif;
 }
 
+:focus,
 :focus-visible {
-  outline: 3px solid #f4c35d;
-  outline-offset: 1px;
+  outline: none;
 }
 
 button,
 input,
-select {
+select,
+textarea {
   font-family: inherit;
+}
+
+/* Chrome/Safari autofill paints a yellow wash over inputs */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #1d4f60;
+  caret-color: #1d4f60;
+  transition: background-color 99999s ease-in-out 0s;
+  box-shadow: 0 0 0 1000px #ffffff inset;
 }
 
 .maplibregl-map,
 .maplibregl-ctrl {
   font-family: inherit;
+}
+
+@keyframes login-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-rise {
+  animation: login-rise 420ms ease-out;
 }

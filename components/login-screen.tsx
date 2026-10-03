@@ -1,19 +1,37 @@
 "use client";
 
 import { useState } from "react";
+import { Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { apiLogin, apiMessage, clearAuthSession, type AuthSession } from "@/lib/api";
-import { inputClass } from "@/components/ui";
+
+const brandDark = "#0F493B";
+const brandPrimary = "#1D8A6A";
 
 export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordHidden, setPasswordHidden] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="flex h-full min-h-0 items-center justify-center bg-white px-6">
+    <div
+      className="relative flex h-full min-h-0 items-center justify-center overflow-y-auto px-6 py-10"
+      style={{
+        background:
+          "radial-gradient(120% 80% at 50% -10%, #d9f3e8 0%, #F3FBF7 42%, #eaf6f1 100%)",
+      }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-40"
+        style={{
+          background: "linear-gradient(180deg, rgba(29,138,106,0.14), transparent)",
+        }}
+      />
+
       <form
-        className="w-full max-w-sm"
+        className="login-rise relative w-full max-w-[360px]"
         onSubmit={(event) => {
           event.preventDefault();
           void (async () => {
@@ -35,44 +53,87 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
           })();
         }}
       >
-        <div className="mb-8 flex items-center gap-3">
-          <img src="/dona-logo.png" alt="Dona" className="h-12 w-12 object-contain" />
-          <div>
-            <div className="text-[20px] font-bold tracking-tight">dona</div>
-            <div className="text-[13px] text-ink/60">เข้าสู่ระบบโรงสี</div>
+        <div className="mb-8 text-center">
+          <img
+            src="/dona-logo.png"
+            alt="dona"
+            className="mx-auto h-16 w-16 object-contain drop-shadow-sm"
+          />
+          <div
+            className="mt-4 text-[34px] font-bold tracking-tight"
+            style={{ color: brandDark }}
+          >
+            dona
           </div>
+          <p className="mt-1 text-[15px]" style={{ color: `${brandDark}99` }}>
+            เข้าสู่ระบบโรงสี
+          </p>
         </div>
 
-        <label className="block text-[14px] font-bold leading-[1.4]">
-          ชื่อผู้ใช้
-          <input
-            autoFocus
-            autoComplete="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            className={`${inputClass} mt-1`}
-          />
-        </label>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1.5 block text-[13px] font-semibold" style={{ color: brandDark }}>
+              ชื่อผู้ใช้
+            </span>
+            <span className="flex items-center gap-3 rounded-2xl bg-white/90 px-4 ring-1 ring-black/5 backdrop-blur-sm transition-[box-shadow,ring-color] focus-within:ring-[#1D8A6A]/40 focus-within:shadow-[0_0_0_4px_rgba(29,138,106,0.12)]">
+              <UserRound size={20} strokeWidth={1.75} style={{ color: `${brandPrimary}B3` }} />
+              <input
+                autoFocus
+                autoComplete="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                placeholder="ชื่อผู้ใช้"
+                className="h-12 w-full bg-transparent text-[15px] outline-none placeholder:text-neutral-400"
+              />
+            </span>
+          </label>
 
-        <label className="mt-4 block text-[14px] font-bold leading-[1.4]">
-          รหัสผ่าน
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className={`${inputClass} mt-1`}
-          />
-        </label>
+          <label className="block">
+            <span className="mb-1.5 block text-[13px] font-semibold" style={{ color: brandDark }}>
+              รหัสผ่าน
+            </span>
+            <span className="flex items-center gap-3 rounded-2xl bg-white/90 px-4 ring-1 ring-black/5 backdrop-blur-sm transition-[box-shadow,ring-color] focus-within:ring-[#1D8A6A]/40 focus-within:shadow-[0_0_0_4px_rgba(29,138,106,0.12)]">
+              <Lock size={20} strokeWidth={1.75} style={{ color: `${brandPrimary}B3` }} />
+              <input
+                type={passwordHidden ? "password" : "text"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="รหัสผ่าน"
+                className="h-12 w-full bg-transparent text-[15px] outline-none placeholder:text-neutral-400"
+              />
+              <button
+                type="button"
+                onClick={() => setPasswordHidden((current) => !current)}
+                className="shrink-0 p-1"
+                aria-label={passwordHidden ? "แสดงรหัสผ่าน" : "ซ่อนรหัสผ่าน"}
+                style={{ color: `${brandPrimary}99` }}
+              >
+                {passwordHidden ? (
+                  <EyeOff size={20} strokeWidth={1.75} />
+                ) : (
+                  <Eye size={20} strokeWidth={1.75} />
+                )}
+              </button>
+            </span>
+          </label>
+        </div>
 
-        {error && <p className="mt-4 text-[13px] text-danger">{error}</p>}
+        {error && (
+          <p className="mt-4 text-center text-[13px] font-semibold text-red-500">{error}</p>
+        )}
 
         <button
           type="submit"
           disabled={busy || !username.trim() || !password}
-          className="mt-6 inline-flex h-10 w-full items-center justify-center rounded-[6px] bg-brand text-[14px] font-bold text-white disabled:bg-[#D0D0D0]"
+          className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-2xl text-[15px] font-bold text-white transition-[transform,opacity,background-color] active:scale-[0.99] disabled:opacity-50"
+          style={{ backgroundColor: brandPrimary }}
         >
-          {busy ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
+          {busy ? (
+            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          ) : (
+            "เข้าสู่ระบบ"
+          )}
         </button>
       </form>
     </div>
