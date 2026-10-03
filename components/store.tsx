@@ -8,6 +8,7 @@ import type {
   PermissionFlag,
   PermissionResource,
   PermissionRole,
+  Plot,
   Variety,
 } from "@/lib/mill";
 
@@ -112,6 +113,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  function patchPlots(updater: (plots: Plot[]) => Plot[]) {
+    setData((prev) => {
+      const next = { ...prev, plots: updater(prev.plots) };
+      dataRef.current = next;
+      return next;
+    });
+  }
+
+  function uploadPreviewInBackground(plotId: string, preview: Blob) {
+    void api
+      .uploadPlotPreview(plotId, preview)
+      .then((updated) => {
+        patchPlots((plots) => plots.map((plot) => (plot.id === updated.id ? updated : plot)));
+      })
+      .catch(() => {
+        // Plot already saved; preview can be regenerated later.
+      });
+  }
+
   const store: Store = {
     ...data,
     ready,
@@ -139,8 +159,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }),
       ),
     assignFarmer: (farmerId, groupId) => mutate(() => api.assignFarmerGroup(farmerId, groupId)),
-    addPlot: (farmerId, input) =>
-      mutate(async () => {
+    addPlot: async (farmerId, input) => {
+      try {
         const body = {
           farmerId,
           name: input.name.trim(),
@@ -158,16 +178,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               }
             : {}),
         };
+        // Fast path: create → patch UI → return. Preview/full reload must not block confirm.
         const plot = await api.createPlot(body);
-        if (input.preview) {
-          try {
-            await api.uploadPlotPreview(plot.id, input.preview);
-          } catch {
-            // Boundary save still succeeds if preview upload fails.
-          }
-        }
-        return plot;
-      }),
+        patchPlots((plots) => [...plots.filter((item) => item.id !== plot.id), plot]);
+        if (input.preview) uploadPreviewInBackground(plot.id, input.preview);
+        // Planting is created server-side with the plot — refresh lists in background.
+        if (input.plantedOn || input.harvestOn) void reload().catch(() => {});
+        return null;
+      } catch (error) {
+        return apiMessage(error);
+      }
+    },
     savePlot: (plotId, input) =>
       mutate(async () => {
         const current = dataRef.current.plots.find((item) => item.id === plotId);
@@ -180,18 +201,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           subdistrictId: input.subdistrictId ?? current.subdistrictId,
         });
       }),
-    saveBoundary: (plotId, polygon, areaRai, preview) =>
-      mutate(async () => {
+    saveBoundary: async (plotId, polygon, areaRai, preview) => {
+      try {
         const plot = await api.saveBoundary(plotId, polygon, areaRai);
-        if (preview) {
-          try {
-            await api.uploadPlotPreview(plotId, preview);
-          } catch {
-            // Boundary save still succeeds if preview upload fails.
-          }
-        }
-        return plot;
-      }),
+        patchPlots((plots) => plots.map((item) => (item.id === plot.id ? plot : item)));
+        if (preview) uploadPreviewInBackground(plotId, preview);
+        return null;
+      } catch (error) {
+        return apiMessage(error);
+      }
+    },
     removePlot: (plotId) => mutate(() => api.deletePlot(plotId)),
     savePlanting: (plotId, input) =>
       mutate(() => {

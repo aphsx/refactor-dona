@@ -204,18 +204,28 @@ export function ConfirmAlert({
   onCancel: () => void;
   onConfirm: () => void | Promise<void>;
 }) {
+  const [busy, setBusy] = useState(false);
+
   return (
     <AlertFrame>
       <CircleAlert className="mx-auto text-brand" size={96} strokeWidth={1.25} />
       <p className="mt-4 text-[18px] font-bold">{message}</p>
+      {busy && <p className="mt-2 text-[14px] text-ink/60">กำลังบันทึก…</p>}
       <div className="mt-6 flex justify-center gap-3">
-        <SecondaryButton onClick={onCancel}>
+        <SecondaryButton disabled={busy} onClick={onCancel}>
           <Glyph icon={X} />
           ยกเลิก
         </SecondaryButton>
-        <PrimaryButton onClick={() => void onConfirm()}>
+        <PrimaryButton
+          disabled={busy}
+          onClick={() => {
+            if (busy) return;
+            setBusy(true);
+            void Promise.resolve(onConfirm()).finally(() => setBusy(false));
+          }}
+        >
           <Glyph icon={Check} />
-          ยืนยัน
+          {busy ? "กำลังบันทึก…" : "ยืนยัน"}
         </PrimaryButton>
       </div>
     </AlertFrame>
