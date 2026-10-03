@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { placeLabel } from "@/lib/thai-place";
+import { placeCenter, placeLabel } from "@/lib/thai-place";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
@@ -159,6 +159,7 @@ export function MapScreen() {
           onSelect={choosePlot}
           draft={draft}
           onDraftClick={draft != null && !isClosedRing(draft) ? placePoint : undefined}
+          focus={selected ? placeCenter(selected.plot) : null}
         />
         <div className="absolute left-4 top-4 z-20 w-[300px] space-y-3 rounded-[8px] border border-frame bg-white p-3 shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
           <div className="relative">

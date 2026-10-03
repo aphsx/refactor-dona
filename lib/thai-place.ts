@@ -123,3 +123,46 @@ export function placeAt(lng: number, lat: number): PlaceIds | null {
   }
   return best;
 }
+
+export type PlaceCenter = { lng: number; lat: number; zoom: number };
+
+function averagePoint(points: { lat: number; long: number }[]): { lng: number; lat: number } | null {
+  if (points.length === 0) return null;
+  const lat = points.reduce((sum, point) => sum + point.lat, 0) / points.length;
+  const lng = points.reduce((sum, point) => sum + point.long, 0) / points.length;
+  return { lng, lat };
+}
+
+/** Best map focus for a Thai place selection (tambon → amphoe → province). */
+export function placeCenter(place: Partial<PlaceIds> | null | undefined): PlaceCenter | null {
+  if (!place) return null;
+
+  if (place.subdistrictId) {
+    const sub = subdistrictById.get(place.subdistrictId);
+    if (sub?.lat != null && sub.long != null) {
+      return { lng: sub.long, lat: sub.lat, zoom: 15 };
+    }
+  }
+
+  if (place.districtId) {
+    const district = districtById.get(place.districtId);
+    const points = (district?.sub_districts ?? []).filter(
+      (item): item is ThaiSubdistrict & { lat: number; long: number } => item.lat != null && item.long != null,
+    );
+    const avg = averagePoint(points);
+    if (avg) return { ...avg, zoom: 12 };
+  }
+
+  if (place.provinceId) {
+    const province = provinceById.get(place.provinceId);
+    const points = (province?.districts ?? []).flatMap((district) =>
+      (district.sub_districts ?? []).filter(
+        (item): item is ThaiSubdistrict & { lat: number; long: number } => item.lat != null && item.long != null,
+      ),
+    );
+    const avg = averagePoint(points);
+    if (avg) return { ...avg, zoom: 9 };
+  }
+
+  return null;
+}

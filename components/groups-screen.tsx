@@ -10,7 +10,7 @@ import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, varietyName, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
-import { districtOptions, isCompletePlace, placeAt, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
+import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
@@ -1771,6 +1771,7 @@ export function PlotDialog({
           plots={plots.filter((plot) => plot.farmerId === farmerId && plot.polygon.length >= 4)}
           draft={draft}
           onDraft={setDraft}
+          place={{ provinceId, districtId, subdistrictId }}
           onUse={(ring) => {
             const measured = polygonAreaRai(ring);
             if (measured == null) return;
@@ -1800,6 +1801,7 @@ export function DrawBoundary({
   onUse,
   onClose,
   title = "วาดขอบเขต",
+  place,
 }: {
   plots: Plot[];
   draft: [number, number][];
@@ -1807,9 +1809,11 @@ export function DrawBoundary({
   onUse: (ring: [number, number][]) => void;
   onClose: () => void;
   title?: string;
+  place?: { provinceId: number; districtId: number; subdistrictId: number } | null;
 }) {
   const closed = isClosedRing(draft);
   const measured = polygonAreaRai(draft);
+  const focus = placeCenter(place);
   function placePoint(lng: number, lat: number) {
     if (closed) return;
     const ring = openRing(draft);
@@ -1832,6 +1836,7 @@ export function DrawBoundary({
           draft={draft}
           onDraftClick={closed ? undefined : placePoint}
           bottomInset={48}
+          focus={focus}
         />
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">

@@ -502,6 +502,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
           plots={plots.filter((item) => item.id !== plot.id && item.polygon.length >= 4)}
           draft={draft}
           onDraft={setDraft}
+          place={{ provinceId, districtId, subdistrictId }}
           onUse={(ring) => {
             const nextArea = polygonAreaRai(ring);
             if (nextArea == null) return;

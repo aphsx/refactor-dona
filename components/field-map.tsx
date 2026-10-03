@@ -39,6 +39,7 @@ export function FieldMap({
   draft = null,
   onDraftClick,
   bottomInset,
+  focus = null,
 }: {
   plots: MapPlot[];
   selectedId: string | null;
@@ -46,6 +47,7 @@ export function FieldMap({
   draft?: [number, number][] | null;
   onDraftClick?: (lng: number, lat: number) => void;
   bottomInset?: number;
+  focus?: { lng: number; lat: number; zoom?: number } | null;
 }) {
   const mapRef = useRef<MapRef>(null);
   const [mode, setMode] = useState<"satellite" | "street">("satellite");
@@ -56,11 +58,10 @@ export function FieldMap({
   const drawn = useMemo(() => plots.filter((plot) => plot.polygon.length >= 4), [plots]);
   const selected = drawn.find((plot) => plot.id === selectedId) ?? null;
   const selectedPoint = selected ? centroid(selected.polygon) : null;
-  const frameKey = `${selectedId ?? ""}|${mode}|${drawn.map((plot) => `${plot.id}:${plot.muted ? 1 : 0}`).join(",")}`;
-
-  const draftRing = draft ?? [];
-  const draftClosed = isClosedRing(draftRing);
-  const draftOpen = openRing(draftRing);
+  const draftOpen = openRing(draft ?? []);
+  const draftClosed = draft != null && isClosedRing(draft);
+  const focusKey = focus ? `${focus.lng}:${focus.lat}:${focus.zoom ?? ""}` : "";
+  const frameKey = `${selectedId ?? ""}|${mode}|${draftOpen.length}|${focusKey}|${drawn.map((plot) => `${plot.id}:${plot.muted ? 1 : 0}`).join(",")}`;
   const draftData = useMemo(() => {
     const ring = draft ?? [];
     const open = openRing(ring);
@@ -91,10 +92,40 @@ export function FieldMap({
     [drawn],
   );
 
+  function flyToFocus() {
+    const map = mapRef.current;
+    if (!map || !focus) return false;
+    map.flyTo({
+      center: [focus.lng, focus.lat],
+      zoom: focus.zoom ?? 14,
+      duration: 500,
+    });
+    return true;
+  }
+
   function fitFrame() {
     const map = mapRef.current;
-    if (!map || drawn.length === 0) return;
+    if (!map) return;
+
+    // Drawing a new shape (or a plot with no polygon yet): go to the selected place.
+    const drawingFresh = draft != null && draftOpen.length === 0;
+    const selectedMissing = selectedId != null && !drawn.some((plot) => plot.id === selectedId);
+    if (focus && drawingFresh && (selectedId == null || selectedMissing)) {
+      flyToFocus();
+      return;
+    }
+
+    if (drawn.length === 0) {
+      flyToFocus();
+      return;
+    }
+
     const picked = selectedId ? drawn.filter((plot) => plot.id === selectedId) : [];
+    if (selectedId && picked.length === 0) {
+      flyToFocus();
+      return;
+    }
+
     const subject = picked.length > 0 ? picked : drawn.filter((plot) => !plot.muted);
     const frame = subject.length > 0 ? subject : drawn;
     const lngs = frame.flatMap((plot) => plot.polygon.map((point) => point[0]));
@@ -110,7 +141,7 @@ export function FieldMap({
 
   useEffect(() => {
     fitFrame();
-    // Recenter when the working set, the selection, or the basemap changes.
+    // Recenter when the working set, the selection, place focus, or the basemap changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameKey]);
 
@@ -130,7 +161,11 @@ export function FieldMap({
       <Map
         ref={mapRef}
         style={{ width: "100%", height: "100%" }}
-        initialViewState={{ longitude: 100.124, latitude: 14.521, zoom: 15 }}
+        initialViewState={{
+          longitude: focus?.lng ?? 100.9925,
+          latitude: focus?.lat ?? 15.87,
+          zoom: focus?.zoom ?? 6,
+        }}
         maxZoom={20}
         mapStyle={mapStyle}
         onLoad={fitFrame}
