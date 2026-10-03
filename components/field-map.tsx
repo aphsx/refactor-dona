@@ -60,8 +60,12 @@ export function FieldMap({
   const selectedPoint = selected ? centroid(selected.polygon) : null;
   const draftOpen = openRing(draft ?? []);
   const draftClosed = draft != null && isClosedRing(draft);
+  const drawing = draft != null;
+  const drawingActive = drawing && draftOpen.length > 0;
   const focusKey = focus ? `${focus.lng}:${focus.lat}:${focus.zoom ?? ""}` : "";
-  const frameKey = `${selectedId ?? ""}|${mode}|${draftOpen.length}|${focusKey}|${drawn.map((plot) => `${plot.id}:${plot.muted ? 1 : 0}`).join(",")}`;
+  // Use draw phase (off / fresh / active), not point count — placing a point must not recenter.
+  const drawPhase = !drawing ? "off" : drawingActive ? "active" : "fresh";
+  const frameKey = `${selectedId ?? ""}|${mode}|${drawPhase}|${focusKey}|${drawn.map((plot) => `${plot.id}:${plot.muted ? 1 : 0}`).join(",")}`;
   const draftData = useMemo(() => {
     const ring = draft ?? [];
     const open = openRing(ring);
@@ -107,10 +111,11 @@ export function FieldMap({
     const map = mapRef.current;
     if (!map) return;
 
-    // Drawing a new shape (or a plot with no polygon yet): go to the selected place.
-    const drawingFresh = draft != null && draftOpen.length === 0;
-    const selectedMissing = selectedId != null && !drawn.some((plot) => plot.id === selectedId);
-    if (focus && drawingFresh && (selectedId == null || selectedMissing)) {
+    // User is placing vertices — keep their pan/zoom.
+    if (drawingActive) return;
+
+    // Fresh draw: jump to the selected place once, not to other plots.
+    if (drawing && focus) {
       flyToFocus();
       return;
     }
@@ -141,7 +146,7 @@ export function FieldMap({
 
   useEffect(() => {
     fitFrame();
-    // Recenter when the working set, the selection, place focus, or the basemap changes.
+    // Recenter on selection / place / basemap / draw phase — not on each new vertex.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameKey]);
 
