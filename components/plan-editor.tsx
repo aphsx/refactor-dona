@@ -5,7 +5,7 @@ import { Pencil, Save, Trash2, Undo2, X } from "lucide-react";
 import { CanDelete, CanEdit } from "@/components/can";
 import { useMill } from "@/components/store";
 import { ConfirmAlert, DateField, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
-import { VARIETIES, formatRai, formatThaiDate, polygonAreaRai, varietyName, type Variety } from "@/lib/mill";
+import { VARIETIES, formatRai, formatThaiDate, varietyName, type Variety } from "@/lib/mill";
 
 export type PlanRow = {
   id: string;
@@ -27,8 +27,8 @@ function RequiredMark() {
 }
 
 export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => void }) {
-  const { plantings, plots, savePlot, savePlanting, removePlot, removePlanting } = useMill();
-  const measured = polygonAreaRai(plots.find((item) => item.id === plot.id)?.polygon ?? []);
+  const { plantings, savePlot, savePlanting, removePlot, removePlanting } = useMill();
+  const measured = plot.areaRai;
   const current = plantings.find((item) => item.id === plot.plantingId && !item.delivered) ?? null;
   const locked = plantings.some((item) => item.plotId === plot.id && item.delivered);
   const fresh = !plot.plantingId;

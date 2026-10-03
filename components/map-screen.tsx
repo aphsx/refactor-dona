@@ -8,6 +8,7 @@ import { Search, X } from "lucide-react";
 import { CanEdit } from "@/components/can";
 import { useMill } from "@/components/store";
 import { SearchSelect, matchesQuery } from "@/components/ui";
+import { measureRingAreaRai } from "@/lib/api";
 import {
   centroid,
   closeRing,
@@ -21,7 +22,6 @@ import {
   varietyName,
   isClosedRing,
   openRing,
-  polygonAreaRai,
   type Farmer,
   type Planting,
   type Plot,
@@ -69,10 +69,14 @@ export function MapScreen() {
   }, [plotId]);
 
   useEffect(() => {
-    if (draft && isClosedRing(draft)) {
-      const measured = polygonAreaRai(draft);
-      if (measured != null) setAreaText(String(measured));
-    }
+    if (!draft || !isClosedRing(draft)) return;
+    let alive = true;
+    void measureRingAreaRai(draft).then((measured) => {
+      if (alive && measured != null) setAreaText(String(measured));
+    });
+    return () => {
+      alive = false;
+    };
   }, [draft]);
 
   const rows = useMemo<Row[]>(() => {
@@ -210,15 +214,9 @@ export function MapScreen() {
                           </p>
                           <p className="mt-1 text-[14px]">
                             {selected.plot.polygon.length >= 4 ? `พิกัด ${formatCoord(centroid(selected.plot.polygon))}` : "ยังไม่มีรูป"}
-                            {polygonAreaRai(selected.plot.polygon) != null && (
-                              <>
-                                <span className="text-ink/40"> · </span>
-                                {formatRai(polygonAreaRai(selected.plot.polygon) ?? 0)}
-                              </>
-                            )}
                           </p>
                           <p className="mt-1 text-[14px]">
-                            {selected.plot.areaRai} ไร่
+                            {formatRai(selected.plot.areaRai)}
                             <span className="text-ink/40"> · </span>
                             {selected.variety ? varietyName(selected.variety) : "ยังไม่ปลูก"}
                             {selected.planting && (
@@ -299,14 +297,17 @@ function DrawStep({
 }) {
   const closed = isClosedRing(draft);
   const count = openRing(draft).length;
-  const measured = polygonAreaRai(draft);
   const hint = count === 0 ? "คลิกบนแผนที่เพื่อวางจุดแรก" : count < 3 ? `วางแล้ว ${count} จุด ต้องมีอย่างน้อย 3 จุด` : `วางแล้ว ${count} จุด คลิกจุดแรกหรือกดปิดรูป`;
   return (
     <>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[16px] font-bold">{closed ? "ยืนยันรูป" : replacing ? "แก้ไขขอบเขต" : "วาดขอบเขต"} · {name}</h2>
-          <p className="mt-1 text-[14px]">{closed ? `${formatRai(measured ?? 0)} แก้ตัวเลขได้ถ้าคำนวณไม่ตรง` : hint}</p>
+          <p className="mt-1 text-[14px]">
+            {closed
+              ? `${areaText ? formatRai(Number(areaText)) : "กำลังคำนวณพื้นที่…"} (WGS84) แก้ได้ถ้าไม่ตรงโฉนด`
+              : hint}
+          </p>
         </div>
         <button type="button" onClick={onCancel} className="shrink-0 text-[14px] font-bold text-link underline">
           ยกเลิก

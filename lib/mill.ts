@@ -197,6 +197,7 @@ export function closeRing(points: [number, number][]) {
   return [...ring, ring[0]] as [number, number][];
 }
 
+/** Local fallback only. Prefer api.measureArea (PostGIS geography / WGS84 spheroid). */
 export function polygonAreaRai(points: [number, number][]) {
   const ring = openRing(points);
   if (ring.length < 3) return null;

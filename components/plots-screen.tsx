@@ -6,7 +6,8 @@ import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, X } from "lucide-
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlaceSelects, PlotDialog, DrawBoundary } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
-import { farmerHandle, farmerName, formatCoord, centroid, polygonAreaRai, type Plot } from "@/lib/mill";
+import { measureRingAreaRai } from "@/lib/api";
+import { farmerHandle, farmerName, formatCoord, centroid, type Plot } from "@/lib/mill";
 import { isCompletePlace, placeAt, placeLabel } from "@/lib/thai-place";
 import {
   ConfirmAlert,
@@ -335,7 +336,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
   const owner = farmers.find((farmer) => farmer.id === plot.farmerId) ?? null;
   const group = groups.find((item) => item.id === owner?.groupId) ?? null;
   const point = boundary.length >= 4 ? centroid(boundary) : null;
-  const measured = polygonAreaRai(boundary);
+  const measured = boundary.length >= 4 ? Number(area) || null : null;
   const drawn = boundary.length >= 4;
   const boundaryChanged = JSON.stringify(boundary) !== JSON.stringify(plot.polygon);
   const dirty =
@@ -504,19 +505,21 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
           onDraft={setDraft}
           place={{ provinceId, districtId, subdistrictId }}
           onUse={(ring) => {
-            const nextArea = polygonAreaRai(ring);
-            if (nextArea == null) return;
-            const here = centroid(ring);
-            const place = placeAt(here.lng, here.lat);
-            setBoundary(ring);
-            setArea(String(nextArea));
-            if (place) {
-              setProvinceId(place.provinceId);
-              setDistrictId(place.districtId);
-              setSubdistrictId(place.subdistrictId);
-            }
-            setEditing(true);
-            setDrawing(false);
+            void (async () => {
+              const nextArea = await measureRingAreaRai(ring);
+              if (nextArea == null) return;
+              const here = centroid(ring);
+              const place = placeAt(here.lng, here.lat);
+              setBoundary(ring);
+              setArea(String(nextArea));
+              if (place) {
+                setProvinceId(place.provinceId);
+                setDistrictId(place.districtId);
+                setSubdistrictId(place.subdistrictId);
+              }
+              setEditing(true);
+              setDrawing(false);
+            })();
           }}
           onClose={() => setDrawing(false)}
         />

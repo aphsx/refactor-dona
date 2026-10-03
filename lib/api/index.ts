@@ -1,6 +1,10 @@
 import { apiListAll, apiRequest } from "@/lib/api/client";
 import {
   VARIETIES,
+  closeRing,
+  isClosedRing,
+  openRing,
+  polygonAreaRai,
   type Farmer,
   type FarmerInput,
   type MillSnapshot,
@@ -141,6 +145,12 @@ export const api = {
   saveBoundary: (id: string, polygon: [number, number][], areaRai: number) =>
     apiRequest<WirePlot>(`/plots/${id}/boundary`, { method: "PUT", body: JSON.stringify({ polygon, areaRai }) }).then(asPlot),
 
+  measureArea: (polygon: [number, number][]) =>
+    apiRequest<{ areaRai: number; areaSqm: number }>("/plots/measure-area", {
+      method: "POST",
+      body: JSON.stringify({ polygon }),
+    }),
+
   deletePlot: (id: string) => apiRequest<void>(`/plots/${id}`, { method: "DELETE" }),
 
   createPlanting: (input: { plotId: string; varietyId: Variety; plantedOn: string; harvestOn: string; estKg: number }) =>
@@ -162,3 +172,15 @@ export const api = {
 
   revokeRole: (farmerId: string) => apiRequest<void>(`/people/${farmerId}/role`, { method: "DELETE" }),
 };
+
+/** PostGIS geography (WGS84 spheroid). Falls back to local estimate if API fails. */
+export async function measureRingAreaRai(points: [number, number][]) {
+  const ring = isClosedRing(points) ? points : closeRing(openRing(points));
+  if (!ring) return null;
+  try {
+    const { areaRai } = await api.measureArea(ring);
+    return areaRai;
+  } catch {
+    return polygonAreaRai(ring);
+  }
+}

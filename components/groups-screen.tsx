@@ -9,7 +9,8 @@ import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, varietyName, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { measureRingAreaRai } from "@/lib/api";
+import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, varietyName, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -1286,7 +1287,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
-  const measured = polygonAreaRai(plot.polygon);
+  const measured = plot.polygon.length >= 4 ? plot.areaRai : null;
   const point = plot.polygon.length >= 4 ? centroid(plot.polygon) : null;
   const owner = farmers.find((farmer) => farmer.id === plot.farmerId) ?? null;
   const group = groups.find((item) => item.id === owner?.groupId) ?? null;
@@ -1699,7 +1700,7 @@ export function PlotDialog({
               {boundary.length > 0 ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
             </button>
             <p className="mt-1 text-[12px] font-normal text-ink/60">
-              {boundary.length > 0 ? `วาดแล้ว · ${formatRai(polygonAreaRai(boundary) ?? 0)} · ที่อยู่ถูกใส่จากตำแหน่งรูป แก้ตัวเลขได้ถ้าไม่ตรง` : "คลิกเพื่อวาดรูปแปลง แล้วพื้นที่กับที่อยู่จะถูกใส่ให้"}
+              {boundary.length > 0 ? `วาดแล้ว · ${formatRai(Number(areaRai) || 0)} · ที่อยู่ถูกใส่จากตำแหน่งรูป แก้ตัวเลขได้ถ้าไม่ตรง` : "คลิกเพื่อวาดรูปแปลง แล้วพื้นที่กับที่อยู่จะถูกใส่ให้"}
             </p>
           </label>
           <PlaceSelects
@@ -1773,18 +1774,20 @@ export function PlotDialog({
           onDraft={setDraft}
           place={{ provinceId, districtId, subdistrictId }}
           onUse={(ring) => {
-            const measured = polygonAreaRai(ring);
-            if (measured == null) return;
-            const point = centroid(ring);
-            const place = placeAt(point.lng, point.lat);
-            setBoundary(ring);
-            setAreaRai(String(measured));
-            if (place) {
-              setProvinceId(place.provinceId);
-              setDistrictId(place.districtId);
-              setSubdistrictId(place.subdistrictId);
-            }
-            setDrawing(false);
+            void (async () => {
+              const measured = await measureRingAreaRai(ring);
+              if (measured == null) return;
+              const point = centroid(ring);
+              const place = placeAt(point.lng, point.lat);
+              setBoundary(ring);
+              setAreaRai(String(measured));
+              if (place) {
+                setProvinceId(place.provinceId);
+                setDistrictId(place.districtId);
+                setSubdistrictId(place.subdistrictId);
+              }
+              setDrawing(false);
+            })();
           }}
           onClose={() => setDrawing(false)}
         />
@@ -1812,8 +1815,28 @@ export function DrawBoundary({
   place?: { provinceId: number; districtId: number; subdistrictId: number } | null;
 }) {
   const closed = isClosedRing(draft);
-  const measured = polygonAreaRai(draft);
+  const [measured, setMeasured] = useState<number | null>(null);
+  const [measuring, setMeasuring] = useState(false);
   const focus = placeCenter(place);
+
+  useEffect(() => {
+    if (!closed) {
+      setMeasured(null);
+      setMeasuring(false);
+      return;
+    }
+    let alive = true;
+    setMeasuring(true);
+    void measureRingAreaRai(draft).then((value) => {
+      if (!alive) return;
+      setMeasured(value);
+      setMeasuring(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [closed, draft]);
+
   function placePoint(lng: number, lat: number) {
     if (closed) return;
     const ring = openRing(draft);
@@ -1858,10 +1881,10 @@ export function DrawBoundary({
             </SecondaryButton>
           </>
         )}
-        {closed && measured != null && (
+        {closed && (
           <>
-            <span className="text-[14px] font-bold">{formatRai(measured)}</span>
-            <PrimaryButton type="button" className="h-9" onClick={() => onUse(draft)}>
+            <span className="text-[14px] font-bold">{measuring || measured == null ? "กำลังคำนวณ…" : formatRai(measured)}</span>
+            <PrimaryButton type="button" className="h-9" disabled={measuring || measured == null} onClick={() => onUse(draft)}>
               ใช้พื้นที่นี้
             </PrimaryButton>
             <SecondaryButton className="h-9" onClick={() => onDraft([])}>
