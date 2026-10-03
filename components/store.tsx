@@ -4,13 +4,19 @@ import { createContext, useContext, useRef, useState } from "react";
 import {
   FARMERS,
   GROUPS,
+  PERMISSIONS,
   PLANTINGS,
   PLOTS,
   VARIETIES,
   canonicalPhone,
   isClosedRing,
   type Farmer,
+  type Permission,
+  type PermissionFlag,
+  type PermissionResource,
+  type PermissionRole,
   type Planting,
+  type RoleGrant,
   type Plot,
   type SupplierGroup,
   type Variety,
@@ -21,9 +27,12 @@ type MillData = {
   groups: SupplierGroup[];
   plots: Plot[];
   plantings: Planting[];
+  permissions: Permission[];
+  roleGrants: RoleGrant[];
 };
 
 type Store = MillData & {
+  actingRole: PermissionRole;
   createGroup: (name: string, leaderId: string) => string | null;
   updateGroup: (groupId: string, name: string, leaderId: string) => string | null;
   createFarmer: (input: {
@@ -55,7 +64,7 @@ type Store = MillData & {
     input: {
       name: string;
       areaRai: number;
-      variety: Variety;
+      varietyId: Variety;
       plantedOn: string;
       harvestOn: string;
       estKg: number;
@@ -70,9 +79,12 @@ type Store = MillData & {
   removePlot: (plotId: string) => string | null;
   savePlanting: (
     plotId: string,
-    input: { plantingId: string | null; variety: Variety; plantedOn: string; harvestOn: string; estKg: number },
+    input: { plantingId: string | null; varietyId: Variety; plantedOn: string; harvestOn: string; estKg: number },
   ) => string | null;
   removePlanting: (plantingId: string) => string | null;
+  setPermission: (role: PermissionRole, resource: PermissionResource, flag: PermissionFlag, on: boolean) => string | null;
+  assignRole: (farmerId: string, role: PermissionRole) => string | null;
+  revokeRole: (farmerId: string) => string | null;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -82,10 +94,13 @@ const initialData: MillData = {
   groups: GROUPS,
   plots: PLOTS,
   plantings: PLANTINGS,
+  permissions: PERMISSIONS,
+  roleGrants: [],
 };
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<MillData>(initialData);
+  const [actingRole] = useState<PermissionRole>("mill");
   const dataRef = useRef(data);
   dataRef.current = data;
 
@@ -100,6 +115,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const store: Store = {
     ...data,
+    actingRole,
     createGroup(name, leaderId) {
       return commit((draft) => {
         const trimmed = name.trim();
@@ -223,13 +239,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           polygon: input.polygon,
         });
         if (!input.plantedOn && !input.harvestOn) return null;
-        if (!VARIETIES.includes(input.variety)) return "เลือกพันธุ์";
+        if (!VARIETIES.some((item) => item.id === input.varietyId)) return "เลือกพันธุ์";
         const schedule = validSchedule(name, input);
         if (schedule) return schedule;
         draft.plantings.push({
           id: `r-${draft.plantings.length + 1}`,
           plotId,
-          variety: input.variety,
+          varietyId: input.varietyId,
           plantedOn: input.plantedOn,
           harvestOn: input.harvestOn,
           estKg: input.estKg,
@@ -282,13 +298,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!plot) return "ไม่พบแปลง";
         const schedule = validSchedule(plot.name, input);
         if (schedule) return schedule;
-        if (!VARIETIES.includes(input.variety)) return "เลือกพันธุ์";
+        if (!VARIETIES.some((item) => item.id === input.varietyId)) return "เลือกพันธุ์";
         if (input.plantingId == null) {
           if (draft.plantings.some((item) => item.plotId === plotId && !item.delivered)) return "แปลงนี้มีแผนที่ยังไม่รับ";
           draft.plantings.push({
             id: `r-${draft.plantings.length + 1}`,
             plotId,
-            variety: input.variety,
+            varietyId: input.varietyId,
             plantedOn: input.plantedOn,
             harvestOn: input.harvestOn,
             estKg: input.estKg,
@@ -299,7 +315,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const planting = draft.plantings.find((item) => item.id === input.plantingId);
         if (!planting || planting.plotId !== plotId) return "ไม่พบแผน";
         if (planting.delivered) return "รอบนี้รับเข้าแล้ว แก้ไม่ได้";
-        planting.variety = input.variety;
+        planting.varietyId = input.varietyId;
         planting.plantedOn = input.plantedOn;
         planting.harvestOn = input.harvestOn;
         planting.estKg = input.estKg;
@@ -312,6 +328,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!planting) return "ไม่พบแผน";
         if (planting.delivered) return "รอบนี้รับเข้าแล้ว ลบไม่ได้";
         draft.plantings = draft.plantings.filter((item) => item.id !== plantingId);
+        return null;
+      });
+    },
+    setPermission(role, resource, flag, on) {
+      return commit((draft) => {
+        const permission = draft.permissions.find((item) => item.role === role && item.resource === resource);
+        if (!permission) return "ไม่พบสิทธิ์";
+        permission[flag] = on;
+        return null;
+      });
+    },
+    assignRole(farmerId, role) {
+      return commit((draft) => {
+        const farmer = draft.farmers.find((item) => item.id === farmerId);
+        if (!farmer) return "ไม่พบเกษตรกร";
+        const leading = draft.groups.find((group) => group.leaderId === farmerId) ?? null;
+        if (role === "mill") {
+          if (draft.roleGrants.some((grant) => grant.farmerId === farmerId)) return "ยศนี้ใช้อยู่แล้ว";
+          draft.roleGrants.push({ farmerId, role: "mill" });
+          return null;
+        }
+        if (role === "leader") {
+          const hadMill = draft.roleGrants.some((grant) => grant.farmerId === farmerId);
+          if (!leading) {
+            if (!farmer.groupId) return "คนนี้ยังไม่มีกลุ่ม";
+            const group = draft.groups.find((item) => item.id === farmer.groupId);
+            if (!group) return "ไม่พบกลุ่ม";
+            group.leaderId = farmerId;
+          } else if (!hadMill) {
+            return "ยศนี้ใช้อยู่แล้ว";
+          }
+          draft.roleGrants = draft.roleGrants.filter((grant) => grant.farmerId !== farmerId);
+          return null;
+        }
+        if (leading) return "คนนี้เป็นหัวหน้ากลุ่ม เปลี่ยนหัวหน้าที่หน้ากลุ่มก่อน";
+        if (!draft.roleGrants.some((grant) => grant.farmerId === farmerId)) return "ยศนี้ใช้อยู่แล้ว";
+        draft.roleGrants = draft.roleGrants.filter((grant) => grant.farmerId !== farmerId);
+        return null;
+      });
+    },
+    revokeRole(farmerId) {
+      return commit((draft) => {
+        if (!draft.farmers.some((item) => item.id === farmerId)) return "ไม่พบเกษตรกร";
+        if (!draft.roleGrants.some((grant) => grant.farmerId === farmerId)) return "ไม่มีสิทธิ์ที่กำหนดเพิ่มให้ยกเลิก";
+        draft.roleGrants = draft.roleGrants.filter((grant) => grant.farmerId !== farmerId);
         return null;
       });
     },

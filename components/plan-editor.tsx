@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { Pencil, Save, Trash2, Undo2, X } from "lucide-react";
+import { CanDelete, CanEdit } from "@/components/can";
 import { useMill } from "@/components/store";
 import { ConfirmAlert, DateField, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
-import { VARIETIES, formatRai, formatThaiDate, polygonAreaRai, type Variety } from "@/lib/mill";
+import { VARIETIES, formatRai, formatThaiDate, polygonAreaRai, varietyName, type Variety } from "@/lib/mill";
 
 export type PlanRow = {
   id: string;
   plantingId: string;
   name: string;
   areaRai: number;
-  variety: Variety | null;
+  varietyId: Variety | null;
   plantedOn: string;
   harvestOn: string;
   estKg: number;
@@ -33,7 +34,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
   const fresh = !plot.plantingId;
   const [editing, setEditing] = useState(fresh);
   const [area, setArea] = useState(String(plot.areaRai));
-  const [variety, setVariety] = useState<Variety | "">(plot.variety ?? "");
+  const [variety, setVariety] = useState<Variety | "">(plot.varietyId ?? "");
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? plot.plantedOn);
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? plot.harvestOn);
   const [estKg, setEstKg] = useState(kgField(fresh ? 0 : (current?.estKg ?? plot.estKg)));
@@ -42,7 +43,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
   const savedKg = kgField(plot.plantingId ? (current?.estKg ?? plot.estKg) : 0);
   const dirty =
     area !== String(plot.areaRai) ||
-    variety !== (plot.variety ?? "") ||
+    variety !== (plot.varietyId ?? "") ||
     plantedOn !== (current?.plantedOn ?? plot.plantedOn) ||
     harvestOn !== (current?.harvestOn ?? plot.harvestOn) ||
     estKg !== savedKg;
@@ -50,15 +51,15 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
   useEffect(() => {
     setEditing(!plot.plantingId);
     setArea(String(plot.areaRai));
-    setVariety(plot.variety ?? "");
+    setVariety(plot.varietyId ?? "");
     setPlantedOn(current?.plantedOn ?? plot.plantedOn);
     setHarvestOn(current?.harvestOn ?? plot.harvestOn);
     setEstKg(kgField(plot.plantingId ? (current?.estKg ?? plot.estKg) : 0));
-  }, [plot.id, plot.plantingId, plot.areaRai, plot.variety, plot.plantedOn, plot.harvestOn, plot.estKg, current?.plantedOn, current?.harvestOn, current?.estKg]);
+  }, [plot.id, plot.plantingId, plot.areaRai, plot.varietyId, plot.plantedOn, plot.harvestOn, plot.estKg, current?.plantedOn, current?.harvestOn, current?.estKg]);
 
   function undo() {
     setArea(String(plot.areaRai));
-    setVariety(plot.variety ?? "");
+    setVariety(plot.varietyId ?? "");
     setPlantedOn(current?.plantedOn ?? plot.plantedOn);
     setHarvestOn(current?.harvestOn ?? plot.harvestOn);
     setEstKg(savedKg);
@@ -117,7 +118,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
                 setNotice({ tone: "error", message: plotError });
                 return;
               }
-              finish(savePlanting(plot.id, { plantingId: current?.id ?? (plot.plantingId || null), variety, plantedOn, harvestOn, estKg: nextKg }), "บันทึกแผนแล้ว", () =>
+              finish(savePlanting(plot.id, { plantingId: current?.id ?? (plot.plantingId || null), varietyId: variety, plantedOn, harvestOn, estKg: nextKg }), "บันทึกแผนแล้ว", () =>
                 setEditing(false),
               );
             },
@@ -144,10 +145,10 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
                   className="mt-1"
                   value={variety}
                   onChange={(next) => setVariety(next as Variety)}
-                  options={VARIETIES.map((item) => ({ value: item, label: item }))}
+                  options={VARIETIES.map((item) => ({ value: item.id, label: item.name }))}
                 />
               ) : (
-                <input value={variety || "—"} disabled className={fieldClass} />
+                <input value={variety ? varietyName(variety) : "—"} disabled className={fieldClass} />
               )}
             </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
@@ -176,52 +177,58 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
           </label>
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
-          {editing ? (
-            <>
-              <SecondaryButton type="button" onClick={undo}>
-                <Glyph icon={Undo2} />
-                {dirty ? "เลิกทำ" : "ยกเลิก"}
+          <CanEdit resource="plantings">
+            {editing ? (
+              <>
+                <SecondaryButton type="button" onClick={undo}>
+                  <Glyph icon={Undo2} />
+                  {dirty ? "เลิกทำ" : "ยกเลิก"}
+                </SecondaryButton>
+                <PrimaryButton type="submit">
+                  <Glyph icon={Save} />
+                  บันทึกแผน
+                </PrimaryButton>
+              </>
+            ) : (
+              <SecondaryButton type="button" onClick={() => setEditing(true)}>
+                <Glyph icon={Pencil} />
+                แก้ไขแผน
               </SecondaryButton>
-              <PrimaryButton type="submit">
-                <Glyph icon={Save} />
-                บันทึกแผน
-              </PrimaryButton>
-            </>
-          ) : (
-            <SecondaryButton type="button" onClick={() => setEditing(true)}>
-              <Glyph icon={Pencil} />
-              แก้ไขแผน
-            </SecondaryButton>
-          )}
+            )}
+          </CanEdit>
           {current && (
-            <SecondaryButton
-              type="button"
-              onClick={() =>
-                setNotice({
-                  tone: "confirm",
-                  message: `ยืนยันลบแผนรอบ ${formatThaiDate(current.plantedOn)}`,
-                  accept: () => finish(removePlanting(current.id), "ลบแผนแล้ว", onClose),
-                })
-              }
-            >
-              <Glyph icon={Trash2} />
-              ลบแผน
-            </SecondaryButton>
+            <CanDelete resource="plantings">
+              <SecondaryButton
+                type="button"
+                onClick={() =>
+                  setNotice({
+                    tone: "confirm",
+                    message: `ยืนยันลบแผนรอบ ${formatThaiDate(current.plantedOn)}`,
+                    accept: () => finish(removePlanting(current.id), "ลบแผนแล้ว", onClose),
+                  })
+                }
+              >
+                <Glyph icon={Trash2} />
+                ลบแผน
+              </SecondaryButton>
+            </CanDelete>
           )}
           {!locked && (
-            <SecondaryButton
-              type="button"
-              onClick={() =>
-                setNotice({
-                  tone: "confirm",
-                  message: `ยืนยันลบแปลง ${plot.name}`,
-                  accept: () => finish(removePlot(plot.id), "ลบแปลงแล้ว", onClose),
-                })
-              }
-            >
-              <Glyph icon={Trash2} />
-              ลบแปลง
-            </SecondaryButton>
+            <CanDelete resource="plots">
+              <SecondaryButton
+                type="button"
+                onClick={() =>
+                  setNotice({
+                    tone: "confirm",
+                    message: `ยืนยันลบแปลง ${plot.name}`,
+                    accept: () => finish(removePlot(plot.id), "ลบแปลงแล้ว", onClose),
+                  })
+                }
+              >
+                <Glyph icon={Trash2} />
+                ลบแปลง
+              </SecondaryButton>
+            </CanDelete>
           )}
         </div>
       </form>

@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CanAdd } from "@/components/can";
 import { PlotDialog, PlotWorkspace } from "@/components/groups-screen";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { Calendar, Plus, RotateCcw, Search } from "lucide-react";
 import { ConfirmAlert, DateField, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, Select, SortableTh, TableScroll, inputClass, isWildcard, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort, type SortState } from "@/components/ui";
-import { VARIETIES, daysUntil, farmerName, formatKg, formatThaiDate, type Farmer, type Plot, type Variety } from "@/lib/mill";
+import { VARIETIES, daysUntil, farmerName, formatKg, formatThaiDate, varietyName, type Farmer, type Plot, type Variety } from "@/lib/mill";
 
-type SeasonRow = Plot & { variety: Variety; plantingId: string; plantedOn: string; harvestOn: string; estKg: number };
+type SeasonRow = Plot & { varietyId: Variety; plantingId: string; plantedOn: string; harvestOn: string; estKg: number };
 type HarvestQuery = { from: string; to: string; groupId: string; variety: string };
 type MemberQuery = {
   name: string;
@@ -57,8 +58,8 @@ export function PlanScreen() {
         const farmer = farmers.find((item) => item.id === plot.farmerId);
         if (applied.groupId === "none" && farmer?.groupId != null) return [];
         if (applied.groupId !== "all" && applied.groupId !== "none" && farmer?.groupId !== applied.groupId) return [];
-        if (applied.variety !== "all" && planting.variety !== applied.variety) return [];
-        return [{ ...plot, variety: planting.variety, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
+        if (applied.variety !== "all" && planting.varietyId !== applied.variety) return [];
+        return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
       });
   }, [plantings, plots, farmers, applied]);
 
@@ -125,7 +126,7 @@ export function PlanScreen() {
               className="mt-1"
               value={draft.variety}
               onChange={(variety) => setDraft({ ...draft, variety })}
-              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: item, label: item }))]}
+              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: item.id, label: item.name }))]}
             />
           </label>
           <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-4">
@@ -191,10 +192,10 @@ export function MemberSeasonScreen() {
       .flatMap((planting) => {
         const plot = plots.find((item) => item.id === planting.plotId);
         if (!plot) return [];
-        if (applied.variety !== "all" && planting.variety !== applied.variety) return [];
+        if (applied.variety !== "all" && planting.varietyId !== applied.variety) return [];
         if (!inRange(planting.plantedOn, applied.plantedFrom, applied.plantedTo)) return [];
         if (!inRange(planting.harvestOn, applied.harvestFrom, applied.harvestTo)) return [];
-        return [{ ...plot, variety: planting.variety, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
+        return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
       });
   }, [plantings, plots, applied]);
   const plotFilter =
@@ -279,7 +280,7 @@ export function MemberSeasonScreen() {
               className="mt-1"
               value={draft.variety}
               onChange={(variety) => setDraft({ ...draft, variety })}
-              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: item, label: item }))]}
+              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: item.id, label: item.name }))]}
             />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
@@ -343,10 +344,12 @@ export function MemberSeasonScreen() {
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-[8px] bg-bar px-6 py-4 text-white">
             <div className="text-[16px] font-bold">แผนที่จะเข้า</div>
             {people.length === 1 && (
-              <SecondaryButton className="h-9" onClick={() => setAddingId(people[0].id)}>
-                <Glyph icon={Plus} />
-                เพิ่มแปลง
-              </SecondaryButton>
+              <CanAdd resource="plots">
+                <SecondaryButton className="h-9" onClick={() => setAddingId(people[0].id)}>
+                  <Glyph icon={Plus} />
+                  เพิ่มแปลง
+                </SecondaryButton>
+              </CanAdd>
             )}
           </div>
           <PlotRoundTable rows={page.rows} selectedId={selected?.id ?? null} onSelect={setPlotId} emptyLabel="ไม่พบแปลง" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -368,7 +371,7 @@ export function MemberSeasonScreen() {
           area=""
           onClose={() => setAddingId(null)}
           farmerId={adding.id}
-          onSave={(name, areaRai, variety, place, schedule) => addPlot(adding.id, { name, areaRai, variety, ...place, ...schedule })}
+          onSave={(name, areaRai, varietyId, place, schedule) => addPlot(adding.id, { name, areaRai, varietyId, ...place, ...schedule })}
         />
       )}
     </div>
@@ -433,7 +436,7 @@ function planSortValue(row: SeasonRow, key: string, farmers: Farmer[], groups: {
   if (key === "plot") return row.name;
   if (key === "farmer") return farmer ? farmerName(farmer) : "";
   if (key === "group") return groups.find((group) => group.id === farmer?.groupId)?.name ?? "";
-  if (key === "variety") return row.variety;
+  if (key === "variety") return varietyName(row.varietyId);
   return row.estKg;
 }
 
@@ -490,7 +493,7 @@ function PlotRoundTable({
               <td className="px-5 py-3 font-bold">{plot.name}</td>
               <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
               <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
-              <td className="px-5 py-3">{plot.variety}</td>
+              <td className="px-5 py-3">{varietyName(plot.varietyId)}</td>
               <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
             </tr>
           );

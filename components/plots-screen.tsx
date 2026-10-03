@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, X } from "lucide-react";
+import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlaceSelects, PlotDialog, DrawBoundary } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
 import {
@@ -199,10 +200,12 @@ export function PlotManageScreen() {
                 <Glyph icon={RotateCcw} />
                 ล้าง
               </SecondaryButton>
-              <SecondaryButton onClick={() => setAdding(true)}>
-                <Glyph icon={Plus} />
-                เพิ่มแปลง
-              </SecondaryButton>
+              <CanAdd resource="plots">
+                <SecondaryButton onClick={() => setAdding(true)}>
+                  <Glyph icon={Plus} />
+                  เพิ่มแปลง
+                </SecondaryButton>
+              </CanAdd>
             </div>
           </form>
         </div>
@@ -307,7 +310,7 @@ export function PlotManageScreen() {
           schedule={false}
           onClose={closeAdd}
           onSave={(plotName, areaRai, _variety, place) =>
-            addPlot(ownerId, { name: plotName, areaRai, variety: "หอมมะลิ", plantedOn: "", harvestOn: "", estKg: 0, ...place })
+            addPlot(ownerId, { name: plotName, areaRai, varietyId: "jasmine", plantedOn: "", harvestOn: "", estKg: 0, ...place })
           }
         />
       )}
@@ -413,16 +416,18 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
           พื้นที่ (ไร่)
           <RequiredMark />
           <input value={area} disabled={!editing} inputMode="decimal" onChange={(event) => setArea(event.target.value)} className={fieldClass} />
-          <button
-            type="button"
-            onClick={() => {
-              setDraft([]);
-              setDrawing(true);
-            }}
-            className="mt-2 text-[14px] font-bold text-brand underline"
-          >
-            {drawn ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
-          </button>
+          <CanEdit resource="plots">
+            <button
+              type="button"
+              onClick={() => {
+                setDraft([]);
+                setDrawing(true);
+              }}
+              className="mt-2 text-[14px] font-bold text-brand underline"
+            >
+              {drawn ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
+            </button>
+          </CanEdit>
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           เจ้าของแปลง
@@ -453,36 +458,40 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
           <input value={measured == null ? "ยังไม่มีรูป" : `${measured} ไร่`} disabled className={fieldClass} />
         </label>
         <div className="flex flex-wrap gap-3 sm:col-span-2">
-          {editing ? (
-            <>
-              <SecondaryButton type="button" onClick={undo}>
-                <Glyph icon={Undo2} />
-                {dirty ? "เลิกทำ" : "ยกเลิก"}
+          <CanEdit resource="plots">
+            {editing ? (
+              <>
+                <SecondaryButton type="button" onClick={undo}>
+                  <Glyph icon={Undo2} />
+                  {dirty ? "เลิกทำ" : "ยกเลิก"}
+                </SecondaryButton>
+                <PrimaryButton type="submit">
+                  <Glyph icon={Save} />
+                  บันทึก
+                </PrimaryButton>
+              </>
+            ) : (
+              <SecondaryButton type="button" onClick={() => setEditing(true)}>
+                <Glyph icon={Pencil} />
+                แก้ไข
               </SecondaryButton>
-              <PrimaryButton type="submit">
-                <Glyph icon={Save} />
-                บันทึก
-              </PrimaryButton>
-            </>
-          ) : (
-            <SecondaryButton type="button" onClick={() => setEditing(true)}>
-              <Glyph icon={Pencil} />
-              แก้ไข
+            )}
+          </CanEdit>
+          <CanDelete resource="plots">
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setNotice({
+                  tone: "confirm",
+                  message: `ยืนยันลบแปลง ${plot.name}`,
+                  accept: () => setNotice(reported(removePlot(plot.id), "ลบแปลงแล้ว", onClose)),
+                })
+              }
+            >
+              <Glyph icon={Trash2} />
+              ลบแปลง
             </SecondaryButton>
-          )}
-          <SecondaryButton
-            type="button"
-            onClick={() =>
-              setNotice({
-                tone: "confirm",
-                message: `ยืนยันลบแปลง ${plot.name}`,
-                accept: () => setNotice(reported(removePlot(plot.id), "ลบแปลงแล้ว", onClose)),
-              })
-            }
-          >
-            <Glyph icon={Trash2} />
-            ลบแปลง
-          </SecondaryButton>
+          </CanDelete>
         </div>
       </form>
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />

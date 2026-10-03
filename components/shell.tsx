@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, CalendarDays, ChevronDown, Layers, Map, Menu, Sprout, Users, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, Layers, Map, Menu, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
 import { StoreProvider, useMill } from "@/components/store";
 import { daysUntil } from "@/lib/mill";
 
@@ -42,6 +42,14 @@ const NAV: NavItem[] = [
     children: [
       { href: "/farmers", label: "เกษตรกร" },
       { href: "/farmers/manage", label: "จัดการเกษตรกร" },
+    ],
+  },
+  {
+    label: "จัดการสิทธิ์",
+    icon: Shield,
+    children: [
+      { href: "/permissions", label: "จัดการสิทธิ์" },
+      { href: "/permissions/people", label: "รายคน" },
     ],
   },
 ];

@@ -1,0 +1,108 @@
+create extension if not exists postgis with schema extensions;
+
+create table public.groups (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  leader_id uuid not null,
+  constraint groups_name_not_blank check (char_length(btrim(name)) > 0)
+);
+
+create table public.farmers (
+  id uuid primary key default gen_random_uuid(),
+  first_name text not null,
+  last_name text not null,
+  tel text not null,
+  address text not null,
+  subdistrict text not null,
+  district text not null,
+  province text not null,
+  group_id uuid references public.groups (id) on delete restrict,
+  delivered_kg integer not null default 0,
+  constraint farmers_name_not_blank check (char_length(btrim(first_name)) > 0 and char_length(btrim(last_name)) > 0),
+  constraint farmers_address_not_blank check (char_length(btrim(address)) > 0),
+  constraint farmers_place_not_blank check (
+    char_length(btrim(subdistrict)) > 0
+    and char_length(btrim(district)) > 0
+    and char_length(btrim(province)) > 0
+  ),
+  constraint farmers_tel_format check (tel ~ '^0[689][0-9]{2}-[0-9]{3}-[0-9]{4}$'),
+  constraint farmers_tel_unique unique (tel),
+  constraint farmers_delivered_kg_nonnegative check (delivered_kg >= 0)
+);
+
+alter table public.groups
+  add constraint groups_leader_fkey
+  foreign key (leader_id) references public.farmers (id) on delete restrict
+  deferrable initially deferred;
+
+alter table public.groups
+  add constraint groups_one_leader unique (leader_id);
+
+create table public.roles (
+  id text primary key,
+  name text not null,
+  constraint roles_name_not_blank check (char_length(btrim(name)) > 0)
+);
+
+create table public.varieties (
+  id text primary key,
+  name text not null,
+  constraint varieties_name_not_blank check (char_length(btrim(name)) > 0),
+  constraint varieties_name_unique unique (name)
+);
+
+create table public.plots (
+  id uuid primary key default gen_random_uuid(),
+  farmer_id uuid not null references public.farmers (id) on delete restrict,
+  name text not null,
+  area_rai numeric(12, 2) not null,
+  subdistrict text not null,
+  district text not null,
+  province text not null,
+  boundary extensions.geometry(Polygon, 4326),
+  constraint plots_name_not_blank check (char_length(btrim(name)) > 0),
+  constraint plots_area_positive check (area_rai > 0),
+  constraint plots_place_not_blank check (
+    char_length(btrim(subdistrict)) > 0
+    and char_length(btrim(district)) > 0
+    and char_length(btrim(province)) > 0
+  ),
+  constraint plots_boundary_valid check (boundary is null or extensions.st_isvalid(boundary))
+);
+
+create table public.plantings (
+  id uuid primary key default gen_random_uuid(),
+  plot_id uuid not null references public.plots (id) on delete cascade,
+  variety_id text not null references public.varieties (id),
+  planted_on date not null,
+  harvest_on date not null,
+  est_kg integer not null,
+  delivered boolean not null default false,
+  constraint plantings_harvest_after_plant check (harvest_on >= planted_on),
+  constraint plantings_est_kg_nonnegative check (est_kg >= 0)
+);
+
+create index farmers_group_id_idx on public.farmers (group_id);
+create index plots_farmer_id_idx on public.plots (farmer_id);
+create index plots_boundary_idx on public.plots using gist (boundary);
+create index plantings_plot_id_idx on public.plantings (plot_id);
+create index plantings_variety_id_idx on public.plantings (variety_id);
+create unique index plantings_one_open_per_plot on public.plantings (plot_id) where not delivered;
+
+create table public.permissions (
+  role_id text not null references public.roles (id),
+  resource text not null,
+  scope text not null,
+  can_read boolean not null,
+  can_add boolean not null,
+  can_edit boolean not null,
+  can_delete boolean not null,
+  primary key (role_id, resource),
+  constraint permissions_resource check (resource in ('groups', 'farmers', 'plots', 'plantings')),
+  constraint permissions_scope check (scope in ('all', 'group', 'own'))
+);
+
+create table public.role_grants (
+  farmer_id uuid primary key references public.farmers (id) on delete cascade,
+  role_id text not null references public.roles (id)
+);

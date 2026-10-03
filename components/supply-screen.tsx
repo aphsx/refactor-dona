@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMill } from "@/components/store";
 import { Kpi, PageHeader, Pagination, SearchSelect, SortableTh, StatusTab, TableScroll, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { daysUntil, farmerName, formatKg, formatThaiDate, type Plot, type Variety } from "@/lib/mill";
+import { daysUntil, farmerName, formatKg, formatThaiDate, varietyName, type Plot, type Variety } from "@/lib/mill";
 
-type SupplyRow = Plot & { variety: Variety; plantingId: string; harvestOn: string; estKg: number; delivered: boolean };
+type SupplyRow = Plot & { varietyId: Variety; plantingId: string; harvestOn: string; estKg: number; delivered: boolean };
 
 type WindowFilter = "ใกล้เก็บเกี่ยว" | "เดือนนี้" | "ยังไม่เข้า" | "รับแล้ว";
 
@@ -22,7 +22,7 @@ export function SupplyScreen() {
       const farmer = farmers.find((item) => item.id === plot.farmerId);
       if (groupId === "none" && farmer?.groupId != null) return [];
       if (groupId !== "all" && groupId !== "none" && farmer?.groupId !== groupId) return [];
-      return [{ ...plot, variety: planting.variety, plantingId: planting.id, harvestOn: planting.harvestOn, estKg: planting.estKg, delivered: planting.delivered }];
+      return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, harvestOn: planting.harvestOn, estKg: planting.estKg, delivered: planting.delivered }];
     });
   }, [plantings, plots, farmers, groupId]);
 
@@ -123,7 +123,7 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
     if (key === "name") return plot.name;
     if (key === "farmer") return farmer ? farmerName(farmer) : "";
     if (key === "group") return groups.find((group) => group.id === farmer?.groupId)?.name ?? "";
-    if (key === "variety") return plot.variety;
+    if (key === "variety") return varietyName(plot.varietyId);
     if (key === "area") return plot.areaRai;
     if (key === "kg") return plot.estKg;
     return plot.delivered ? "รับแล้ว" : left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
@@ -165,7 +165,7 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
                 <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
-                <td className="px-5 py-3">{plot.variety}</td>
+                <td className="px-5 py-3">{varietyName(plot.varietyId)}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
                 <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
                 <td className={`px-5 py-3 font-bold ${plot.delivered ? "text-ok" : left <= 7 ? "text-brand" : ""}`}>{status}</td>

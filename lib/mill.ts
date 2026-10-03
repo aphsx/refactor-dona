@@ -1,6 +1,14 @@
-export type Variety = "หอมมะลิ" | "ขาว" | "เหนียว";
+export type Variety = "jasmine" | "white" | "glutinous";
 
-export const VARIETIES: Variety[] = ["หอมมะลิ", "ขาว", "เหนียว"];
+export const VARIETIES: { id: Variety; name: string }[] = [
+  { id: "jasmine", name: "หอมมะลิ" },
+  { id: "white", name: "ขาว" },
+  { id: "glutinous", name: "เหนียว" },
+];
+
+export function varietyName(id: string) {
+  return VARIETIES.find((item) => item.id === id)?.name ?? "—";
+}
 
 export type Farmer = {
   id: string;
@@ -35,16 +43,75 @@ export type Plot = {
 export type Planting = {
   id: string;
   plotId: string;
-  variety: Variety;
+  varietyId: Variety;
   plantedOn: string;
   harvestOn: string;
   estKg: number;
   delivered: boolean;
 };
 
+export type PermissionRole = "mill" | "leader" | "member";
+export type PermissionResource = "groups" | "farmers" | "plots" | "plantings";
+export type PermissionFlag = "canRead" | "canAdd" | "canEdit" | "canDelete";
+
+export type Permission = {
+  role: PermissionRole;
+  resource: PermissionResource;
+  scope: "all" | "group" | "own";
+  canRead: boolean;
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type RoleGrant = {
+  farmerId: string;
+  role: "mill";
+};
+
+export function personRole(grants: RoleGrant[], groups: SupplierGroup[], farmerId: string): PermissionRole {
+  if (grants.some((grant) => grant.farmerId === farmerId && grant.role === "mill")) return "mill";
+  if (groups.some((group) => group.leaderId === farmerId)) return "leader";
+  return "member";
+}
+
+export function roleTitle(role: PermissionRole) {
+  if (role === "mill") return "โรงสี";
+  if (role === "leader") return "หัวหน้ากลุ่ม";
+  return "สมาชิก";
+}
+
+export function allowed(
+  permissions: Permission[],
+  role: PermissionRole,
+  resource: PermissionResource,
+  flag: PermissionFlag,
+) {
+  if (permissions.some((item) => item.role === role && item.resource === resource && item[flag])) return true;
+  if (role === "leader" && permissions.some((item) => item.role === "member" && item.resource === resource && item[flag])) {
+    return true;
+  }
+  return false;
+}
+
+export const PERMISSIONS: Permission[] = [
+  { role: "mill", resource: "groups", scope: "all", canRead: true, canAdd: true, canEdit: true, canDelete: true },
+  { role: "mill", resource: "farmers", scope: "all", canRead: true, canAdd: true, canEdit: true, canDelete: true },
+  { role: "mill", resource: "plots", scope: "all", canRead: true, canAdd: true, canEdit: true, canDelete: true },
+  { role: "mill", resource: "plantings", scope: "all", canRead: true, canAdd: true, canEdit: true, canDelete: true },
+  { role: "leader", resource: "groups", scope: "group", canRead: true, canAdd: false, canEdit: true, canDelete: false },
+  { role: "leader", resource: "farmers", scope: "group", canRead: true, canAdd: false, canEdit: false, canDelete: false },
+  { role: "leader", resource: "plots", scope: "group", canRead: true, canAdd: false, canEdit: false, canDelete: false },
+  { role: "leader", resource: "plantings", scope: "group", canRead: true, canAdd: false, canEdit: false, canDelete: false },
+  { role: "member", resource: "groups", scope: "own", canRead: true, canAdd: false, canEdit: false, canDelete: false },
+  { role: "member", resource: "farmers", scope: "own", canRead: true, canAdd: false, canEdit: true, canDelete: false },
+  { role: "member", resource: "plots", scope: "own", canRead: true, canAdd: true, canEdit: true, canDelete: true },
+  { role: "member", resource: "plantings", scope: "own", canRead: true, canAdd: true, canEdit: true, canDelete: true },
+];
+
 export function farmerVarieties(plots: Plot[], plantings: Planting[], farmerId: string) {
   const ids = new Set(plots.filter((plot) => plot.farmerId === farmerId).map((plot) => plot.id));
-  const names = [...new Set(plantings.filter((planting) => ids.has(planting.plotId)).map((planting) => planting.variety))];
+  const names = [...new Set(plantings.filter((planting) => ids.has(planting.plotId)).map((planting) => varietyName(planting.varietyId)))];
   return names.length === 0 ? "—" : names.join(" · ");
 }
 

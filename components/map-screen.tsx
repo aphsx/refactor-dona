@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
+import { CanEdit } from "@/components/can";
 import { useMill } from "@/components/store";
 import { SearchSelect, matchesQuery } from "@/components/ui";
 import {
@@ -16,6 +17,7 @@ import {
   formatKg,
   formatRai,
   formatThaiDate,
+  varietyName,
   isClosedRing,
   openRing,
   polygonAreaRai,
@@ -79,7 +81,7 @@ export function MapScreen() {
       const planting = currentPlanting(plantings, plot.id);
       const days = planting && !planting.delivered ? daysUntil(planting.harvestOn) : null;
       const kind: StatusKey = !planting ? "none" : planting.delivered ? "delivered" : days != null && days <= 7 ? "due" : "upcoming";
-      return [{ plot, farmer, planting, variety: planting?.variety ?? null, status: kind, days }];
+      return [{ plot, farmer, planting, variety: planting?.varietyId ?? null, status: kind, days }];
     });
   }, [plots, plantings, farmers]);
 
@@ -216,7 +218,7 @@ export function MapScreen() {
                           <p className="mt-1 text-[14px]">
                             {selected.plot.areaRai} ไร่
                             <span className="text-ink/40"> · </span>
-                            {selected.variety ?? "ยังไม่ปลูก"}
+                            {selected.variety ? varietyName(selected.variety) : "ยังไม่ปลูก"}
                             {selected.planting && (
                               <>
                                 <span className="text-ink/40"> · </span>
@@ -236,11 +238,13 @@ export function MapScreen() {
                           <X size={16} strokeWidth={1.75} />
                         </button>
                       </div>
-                      <div className="mt-3">
-                        <button type="button" onClick={() => { setDraft([]); setBoundaryError(""); }} className={mapButton}>
-                          {selected.plot.polygon.length >= 4 ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
-                        </button>
-                      </div>
+                      <CanEdit resource="plots">
+                        <div className="mt-3">
+                          <button type="button" onClick={() => { setDraft([]); setBoundaryError(""); }} className={mapButton}>
+                            {selected.plot.polygon.length >= 4 ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
+                          </button>
+                        </div>
+                      </CanEdit>
                     </>
                   ) : (
                     <DrawStep
@@ -317,9 +321,11 @@ function DrawStep({
               className="mt-1 block h-10 w-28 rounded-[4px] border border-line px-3 font-normal"
             />
           </label>
-          <button type="button" onClick={onSave} className="inline-flex h-10 items-center rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white">
-            บันทึกขอบเขต
-          </button>
+          <CanEdit resource="plots">
+            <button type="button" onClick={onSave} className="inline-flex h-10 items-center rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white">
+              บันทึกขอบเขต
+            </button>
+          </CanEdit>
           <button type="button" onClick={onRedraw} className={mapButton}>
             วาดใหม่
           </button>

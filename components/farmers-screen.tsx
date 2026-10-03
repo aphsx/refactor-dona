@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Plus, Save, X } from "lucide-react";
+import { CanAdd } from "@/components/can";
 import { PlaceSelects } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
 import { Dialog, Glyph, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, SortableTh, TableScroll, inputClass, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
@@ -30,10 +31,12 @@ export function FarmersScreen() {
           บัญชีรับซื้อ
           <div className="flex items-center gap-3">
             <span className="text-[14px] font-normal">{farmers.length} คน</span>
-            <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
-              <Glyph icon={Plus} />
-              เพิ่มเกษตรกร
-            </SecondaryButton>
+            <CanAdd resource="farmers">
+              <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+                <Glyph icon={Plus} />
+                เพิ่มเกษตรกร
+              </SecondaryButton>
+            </CanAdd>
           </div>
         </div>
         <TableScroll>

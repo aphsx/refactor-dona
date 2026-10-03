@@ -5,10 +5,11 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Map as MapIcon, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
+import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, varietyName, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtNames, placeAt, provinceNames, subdistrictNames } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -156,10 +157,12 @@ export function GroupManageScreen() {
                 <Glyph icon={RotateCcw} />
                 ล้าง
               </SecondaryButton>
-              <SecondaryButton onClick={() => setCreatingGroup(true)}>
-                <Glyph icon={Plus} />
-                สร้างกลุ่ม
-              </SecondaryButton>
+              <CanAdd resource="groups">
+                <SecondaryButton onClick={() => setCreatingGroup(true)}>
+                  <Glyph icon={Plus} />
+                  สร้างกลุ่ม
+                </SecondaryButton>
+              </CanAdd>
             </div>
           </form>
         </div>
@@ -333,10 +336,12 @@ export function MemberManageScreen() {
                 <Glyph icon={RotateCcw} />
                 ล้าง
               </SecondaryButton>
-              <SecondaryButton onClick={() => setMoving(true)}>
-                <Glyph icon={UserPlus} />
-                จัดเข้ากลุ่ม
-              </SecondaryButton>
+              <CanEdit resource="farmers">
+                <SecondaryButton onClick={() => setMoving(true)}>
+                  <Glyph icon={UserPlus} />
+                  จัดเข้ากลุ่ม
+                </SecondaryButton>
+              </CanEdit>
             </div>
           </form>
         </div>
@@ -379,19 +384,21 @@ export function MemberManageScreen() {
                         {leads ? (
                           <span className="text-[12px] font-bold text-ink/50">หัวหน้า</span>
                         ) : (
-                          <SecondaryButton
-                            className="h-9"
-                            onClick={() =>
-                              setNotice({
-                                tone: "confirm",
-                                message: `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`,
-                                accept: () => setNotice(reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
-                              })
-                            }
-                          >
-                            <Glyph icon={UserMinus} />
-                            ออกจากกลุ่ม
-                          </SecondaryButton>
+                          <CanEdit resource="farmers">
+                            <SecondaryButton
+                              className="h-9"
+                              onClick={() =>
+                                setNotice({
+                                  tone: "confirm",
+                                  message: `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`,
+                                  accept: () => setNotice(reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
+                                })
+                              }
+                            >
+                              <Glyph icon={UserMinus} />
+                              ออกจากกลุ่ม
+                            </SecondaryButton>
+                          </CanEdit>
                         )}
                       </td>
                     </tr>
@@ -568,31 +575,35 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
           />
         </label>
         <div className="flex flex-wrap gap-3 sm:col-span-2">
-          {editing ? (
-            <>
-              <SecondaryButton type="button" onClick={undo}>
-                <Glyph icon={Undo2} />
-                {dirty ? "เลิกทำ" : "ยกเลิก"}
+          <CanEdit resource="groups">
+            {editing ? (
+              <>
+                <SecondaryButton type="button" onClick={undo}>
+                  <Glyph icon={Undo2} />
+                  {dirty ? "เลิกทำ" : "ยกเลิก"}
+                </SecondaryButton>
+                <PrimaryButton type="submit">
+                  <Glyph icon={Save} />
+                  บันทึก
+                </PrimaryButton>
+              </>
+            ) : (
+              <SecondaryButton type="button" onClick={() => setEditing(true)}>
+                <Glyph icon={Pencil} />
+                แก้ไข
               </SecondaryButton>
-              <PrimaryButton type="submit">
-                <Glyph icon={Save} />
-                บันทึก
-              </PrimaryButton>
-            </>
-          ) : (
-            <SecondaryButton type="button" onClick={() => setEditing(true)}>
-              <Glyph icon={Pencil} />
-              แก้ไข
-            </SecondaryButton>
-          )}
+            )}
+          </CanEdit>
         </div>
       </form>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame bg-bar px-6 py-4 text-white">
         <div className="text-[16px] font-bold">สมาชิก · {members.length} คน</div>
-        <SecondaryButton className="h-9" onClick={() => setMoving(true)}>
-          <Glyph icon={UserPlus} />
-          จัดเข้ากลุ่ม
-        </SecondaryButton>
+        <CanEdit resource="farmers">
+          <SecondaryButton className="h-9" onClick={() => setMoving(true)}>
+            <Glyph icon={UserPlus} />
+            จัดเข้ากลุ่ม
+          </SecondaryButton>
+        </CanEdit>
       </div>
       <TableScroll>
 <table className={tableClass}>
@@ -623,19 +634,21 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
                   {leadsGroup ? (
                     <span className="text-[12px] font-bold text-ink/50">หัวหน้ากลุ่ม</span>
                   ) : (
-                    <SecondaryButton
-                      className="h-9"
-                      onClick={() =>
-                        setNotice({
-                          tone: "confirm",
-                          message: `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`,
-                          accept: () => setNotice(reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
-                        })
-                      }
-                    >
-                      <Glyph icon={UserMinus} />
-                      ออกจากกลุ่ม
-                    </SecondaryButton>
+                    <CanEdit resource="farmers">
+                      <SecondaryButton
+                        className="h-9"
+                        onClick={() =>
+                          setNotice({
+                            tone: "confirm",
+                            message: `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`,
+                            accept: () => setNotice(reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
+                          })
+                        }
+                      >
+                        <Glyph icon={UserMinus} />
+                        ออกจากกลุ่ม
+                      </SecondaryButton>
+                    </CanEdit>
                   )}
                 </td>
               </tr>
@@ -794,23 +807,25 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             <input value={leader ? farmerName(leader) : "—"} disabled className={fieldClass} />
           </label>
           <div className="flex flex-wrap gap-3 sm:col-span-2">
-            {editing ? (
-              <>
-                <SecondaryButton type="button" onClick={undo}>
-                  <Glyph icon={Undo2} />
-                  {dirty ? "เลิกทำ" : "ยกเลิก"}
+            <CanEdit resource="farmers">
+              {editing ? (
+                <>
+                  <SecondaryButton type="button" onClick={undo}>
+                    <Glyph icon={Undo2} />
+                    {dirty ? "เลิกทำ" : "ยกเลิก"}
+                  </SecondaryButton>
+                  <PrimaryButton type="submit">
+                    <Glyph icon={Save} />
+                    บันทึก
+                  </PrimaryButton>
+                </>
+              ) : (
+                <SecondaryButton type="button" onClick={() => setEditing(true)}>
+                  <Glyph icon={Pencil} />
+                  แก้ไข
                 </SecondaryButton>
-                <PrimaryButton type="submit">
-                  <Glyph icon={Save} />
-                  บันทึก
-                </PrimaryButton>
-              </>
-            ) : (
-              <SecondaryButton type="button" onClick={() => setEditing(true)}>
-                <Glyph icon={Pencil} />
-                แก้ไข
-              </SecondaryButton>
-            )}
+              )}
+            </CanEdit>
           </div>
         </form>
       <MemberStanding farmer={farmer} plots={fields} plantings={plantings} leads={leads} />
@@ -862,10 +877,12 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
         <div className="text-[16px] font-bold">แปลงของเกษตรกร · {farmerName(farmer)}</div>
         <div className="flex items-center gap-3">
-          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
-            <Glyph icon={Plus} />
-            เพิ่มแปลง
-          </SecondaryButton>
+          <CanAdd resource="plots">
+            <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+              <Glyph icon={Plus} />
+              เพิ่มแปลง
+            </SecondaryButton>
+          </CanAdd>
           <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
             ปิด
           </button>
@@ -893,7 +910,7 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
           schedule={false}
           onClose={() => setAdding(false)}
           onSave={(name, areaRai, _variety, place) =>
-            addPlot(farmer.id, { name, areaRai, variety: "หอมมะลิ", plantedOn: "", harvestOn: "", estKg: 0, ...place })
+            addPlot(farmer.id, { name, areaRai, varietyId: "jasmine", plantedOn: "", harvestOn: "", estKg: 0, ...place })
           }
         />
       )}
@@ -931,7 +948,7 @@ function PlotTable({
     if (key === "name") return plot.name;
     if (key === "area") return plot.areaRai;
     if (key === "place") return [plot.subdistrict, plot.district, plot.province].filter(Boolean).join(" ");
-    if (key === "variety") return round?.variety ?? "";
+    if (key === "variety") return round ? varietyName(round.varietyId) : "";
     if (key === "planted") return round?.plantedOn ?? "";
     if (key === "harvest") return round?.harvestOn ?? "";
     if (key === "kg") return round?.estKg ?? -1;
@@ -969,7 +986,7 @@ function PlotTable({
               <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-                <td className="px-5 py-3">{round?.variety ?? "—"}</td>
+                <td className="px-5 py-3">{round ? varietyName(round.varietyId) : "—"}</td>
                 <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
                 <td className="px-5 py-3">{round ? formatThaiDate(round.harvestOn) : "—"}</td>
                 <td className="px-5 py-3">{round ? formatKg(round.estKg) : "—"}</td>
@@ -981,15 +998,19 @@ function PlotTable({
                       ดูบนแผนที่
                     </SecondaryButton>
                     {!round && (
-                      <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
-                        <Glyph icon={Plus} />
-                        เพิ่มรอบ
-                      </SecondaryButton>
+                      <CanAdd resource="plantings">
+                        <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
+                          <Glyph icon={Plus} />
+                          เพิ่มรอบ
+                        </SecondaryButton>
+                      </CanAdd>
                     )}
-                    <SecondaryButton className="h-9" onClick={() => onRemove(plot)}>
-                      <Glyph icon={Trash2} />
-                      ลบแปลง
-                    </SecondaryButton>
+                    <CanDelete resource="plots">
+                      <SecondaryButton className="h-9" onClick={() => onRemove(plot)}>
+                        <Glyph icon={Trash2} />
+                        ลบแปลง
+                      </SecondaryButton>
+                    </CanDelete>
                   </div>
                 </td>
               </tr>
@@ -1092,7 +1113,7 @@ export function MemberPlan({
     return [{
       ...plot,
       plantingId: round.id,
-      variety: round.variety,
+      varietyId: round.varietyId,
       plantedOn: round.plantedOn,
       harvestOn: round.harvestOn,
       estKg: round.estKg,
@@ -1104,7 +1125,7 @@ export function MemberPlan({
   const ordered = orderBy(rounds, listingSort.sort, (row, key) => {
     if (key === "plot") return row.name;
     if (key === "area") return row.areaRai;
-    if (key === "variety") return row.variety ?? "";
+    if (key === "variety") return row.varietyId ? varietyName(row.varietyId) : "";
     if (key === "status") return row.status;
     if (key === "planted") return row.plantedOn;
     if (key === "harvest") return row.harvestOn;
@@ -1114,7 +1135,7 @@ export function MemberPlan({
   const [adding, setAdding] = useState(false);
   const listed = ordered.find((plot) => plot.id === plotId) ?? null;
   const draft = listed || !plotId ? null : owned.find((plot) => plot.id === plotId) ?? null;
-  const selected = listed ?? (draft ? { ...draft, plantingId: "", variety: null, plantedOn: "", harvestOn: "", estKg: 0, status: "", statusClass: "" } : null);
+  const selected = listed ?? (draft ? { ...draft, plantingId: "", varietyId: null, plantedOn: "", harvestOn: "", estKg: 0, status: "", statusClass: "" } : null);
   const available = owned.filter((plot) => !openPlanting(plantings, plot.id));
 
   return (
@@ -1122,10 +1143,12 @@ export function MemberPlan({
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
         <div className="text-[16px] font-bold">แผนการปลูก · {farmerName(farmer)}</div>
         <div className="flex items-center gap-3">
-          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
-            <Glyph icon={Plus} />
-            เพิ่มแผน
-          </SecondaryButton>
+          <CanAdd resource="plantings">
+            <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+              <Glyph icon={Plus} />
+              เพิ่มแผน
+            </SecondaryButton>
+          </CanAdd>
           {onClose && (
             <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
               ปิด
@@ -1158,7 +1181,7 @@ export function MemberPlan({
                 <tr key={plot.id} onClick={(event) => openRow(event, () => setPlotId(plot.id))} className={rowTone(index, plot.id === plotId)}>
                   <td className="px-5 py-3 font-bold">{plot.name}</td>
                   <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-                  <td className="px-5 py-3">{plot.variety ?? "—"}</td>
+                  <td className="px-5 py-3">{plot.varietyId ? varietyName(plot.varietyId) : "—"}</td>
                   <td className={`px-5 py-3 font-bold ${plot.statusClass}`}>{plot.status}</td>
                   <td className="px-5 py-3">{plot.plantedOn ? formatThaiDate(plot.plantedOn) : "—"}</td>
                   <td className="px-5 py-3">{plot.harvestOn ? formatThaiDate(plot.harvestOn) : "—"}</td>
@@ -1231,10 +1254,12 @@ function ChoosePlanPlot({
               <Glyph icon={X} />
               ยกเลิก
             </SecondaryButton>
-            <PrimaryButton type="submit">
-              <Glyph icon={Plus} />
-              ทำแผน
-            </PrimaryButton>
+            <CanAdd resource="plantings">
+              <PrimaryButton type="submit">
+                <Glyph icon={Plus} />
+                ทำแผน
+              </PrimaryButton>
+            </CanAdd>
           </div>
         </form>
       )}
@@ -1253,7 +1278,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const [subdistrict, setSubdistrict] = useState(plot.subdistrict);
   const [district, setDistrict] = useState(plot.district);
   const [province, setProvince] = useState(plot.province);
-  const [variety, setVariety] = useState<Variety>(current?.variety ?? "หอมมะลิ");
+  const [variety, setVariety] = useState<Variety>(current?.varietyId ?? "jasmine");
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? "");
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? "");
   const [estKg, setEstKg] = useState(current ? String(current.estKg) : "");
@@ -1271,7 +1296,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     subdistrict !== plot.subdistrict ||
     district !== plot.district ||
     province !== plot.province ||
-    variety !== (current?.variety ?? "หอมมะลิ") ||
+    variety !== (current?.varietyId ?? "jasmine") ||
     plantedOn !== (current?.plantedOn ?? "") ||
     harvestOn !== (current?.harvestOn ?? "") ||
     estKg !== savedKg;
@@ -1283,11 +1308,11 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setSubdistrict(plot.subdistrict);
     setDistrict(plot.district);
     setProvince(plot.province);
-    setVariety(current?.variety ?? "หอมมะลิ");
+    setVariety(current?.varietyId ?? "jasmine");
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
-  }, [plot.id, plot.name, plot.areaRai, plot.subdistrict, plot.district, plot.province, current?.id, current?.variety, current?.plantedOn, current?.harvestOn, current?.estKg]);
+  }, [plot.id, plot.name, plot.areaRai, plot.subdistrict, plot.district, plot.province, current?.id, current?.varietyId, current?.plantedOn, current?.harvestOn, current?.estKg]);
 
   function undo() {
     setName(plot.name);
@@ -1295,7 +1320,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setSubdistrict(plot.subdistrict);
     setDistrict(plot.district);
     setProvince(plot.province);
-    setVariety(current?.variety ?? "หอมมะลิ");
+    setVariety(current?.varietyId ?? "jasmine");
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
@@ -1346,7 +1371,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
               }
               setNotice(
                 reported(
-                  savePlanting(plot.id, { plantingId: current?.id ?? null, variety, plantedOn, harvestOn, estKg: nextKg }),
+                  savePlanting(plot.id, { plantingId: current?.id ?? null, varietyId: variety, plantedOn, harvestOn, estKg: nextKg }),
                   "บันทึกแล้ว",
                   () => setEditing(false),
                 ),
@@ -1398,7 +1423,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
             value={variety}
             disabled={!editing}
             onChange={(next) => setVariety(next as Variety)}
-            options={VARIETIES.map((item) => ({ value: item, label: item }))}
+            options={VARIETIES.map((item) => ({ value: item.id, label: item.name }))}
           />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1425,52 +1450,58 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
         </label>
         {locked && <p className="text-[14px] sm:col-span-2">รอบที่รับแล้วอยู่ที่รายละเอียดเกษตรกร</p>}
         <div className="flex flex-wrap gap-3 sm:col-span-2">
-          {editing ? (
-            <>
-              <SecondaryButton type="button" onClick={undo}>
-                <Glyph icon={Undo2} />
-                {dirty ? "เลิกทำ" : "ยกเลิก"}
+          <CanEdit resource="plantings">
+            {editing ? (
+              <>
+                <SecondaryButton type="button" onClick={undo}>
+                  <Glyph icon={Undo2} />
+                  {dirty ? "เลิกทำ" : "ยกเลิก"}
+                </SecondaryButton>
+                <PrimaryButton type="submit">
+                  <Glyph icon={Save} />
+                  บันทึก
+                </PrimaryButton>
+              </>
+            ) : (
+              <SecondaryButton type="button" onClick={() => setEditing(true)}>
+                <Glyph icon={Pencil} />
+                แก้ไข
               </SecondaryButton>
-              <PrimaryButton type="submit">
-                <Glyph icon={Save} />
-                บันทึก
-              </PrimaryButton>
-            </>
-          ) : (
-            <SecondaryButton type="button" onClick={() => setEditing(true)}>
-              <Glyph icon={Pencil} />
-              แก้ไข
-            </SecondaryButton>
-          )}
+            )}
+          </CanEdit>
           {current && (
-            <SecondaryButton
-              type="button"
-              onClick={() =>
-                setNotice({
-                  tone: "confirm",
-                  message: `ยืนยันลบแผนรอบ ${formatThaiDate(current.plantedOn)}`,
-                  accept: () => setNotice(reported(removePlanting(current.id), "ลบแผนแล้ว")),
-                })
-              }
-            >
-              <Glyph icon={Trash2} />
-              ลบแผน
-            </SecondaryButton>
+            <CanDelete resource="plantings">
+              <SecondaryButton
+                type="button"
+                onClick={() =>
+                  setNotice({
+                    tone: "confirm",
+                    message: `ยืนยันลบแผนรอบ ${formatThaiDate(current.plantedOn)}`,
+                    accept: () => setNotice(reported(removePlanting(current.id), "ลบแผนแล้ว")),
+                  })
+                }
+              >
+                <Glyph icon={Trash2} />
+                ลบแผน
+              </SecondaryButton>
+            </CanDelete>
           )}
           {!locked && (
-            <SecondaryButton
-              type="button"
-              onClick={() =>
-                setNotice({
-                  tone: "confirm",
-                  message: `ยืนยันลบแปลง ${plot.name}`,
-                  accept: () => setNotice(reported(removePlot(plot.id), "ลบแปลงแล้ว", onBack)),
-                })
-              }
-            >
-              <Glyph icon={Trash2} />
-              ลบแปลง
-            </SecondaryButton>
+            <CanDelete resource="plots">
+              <SecondaryButton
+                type="button"
+                onClick={() =>
+                  setNotice({
+                    tone: "confirm",
+                    message: `ยืนยันลบแปลง ${plot.name}`,
+                    accept: () => setNotice(reported(removePlot(plot.id), "ลบแปลงแล้ว", onBack)),
+                  })
+                }
+              >
+                <Glyph icon={Trash2} />
+                ลบแปลง
+              </SecondaryButton>
+            </CanDelete>
           )}
         </div>
       </form>
@@ -1591,7 +1622,7 @@ export function PlotDialog({
   const [subdistrict, setSubdistrict] = useState(owner?.subdistrict ?? "");
   const [district, setDistrict] = useState(owner?.district ?? "");
   const [province, setProvince] = useState(owner?.province ?? "");
-  const [variety, setVariety] = useState<Variety>("หอมมะลิ");
+  const [variety, setVariety] = useState<Variety>("jasmine");
   const [plantedOn, setPlantedOn] = useState("");
   const [harvestOn, setHarvestOn] = useState("");
   const [estKg, setEstKg] = useState("");
@@ -1696,7 +1727,7 @@ export function PlotDialog({
                 className="mt-1"
                 value={variety}
                 onChange={(next) => setVariety(next as Variety)}
-                options={VARIETIES.map((item) => ({ value: item, label: item }))}
+                options={VARIETIES.map((item) => ({ value: item.id, label: item.name }))}
               />
             </label>
           )}
