@@ -2,10 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { placeCenter, placeLabel } from "@/lib/thai-place";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { CanEdit } from "@/components/can";
+import type { FieldMapHandle } from "@/components/field-map";
 import { useMill } from "@/components/store";
 import { SearchSelect, matchesQuery } from "@/components/ui";
 import { measureRingAreaRai } from "@/lib/api";
@@ -52,6 +53,7 @@ export function MapScreen() {
   const params = useSearchParams();
   const requestedPlot = params.get("plot");
   const { plots, plantings, farmers, groups, saveBoundary } = useMill();
+  const mapRef = useRef<FieldMapHandle>(null);
   const [query, setQuery] = useState("");
   const [groupId, setGroupId] = useState("all");
   const [plotId, setPlotId] = useState<string | null>(requestedPlot);
@@ -131,7 +133,8 @@ export function MapScreen() {
       setBoundaryError("พื้นที่ต้องมากกว่า 0");
       return;
     }
-    const error = await saveBoundary(selected.plot.id, draft, areaRai);
+    const preview = (await mapRef.current?.capturePreview(draft)) ?? null;
+    const error = await saveBoundary(selected.plot.id, draft, areaRai, preview);
     if (error) {
       setBoundaryError(error);
       return;
@@ -158,6 +161,7 @@ export function MapScreen() {
       </div>
       <div className="relative min-h-0 flex-1">
         <FieldMap
+          ref={mapRef}
           plots={mapPlots}
           selectedId={plotId}
           onSelect={choosePlot}

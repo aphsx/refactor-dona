@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { setWorkerUrl } from "maplibre-gl";
 import Map, { Layer, Marker, NavigationControl, Source, type MapLayerMouseEvent, type MapRef } from "react-map-gl/maplibre";
 
@@ -17,6 +17,8 @@ type MapPlot = {
   polygon: [number, number][];
 };
 
+const PREVIEW_SIZE = 256;
+
 const satelliteStyle = {
   version: 8 as const,
   sources: {
@@ -32,23 +34,25 @@ const satelliteStyle = {
   layers: [{ id: "esri", type: "raster" as const, source: "esri" }],
 };
 
-export function FieldMap({
-  plots,
-  selectedId,
-  onSelect,
-  draft = null,
-  onDraftClick,
-  bottomInset,
-  focus = null,
-}: {
-  plots: MapPlot[];
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
-  draft?: [number, number][] | null;
-  onDraftClick?: (lng: number, lat: number) => void;
-  bottomInset?: number;
-  focus?: { lng: number; lat: number; zoom?: number } | null;
-}) {
+export type FieldMapHandle = {
+  capturePreview: (ring?: [number, number][] | null) => Promise<Blob | null>;
+};
+
+export const FieldMap = forwardRef<
+  FieldMapHandle,
+  {
+    plots: MapPlot[];
+    selectedId: string | null;
+    onSelect: (id: string | null) => void;
+    draft?: [number, number][] | null;
+    onDraftClick?: (lng: number, lat: number) => void;
+    bottomInset?: number;
+    focus?: { lng: number; lat: number; zoom?: number } | null;
+  }
+>(function FieldMap(
+  { plots, selectedId, onSelect, draft = null, onDraftClick, bottomInset, focus = null },
+  ref,
+) {
   const mapRef = useRef<MapRef>(null);
   const [mode, setMode] = useState<"satellite" | "street">("satellite");
   const mapStyle = useMemo(
@@ -150,6 +154,76 @@ export function FieldMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameKey]);
 
+  useImperativeHandle(ref, () => ({
+    async capturePreview(ring) {
+      const map = mapRef.current?.getMap();
+      if (!map) return null;
+      const target = ring && isClosedRing(ring) ? ring : draftClosed ? draft : null;
+      const open = target && target.length >= 4 ? openRing(target) : [];
+      if (open.length >= 3) {
+        const lngs = open.map((point) => point[0]);
+        const lats = open.map((point) => point[1]);
+        await new Promise<void>((resolve) => {
+          map.once("idle", () => resolve());
+          map.fitBounds(
+            [
+              [Math.min(...lngs), Math.min(...lats)],
+              [Math.max(...lngs), Math.max(...lats)],
+            ],
+            // Comfortable frame: plot fills most of the view without feeling cramped.
+            { padding: 28, duration: 0, maxZoom: 18 },
+          );
+        });
+        await new Promise<void>((resolve) => {
+          map.once("idle", () => resolve());
+          map.triggerRepaint();
+        });
+      }
+      const source = map.getCanvas();
+      if (!source.width || !source.height) return null;
+      const out = document.createElement("canvas");
+      out.width = PREVIEW_SIZE;
+      out.height = PREVIEW_SIZE;
+      const ctx = out.getContext("2d");
+      if (!ctx) return null;
+
+      // Crop a square around the plot in screen space (not the whole map center).
+      let sx = 0;
+      let sy = 0;
+      let side = Math.min(source.width, source.height);
+      if (open.length >= 3) {
+        const projected = open.map((point) => map.project(point as [number, number]));
+        const minX = Math.min(...projected.map((point) => point.x));
+        const maxX = Math.max(...projected.map((point) => point.x));
+        const minY = Math.min(...projected.map((point) => point.y));
+        const maxY = Math.max(...projected.map((point) => point.y));
+        const boxW = Math.max(1, maxX - minX);
+        const boxH = Math.max(1, maxY - minY);
+        // ~18% margin so it feels balanced, not glued to the edges.
+        const pad = Math.max(16, Math.round(Math.max(boxW, boxH) * 0.18));
+        side = Math.max(boxW, boxH) + pad * 2;
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        sx = Math.max(0, Math.min(source.width - side, cx - side / 2));
+        sy = Math.max(0, Math.min(source.height - side, cy - side / 2));
+        if (side > source.width) {
+          side = source.width;
+          sx = 0;
+        }
+        if (side > source.height) {
+          side = source.height;
+          sy = 0;
+        }
+      } else {
+        sx = (source.width - side) / 2;
+        sy = (source.height - side) / 2;
+      }
+
+      ctx.drawImage(source, sx, sy, side, side, 0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
+      return new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/webp", 0.72));
+    },
+  }));
+
   function selectFromMap(event: MapLayerMouseEvent) {
     if (onDraftClick) {
       onDraftClick(event.lngLat.lng, event.lngLat.lat);
@@ -173,6 +247,8 @@ export function FieldMap({
         }}
         maxZoom={20}
         mapStyle={mapStyle}
+        // Required so getCanvas() can export a preview after drawing.
+        {...({ preserveDrawingBuffer: true } as Record<string, unknown>)}
         onLoad={fitFrame}
         interactiveLayerIds={["plot-fill"]}
         onClick={selectFromMap}
@@ -253,4 +329,4 @@ export function FieldMap({
       </div>
     </div>
   );
-}
+});

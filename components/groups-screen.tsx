@@ -3,13 +3,14 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapIcon, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { measureRingAreaRai } from "@/lib/api";
+import type { FieldMapHandle } from "@/components/field-map";
 import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, varietyName, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
@@ -912,7 +913,19 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
           schedule={false}
           onClose={() => setAdding(false)}
           onSave={(name, areaRai, _variety, place) =>
-            addPlot(farmer.id, { name, areaRai, varietyId: 1, plantedOn: "", harvestOn: "", estKg: 0, ...place })
+            addPlot(farmer.id, {
+              name,
+              areaRai,
+              varietyId: 1,
+              plantedOn: "",
+              harvestOn: "",
+              estKg: 0,
+              provinceId: place.provinceId,
+              districtId: place.districtId,
+              subdistrictId: place.subdistrictId,
+              polygon: place.polygon,
+              preview: place.preview,
+            })
           }
         />
       )}
@@ -1603,7 +1616,13 @@ export function PlotDialog({
     name: string,
     areaRai: number,
     variety: Variety,
-    place: { provinceId: number; districtId: number; subdistrictId: number; polygon: [number, number][] },
+    place: {
+      provinceId: number;
+      districtId: number;
+      subdistrictId: number;
+      polygon: [number, number][];
+      preview?: Blob | null;
+    },
     schedule: { plantedOn: string; harvestOn: string; estKg: number },
   ) => Promise<string | null>;
 }) {
@@ -1613,6 +1632,7 @@ export function PlotDialog({
   const [plotName, setPlotName] = useState(name);
   const [areaRai, setAreaRai] = useState(area);
   const [boundary, setBoundary] = useState<[number, number][]>([]);
+  const [preview, setPreview] = useState<Blob | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [draft, setDraft] = useState<[number, number][]>([]);
   const [subdistrictId, setSubdistrictId] = useState(owner?.subdistrictId ?? 0);
@@ -1664,7 +1684,13 @@ export function PlotDialog({
               accept: async () =>
                 setNotice(
                   await reported(
-                    onSave(plotName, nextArea, variety, { provinceId, districtId, subdistrictId, polygon: boundary }, { plantedOn, harvestOn, estKg: nextKg }),
+                    onSave(
+                      plotName,
+                      nextArea,
+                      variety,
+                      { provinceId, districtId, subdistrictId, polygon: boundary, preview },
+                      { plantedOn, harvestOn, estKg: nextKg },
+                    ),
                     "บันทึกแปลงแล้ว",
                     onClose,
                   ),
@@ -1773,13 +1799,14 @@ export function PlotDialog({
           draft={draft}
           onDraft={setDraft}
           place={{ provinceId, districtId, subdistrictId }}
-          onUse={(ring) => {
+          onUse={(ring, nextPreview) => {
             void (async () => {
               const measured = await measureRingAreaRai(ring);
               if (measured == null) return;
               const point = centroid(ring);
               const place = placeAt(point.lng, point.lat);
               setBoundary(ring);
+              setPreview(nextPreview);
               setAreaRai(String(measured));
               if (place) {
                 setProvinceId(place.provinceId);
@@ -1809,14 +1836,16 @@ export function DrawBoundary({
   plots: Plot[];
   draft: [number, number][];
   onDraft: (next: [number, number][]) => void;
-  onUse: (ring: [number, number][]) => void;
+  onUse: (ring: [number, number][], preview: Blob | null) => void;
   onClose: () => void;
   title?: string;
   place?: { provinceId: number; districtId: number; subdistrictId: number } | null;
 }) {
+  const mapRef = useRef<FieldMapHandle>(null);
   const closed = isClosedRing(draft);
   const [measured, setMeasured] = useState<number | null>(null);
   const [measuring, setMeasuring] = useState(false);
+  const [capturing, setCapturing] = useState(false);
   const focus = placeCenter(place);
 
   useEffect(() => {
@@ -1853,6 +1882,7 @@ export function DrawBoundary({
       <p className="mb-3 text-[14px]">คลิกบนแผนที่เพื่อวางจุด แล้วคลิกจุดแรกหรือกดปิดรูป ที่อยู่จะถูกใส่จากตำแหน่งรูป</p>
       <div className="h-[calc(100vh-20rem)]">
         <FieldMap
+          ref={mapRef}
           plots={plots.map((plot) => ({ id: plot.id, name: plot.name, color: "#1A9D72", muted: true, polygon: plot.polygon }))}
           selectedId={null}
           onSelect={() => {}}
@@ -1883,8 +1913,25 @@ export function DrawBoundary({
         )}
         {closed && (
           <>
-            <span className="text-[14px] font-bold">{measuring || measured == null ? "กำลังคำนวณ…" : formatRai(measured)}</span>
-            <PrimaryButton type="button" className="h-9" disabled={measuring || measured == null} onClick={() => onUse(draft)}>
+            <span className="text-[14px] font-bold">
+              {capturing ? "กำลังแคปรูป…" : measuring || measured == null ? "กำลังคำนวณ…" : formatRai(measured)}
+            </span>
+            <PrimaryButton
+              type="button"
+              className="h-9"
+              disabled={measuring || measured == null || capturing}
+              onClick={() => {
+                void (async () => {
+                  setCapturing(true);
+                  try {
+                    const preview = (await mapRef.current?.capturePreview(draft)) ?? null;
+                    onUse(draft, preview);
+                  } finally {
+                    setCapturing(false);
+                  }
+                })();
+              }}
+            >
               ใช้พื้นที่นี้
             </PrimaryButton>
             <SecondaryButton className="h-9" onClick={() => onDraft([])}>

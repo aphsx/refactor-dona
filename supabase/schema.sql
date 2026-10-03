@@ -59,10 +59,12 @@ create table public.plots (
   district_id bigint not null,
   subdistrict_id bigint not null,
   boundary extensions.geometry(Polygon, 4326),
+  preview_url text,
   constraint plots_name_not_blank check (char_length(btrim(name)) > 0),
   constraint plots_area_positive check (area_rai > 0),
   constraint plots_place_ids_positive check (province_id > 0 and district_id > 0 and subdistrict_id > 0),
-  constraint plots_boundary_valid check (boundary is null or extensions.st_isvalid(boundary))
+  constraint plots_boundary_valid check (boundary is null or extensions.st_isvalid(boundary)),
+  constraint plots_preview_url_http check (preview_url is null or preview_url ~ '^https?://')
 );
 
 create table public.plantings (

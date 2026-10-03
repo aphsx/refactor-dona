@@ -38,6 +38,7 @@ export type Plot = {
   provinceId: number;
   districtId: number;
   subdistrictId: number;
+  previewUrl?: string | null;
   polygon: [number, number][];
 };
 

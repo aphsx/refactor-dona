@@ -312,7 +312,19 @@ export function PlotManageScreen() {
           schedule={false}
           onClose={closeAdd}
           onSave={(plotName, areaRai, _variety, place) =>
-            addPlot(ownerId, { name: plotName, areaRai, varietyId: 1, plantedOn: "", harvestOn: "", estKg: 0, ...place })
+            addPlot(ownerId, {
+              name: plotName,
+              areaRai,
+              varietyId: 1,
+              plantedOn: "",
+              harvestOn: "",
+              estKg: 0,
+              provinceId: place.provinceId,
+              districtId: place.districtId,
+              subdistrictId: place.subdistrictId,
+              polygon: place.polygon,
+              preview: place.preview,
+            })
           }
         />
       )}
@@ -328,6 +340,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
   const [districtId, setDistrictId] = useState(plot.districtId);
   const [subdistrictId, setSubdistrictId] = useState(plot.subdistrictId);
   const [boundary, setBoundary] = useState(plot.polygon);
+  const [preview, setPreview] = useState<Blob | null>(null);
   const [draft, setDraft] = useState<[number, number][]>([]);
   const [drawing, setDrawing] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -355,6 +368,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
     setDistrictId(plot.districtId);
     setSubdistrictId(plot.subdistrictId);
     setBoundary(plot.polygon);
+    setPreview(null);
     setDrawing(false);
   }, [plot.id, plot.name, plot.areaRai, plot.provinceId, plot.districtId, plot.subdistrictId, plot.polygon]);
 
@@ -365,6 +379,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
     setDistrictId(plot.districtId);
     setSubdistrictId(plot.subdistrictId);
     setBoundary(plot.polygon);
+    setPreview(null);
     if (!dirty) setEditing(false);
   }
 
@@ -403,7 +418,10 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
                 setNotice({ tone: "error", message: plotError });
                 return;
               }
-              const boundaryError = boundaryChanged ? await saveBoundary(plot.id, boundary, areaRai) : null;
+              const boundaryError = boundaryChanged
+                ? await saveBoundary(plot.id, boundary, areaRai, preview)
+                : null;
+              if (!boundaryError) setPreview(null);
               setNotice(await reported(boundaryError, "บันทึกแปลงแล้ว", () => setEditing(false)));
             },
           });
@@ -504,13 +522,14 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
           draft={draft}
           onDraft={setDraft}
           place={{ provinceId, districtId, subdistrictId }}
-          onUse={(ring) => {
+          onUse={(ring, nextPreview) => {
             void (async () => {
               const nextArea = await measureRingAreaRai(ring);
               if (nextArea == null) return;
               const here = centroid(ring);
               const place = placeAt(here.lng, here.lat);
               setBoundary(ring);
+              setPreview(nextPreview);
               setArea(String(nextArea));
               if (place) {
                 setProvinceId(place.provinceId);

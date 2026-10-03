@@ -371,7 +371,19 @@ export function MemberSeasonScreen() {
           area=""
           onClose={() => setAddingId(null)}
           farmerId={adding.id}
-          onSave={(name, areaRai, varietyId, place, schedule) => addPlot(adding.id, { name, areaRai, varietyId, ...place, ...schedule })}
+          onSave={(name, areaRai, varietyId, place, schedule) =>
+            addPlot(adding.id, {
+              name,
+              areaRai,
+              varietyId,
+              ...schedule,
+              provinceId: place.provinceId,
+              districtId: place.districtId,
+              subdistrictId: place.subdistrictId,
+              polygon: place.polygon,
+              preview: place.preview,
+            })
+          }
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import { apiListAll, apiRequest } from "@/lib/api/client";
+import { apiListAll, apiRequest, getApiToken, ApiError } from "@/lib/api/client";
 import {
   VARIETIES,
   closeRing,
@@ -144,6 +144,32 @@ export const api = {
 
   saveBoundary: (id: string, polygon: [number, number][], areaRai: number) =>
     apiRequest<WirePlot>(`/plots/${id}/boundary`, { method: "PUT", body: JSON.stringify({ polygon, areaRai }) }).then(asPlot),
+
+  uploadPlotPreview: async (plotId: string, file: Blob) => {
+    const token = getApiToken();
+    if (!token) throw new ApiError("ต้องเข้าสู่ระบบก่อน", 401);
+    const form = new FormData();
+    form.append("plotId", plotId);
+    form.append("file", file, "preview.webp");
+    let response: Response;
+    try {
+      response = await fetch("/api/plot-preview", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+    } catch {
+      throw new ApiError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้", 0);
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new ApiError(
+        typeof body?.error === "string" ? body.error : "อัปโหลดรูปแปลงไม่สำเร็จ",
+        response.status,
+      );
+    }
+    return asPlot(body as WirePlot);
+  },
 
   measureArea: (polygon: [number, number][]) =>
     apiRequest<{ areaRai: number; areaSqm: number }>("/plots/measure-area", {

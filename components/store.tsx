@@ -34,10 +34,11 @@ type Store = MillSnapshot & {
       districtId: number;
       subdistrictId: number;
       polygon: [number, number][];
+      preview?: Blob | null;
     },
   ) => Promise<string | null>;
   savePlot: (plotId: string, input: { name: string; areaRai: number; provinceId?: number; districtId?: number; subdistrictId?: number }) => Promise<string | null>;
-  saveBoundary: (plotId: string, polygon: [number, number][], areaRai: number) => Promise<string | null>;
+  saveBoundary: (plotId: string, polygon: [number, number][], areaRai: number, preview?: Blob | null) => Promise<string | null>;
   removePlot: (plotId: string) => Promise<string | null>;
   savePlanting: (
     plotId: string,
@@ -139,7 +140,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ),
     assignFarmer: (farmerId, groupId) => mutate(() => api.assignFarmerGroup(farmerId, groupId)),
     addPlot: (farmerId, input) =>
-      mutate(() => {
+      mutate(async () => {
         const body = {
           farmerId,
           name: input.name.trim(),
@@ -157,7 +158,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               }
             : {}),
         };
-        return api.createPlot(body);
+        const plot = await api.createPlot(body);
+        if (input.preview) {
+          try {
+            await api.uploadPlotPreview(plot.id, input.preview);
+          } catch {
+            // Boundary save still succeeds if preview upload fails.
+          }
+        }
+        return plot;
       }),
     savePlot: (plotId, input) =>
       mutate(async () => {
@@ -171,7 +180,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           subdistrictId: input.subdistrictId ?? current.subdistrictId,
         });
       }),
-    saveBoundary: (plotId, polygon, areaRai) => mutate(() => api.saveBoundary(plotId, polygon, areaRai)),
+    saveBoundary: (plotId, polygon, areaRai, preview) =>
+      mutate(async () => {
+        const plot = await api.saveBoundary(plotId, polygon, areaRai);
+        if (preview) {
+          try {
+            await api.uploadPlotPreview(plotId, preview);
+          } catch {
+            // Boundary save still succeeds if preview upload fails.
+          }
+        }
+        return plot;
+      }),
     removePlot: (plotId) => mutate(() => api.deletePlot(plotId)),
     savePlanting: (plotId, input) =>
       mutate(() => {
