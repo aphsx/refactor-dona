@@ -18,12 +18,14 @@ create table public.farmers (
   subdistrict_id bigint not null,
   group_id uuid references public.groups (id) on delete restrict,
   delivered_kg integer not null default 0,
+  avatar_url text,
   constraint farmers_name_not_blank check (char_length(btrim(first_name)) > 0 and char_length(btrim(last_name)) > 0),
   constraint farmers_address_not_blank check (char_length(btrim(address)) > 0),
   constraint farmers_place_ids_positive check (province_id > 0 and district_id > 0 and subdistrict_id > 0),
   constraint farmers_tel_format check (tel ~ '^0[689][0-9]-[0-9]{3}-[0-9]{4}$'),
   constraint farmers_tel_unique unique (tel),
-  constraint farmers_delivered_kg_nonnegative check (delivered_kg >= 0)
+  constraint farmers_delivered_kg_nonnegative check (delivered_kg >= 0),
+  constraint farmers_avatar_url_http check (avatar_url is null or avatar_url ~ '^https?://')
 );
 
 alter table public.groups

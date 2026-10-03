@@ -21,6 +21,7 @@ export type Farmer = {
   subdistrictId: number;
   groupId: string | null;
   deliveredKg: number;
+  avatarUrl?: string | null;
 };
 
 export type SupplierGroup = {
