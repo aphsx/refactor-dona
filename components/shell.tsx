@@ -4,7 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Bell, CalendarDays, ChevronDown, Layers, Map, Menu, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
+import { LoginScreen } from "@/components/login-screen";
 import { StoreProvider, useMill } from "@/components/store";
+import {
+  clearAuthSession,
+  restoreAuthSession,
+  type AuthSession,
+} from "@/lib/api";
 import { daysUntil } from "@/lib/mill";
 
 type NavChild = { href: string; label: string };
@@ -55,20 +61,60 @@ const NAV: NavItem[] = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const [boot, setBoot] = useState(false);
+  const [session, setSession] = useState<AuthSession | null>(null);
+
+  useEffect(() => {
+    const restored = restoreAuthSession();
+    if (restored?.role === "mill") setSession(restored);
+    else {
+      clearAuthSession();
+      setSession(null);
+    }
+    setBoot(true);
+  }, []);
+
+  if (!boot) {
+    return <div className="flex h-full items-center justify-center bg-white text-[14px] text-ink/60">กำลังโหลด…</div>;
+  }
+
+  if (!session) {
+    return <LoginScreen onSuccess={setSession} />;
+  }
+
   return (
     <StoreProvider>
-      <ShellFrame>{children}</ShellFrame>
+      <ShellFrame
+        session={session}
+        onLogout={() => {
+          clearAuthSession();
+          setSession(null);
+        }}
+      >
+        {children}
+      </ShellFrame>
     </StoreProvider>
   );
 }
 
-function ShellFrame({ children }: { children: React.ReactNode }) {
+function ShellFrame({
+  children,
+  session,
+  onLogout,
+}: {
+  children: React.ReactNode;
+  session: AuthSession;
+  onLogout: () => void;
+}) {
   const pathname = usePathname();
-  const { plots, plantings } = useMill();
+  const { plots, plantings, ready, loadError, reload } = useMill();
   const [collapsed, setCollapsed] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const displayName = session.displayName || session.username;
+  const initials = displayName.slice(0, 2);
 
   useEffect(() => {
     const parent = NAV.find((item) => item.children?.some((child) => pathname === child.href));
@@ -82,6 +128,30 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
       return plot ? [{ ...planting, name: plot.name }] : [];
     });
   const notices = duePlots.length;
+
+  if (!ready) {
+    return <div className="flex h-full items-center justify-center bg-white text-[14px] text-ink/60">กำลังโหลด…</div>;
+  }
+  if (loadError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-white px-6 text-center">
+        <p className="text-[16px] font-bold text-danger">โหลดข้อมูลไม่สำเร็จ</p>
+        <p className="text-[14px] text-ink/70">{loadError}</p>
+        <p className="text-[13px] text-ink/50">ตรวจว่า API รันที่ :8080</p>
+        <button
+          type="button"
+          disabled={retrying}
+          onClick={() => {
+            setRetrying(true);
+            void reload().finally(() => setRetrying(false));
+          }}
+          className="mt-2 inline-flex h-10 items-center rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white disabled:bg-[#D0D0D0]"
+        >
+          {retrying ? "กำลังลองใหม่…" : "ลองเชื่อมใหม่"}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white text-ink">
@@ -135,7 +205,7 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
             )}
           </div>
           <div className="relative text-right leading-tight">
-            <div className="text-[12px] font-bold">สมศักดิ์ บุญมาก</div>
+            <div className="text-[12px] font-bold">{displayName}</div>
             <button
               type="button"
               onClick={() => {
@@ -151,15 +221,25 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
               <>
                 <button type="button" aria-label="ปิดเมนูบัญชี" className="fixed inset-0 z-40 cursor-default" onClick={() => setRoleOpen(false)} />
                 <div className="absolute right-0 z-50 mt-2 w-56 rounded-[8px] border border-frame bg-white px-4 py-3 text-left shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
-                  <div className="text-[12px] font-bold">สมศักดิ์ บุญมาก</div>
+                  <div className="text-[12px] font-bold">{displayName}</div>
+                  <div className="mt-1 text-[12px] text-ink/70">@{session.username}</div>
                   <div className="mt-1 text-[12px] text-ink/70">ผู้จัดการโรงสี</div>
-                  <div className="mt-1 text-[12px] text-ink/70">dona</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRoleOpen(false);
+                      onLogout();
+                    }}
+                    className="mt-3 text-[12px] font-bold text-danger"
+                  >
+                    ออกจากระบบ
+                  </button>
                 </div>
               </>
             )}
           </div>
           <span className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-bar text-[12px] font-bold text-white">
-            สบ
+            {initials}
           </span>
         </div>
       </header>

@@ -98,9 +98,9 @@ function AddFarmer({ onClose }: { onClose: () => void }) {
   const [lastName, setLastName] = useState("");
   const [tel, setTel] = useState("");
   const [address, setAddress] = useState("");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
+  const [provinceId, setProvinceId] = useState(0);
+  const [districtId, setDistrictId] = useState(0);
+  const [subdistrictId, setSubdistrictId] = useState(0);
   const [groupId, setGroupId] = useState("");
   const [error, setError] = useState("");
 
@@ -110,21 +110,23 @@ function AddFarmer({ onClose }: { onClose: () => void }) {
         className="grid gap-4 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
-          const message = createFarmer({
-            firstName,
-            lastName,
-            tel,
-            address,
-            subdistrict,
-            district,
-            province,
-            groupId: groupId || null,
-          });
-          if (message) {
-            setError(message);
-            return;
-          }
-          onClose();
+          void (async () => {
+            const message = await createFarmer({
+              firstName,
+              lastName,
+              tel,
+              address,
+              provinceId,
+              districtId,
+              subdistrictId,
+              groupId: groupId || null,
+            });
+            if (message) {
+              setError(message);
+              return;
+            }
+            onClose();
+          })();
         }}
       >
         <label className="block text-[14px] font-bold leading-[1.4]">
@@ -148,13 +150,13 @@ function AddFarmer({ onClose }: { onClose: () => void }) {
           <input value={address} onChange={(event) => setAddress(event.target.value)} className={`${inputClass} mt-1`} />
         </label>
         <PlaceSelects
-          province={province}
-          district={district}
-          subdistrict={subdistrict}
+          provinceId={provinceId}
+          districtId={districtId}
+          subdistrictId={subdistrictId}
           onChange={(place) => {
-            setProvince(place.province);
-            setDistrict(place.district);
-            setSubdistrict(place.subdistrict);
+            setProvinceId(place.provinceId);
+            setDistrictId(place.districtId);
+            setSubdistrictId(place.subdistrictId);
           }}
         />
         <label className="block text-[14px] font-bold leading-[1.4]">

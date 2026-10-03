@@ -38,7 +38,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? plot.plantedOn);
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? plot.harvestOn);
   const [estKg, setEstKg] = useState(kgField(fresh ? 0 : (current?.estKg ?? plot.estKg)));
-  const [notice, setNotice] = useState<null | { tone: "confirm"; message: string; accept: () => void } | { tone: "success" | "error"; message: string; done?: () => void }>(null);
+  const [notice, setNotice] = useState<null | { tone: "confirm"; message: string; accept: () => void | Promise<void> } | { tone: "success" | "error"; message: string; done?: () => void }>(null);
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
   const savedKg = kgField(plot.plantingId ? (current?.estKg ?? plot.estKg) : 0);
   const dirty =
@@ -66,8 +66,9 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
     if (!dirty) setEditing(false);
   }
 
-  function finish(error: string | null, success: string, done?: () => void) {
-    setNotice(error ? { tone: "error", message: error } : { tone: "success", message: success, done });
+  async function finish(error: Promise<string | null> | string | null, success: string, done?: () => void) {
+    const message = await error;
+    setNotice(message ? { tone: "error", message } : { tone: "success", message: success, done });
   }
 
   return (
@@ -112,14 +113,16 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
           setNotice({
             tone: "confirm",
             message: `ยืนยันบันทึกแผน ${plot.name}`,
-            accept: () => {
-              const plotError = savePlot(plot.id, { name: plot.name, areaRai });
+            accept: async () => {
+              const plotError = await savePlot(plot.id, { name: plot.name, areaRai });
               if (plotError) {
                 setNotice({ tone: "error", message: plotError });
                 return;
               }
-              finish(savePlanting(plot.id, { plantingId: current?.id ?? (plot.plantingId || null), varietyId: variety, plantedOn, harvestOn, estKg: nextKg }), "บันทึกแผนแล้ว", () =>
-                setEditing(false),
+              await finish(
+                savePlanting(plot.id, { plantingId: current?.id ?? (plot.plantingId || null), varietyId: variety, plantedOn, harvestOn, estKg: nextKg }),
+                "บันทึกแผนแล้ว",
+                () => setEditing(false),
               );
             },
           });
@@ -204,7 +207,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
                   setNotice({
                     tone: "confirm",
                     message: `ยืนยันลบแผนรอบ ${formatThaiDate(current.plantedOn)}`,
-                    accept: () => finish(removePlanting(current.id), "ลบแผนแล้ว", onClose),
+                    accept: async () => finish(removePlanting(current.id), "ลบแผนแล้ว", onClose),
                   })
                 }
               >
@@ -221,7 +224,7 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
                   setNotice({
                     tone: "confirm",
                     message: `ยืนยันลบแปลง ${plot.name}`,
-                    accept: () => finish(removePlot(plot.id), "ลบแปลงแล้ว", onClose),
+                    accept: async () => finish(removePlot(plot.id), "ลบแปลงแล้ว", onClose),
                   })
                 }
               >

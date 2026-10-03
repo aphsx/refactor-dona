@@ -1,64 +1,26 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
-import {
-  FARMERS,
-  GROUPS,
-  PERMISSIONS,
-  PLANTINGS,
-  PLOTS,
-  VARIETIES,
-  canonicalPhone,
-  isClosedRing,
-  type Farmer,
-  type Permission,
-  type PermissionFlag,
-  type PermissionResource,
-  type PermissionRole,
-  type Planting,
-  type RoleGrant,
-  type Plot,
-  type SupplierGroup,
-  type Variety,
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { ApiError, api, apiMessage, loadMillSnapshot, setApiActor } from "@/lib/api";
+import type {
+  FarmerInput,
+  MillSnapshot,
+  PermissionFlag,
+  PermissionResource,
+  PermissionRole,
+  Variety,
 } from "@/lib/mill";
 
-type MillData = {
-  farmers: Farmer[];
-  groups: SupplierGroup[];
-  plots: Plot[];
-  plantings: Planting[];
-  permissions: Permission[];
-  roleGrants: RoleGrant[];
-};
-
-type Store = MillData & {
+type Store = MillSnapshot & {
+  ready: boolean;
+  loadError: string;
   actingRole: PermissionRole;
-  createGroup: (name: string, leaderId: string) => string | null;
-  updateGroup: (groupId: string, name: string, leaderId: string) => string | null;
-  createFarmer: (input: {
-    firstName: string;
-    lastName: string;
-    tel: string;
-    address: string;
-    subdistrict: string;
-    district: string;
-    province: string;
-    groupId: string | null;
-  }) => string | null;
-  updateFarmer: (
-    farmerId: string,
-    input: {
-      firstName: string;
-      lastName: string;
-      tel: string;
-      address: string;
-      subdistrict: string;
-      district: string;
-      province: string;
-      groupId: string | null;
-    },
-  ) => string | null;
-  assignFarmer: (farmerId: string, groupId: string | null) => string | null;
+  reload: () => Promise<void>;
+  createGroup: (name: string, leaderId: string) => Promise<string | null>;
+  updateGroup: (groupId: string, name: string, leaderId: string) => Promise<string | null>;
+  createFarmer: (input: FarmerInput) => Promise<string | null>;
+  updateFarmer: (farmerId: string, input: FarmerInput) => Promise<string | null>;
+  assignFarmer: (farmerId: string, groupId: string | null) => Promise<string | null>;
   addPlot: (
     farmerId: string,
     input: {
@@ -68,343 +30,166 @@ type Store = MillData & {
       plantedOn: string;
       harvestOn: string;
       estKg: number;
-      subdistrict: string;
-      district: string;
-      province: string;
+      provinceId: number;
+      districtId: number;
+      subdistrictId: number;
       polygon: [number, number][];
     },
-  ) => string | null;
-  savePlot: (plotId: string, input: { name: string; areaRai: number; subdistrict?: string; district?: string; province?: string }) => string | null;
-  saveBoundary: (plotId: string, polygon: [number, number][], areaRai: number) => string | null;
-  removePlot: (plotId: string) => string | null;
+  ) => Promise<string | null>;
+  savePlot: (plotId: string, input: { name: string; areaRai: number; provinceId?: number; districtId?: number; subdistrictId?: number }) => Promise<string | null>;
+  saveBoundary: (plotId: string, polygon: [number, number][], areaRai: number) => Promise<string | null>;
+  removePlot: (plotId: string) => Promise<string | null>;
   savePlanting: (
     plotId: string,
     input: { plantingId: string | null; varietyId: Variety; plantedOn: string; harvestOn: string; estKg: number },
-  ) => string | null;
-  removePlanting: (plantingId: string) => string | null;
-  setPermission: (role: PermissionRole, resource: PermissionResource, flag: PermissionFlag, on: boolean) => string | null;
-  assignRole: (farmerId: string, role: PermissionRole) => string | null;
-  revokeRole: (farmerId: string) => string | null;
+  ) => Promise<string | null>;
+  removePlanting: (plantingId: string) => Promise<string | null>;
+  setPermission: (role: PermissionRole, resource: PermissionResource, flag: PermissionFlag, on: boolean) => Promise<string | null>;
+  assignRole: (farmerId: string, role: PermissionRole) => Promise<string | null>;
+  revokeRole: (farmerId: string) => Promise<string | null>;
+};
+
+const empty: MillSnapshot = {
+  farmers: [],
+  groups: [],
+  plots: [],
+  plantings: [],
+  permissions: [],
+  roleGrants: [],
 };
 
 const StoreContext = createContext<Store | null>(null);
 
-const initialData: MillData = {
-  farmers: FARMERS,
-  groups: GROUPS,
-  plots: PLOTS,
-  plantings: PLANTINGS,
-  permissions: PERMISSIONS,
-  roleGrants: [],
-};
-
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<MillData>(initialData);
+  const [data, setData] = useState<MillSnapshot>(empty);
+  const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [actingRole] = useState<PermissionRole>("mill");
   const dataRef = useRef(data);
   dataRef.current = data;
 
-  function commit(change: (draft: MillData) => string | null) {
-    const next = structuredClone(dataRef.current);
-    const error = change(next);
-    if (error) return error;
-    dataRef.current = next;
-    setData(next);
-    return null;
+  useEffect(() => {
+    setApiActor({ role: actingRole });
+  }, [actingRole]);
+
+  async function reload() {
+    try {
+      const next = await loadMillSnapshot();
+      dataRef.current = next;
+      setData(next);
+      setLoadError("");
+    } catch (error) {
+      setLoadError(apiMessage(error));
+      throw error;
+    }
+  }
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        await reload();
+      } catch (error) {
+        if (!alive) return;
+        setLoadError(apiMessage(error));
+      } finally {
+        if (alive) setReady(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function mutate(run: () => Promise<unknown>) {
+    try {
+      await run();
+      await reload();
+      return null;
+    } catch (error) {
+      return apiMessage(error);
+    }
   }
 
   const store: Store = {
     ...data,
+    ready,
+    loadError,
     actingRole,
-    createGroup(name, leaderId) {
-      return commit((draft) => {
-        const trimmed = name.trim();
-        if (!trimmed) return "กรอกชื่อกลุ่ม";
-        const leader = draft.farmers.find((item) => item.id === leaderId);
-        if (!leader) return "เลือกหัวหน้ากลุ่ม";
-        if (draft.groups.some((group) => group.leaderId === leaderId)) return "คนนี้เป็นหัวหน้ากลุ่มอยู่แล้ว";
-        const id = `g-${draft.groups.length + 1}-${trimmed.length}`;
-        draft.groups.push({ id, name: trimmed, leaderId });
-        leader.groupId = id;
-        return null;
-      });
-    },
-    updateGroup(groupId, name, leaderId) {
-      return commit((draft) => {
-        const group = draft.groups.find((item) => item.id === groupId);
-        if (!group) return "ไม่พบกลุ่ม";
-        const trimmed = name.trim();
-        if (!trimmed) return "กรอกชื่อกลุ่ม";
-        const leader = draft.farmers.find((item) => item.id === leaderId);
-        if (!leader || leader.groupId !== groupId) return "หัวหน้ากลุ่มต้องเป็นสมาชิกในกลุ่ม";
-        if (draft.groups.some((item) => item.leaderId === leaderId && item.id !== groupId)) return "คนนี้เป็นหัวหน้ากลุ่มอยู่แล้ว";
-        group.name = trimmed;
-        group.leaderId = leaderId;
-        return null;
-      });
-    },
-    createFarmer(input) {
-      return commit((draft) => {
-        const firstName = input.firstName.trim();
-        const lastName = input.lastName.trim();
-        const tel = phoneTaken(draft.farmers, input.tel);
-        if (typeof tel !== "string") return tel.error;
-        if (!firstName || !lastName) return "กรอกชื่อ";
-        if (!input.address.trim()) return "กรอกที่อยู่";
-        if (input.groupId != null && !draft.groups.some((group) => group.id === input.groupId)) return "ไม่พบกลุ่ม";
-        draft.farmers.push({
-          id: `f-${draft.farmers.length + 1}`,
-          firstName,
-          lastName,
-          tel,
+    reload,
+    createGroup: (name, leaderId) => mutate(() => api.createGroup(name.trim(), leaderId)),
+    updateGroup: (groupId, name, leaderId) => mutate(() => api.updateGroup(groupId, name.trim(), leaderId)),
+    createFarmer: (input) =>
+      mutate(() =>
+        api.createFarmer({
+          ...input,
+          firstName: input.firstName.trim(),
+          lastName: input.lastName.trim(),
           address: input.address.trim(),
-          subdistrict: input.subdistrict.trim(),
-          district: input.district.trim(),
-          province: input.province.trim(),
-          groupId: input.groupId,
-          deliveredKg: 0,
-        });
-        return null;
-      });
-    },
-    updateFarmer(farmerId, input) {
-      return commit((draft) => {
-        const farmer = draft.farmers.find((item) => item.id === farmerId);
-        if (!farmer) return "ไม่พบเกษตรกร";
-        const firstName = input.firstName.trim();
-        const lastName = input.lastName.trim();
-        const tel = phoneTaken(draft.farmers, input.tel, farmerId);
-        if (typeof tel !== "string") return tel.error;
-        if (!firstName || !lastName) return "กรอกชื่อ";
-        if (!input.address.trim()) return "กรอกที่อยู่";
-        if (input.groupId !== farmer.groupId) {
-          if (input.groupId == null) {
-            if (draft.groups.some((group) => group.leaderId === farmerId)) return "หัวหน้ากลุ่มออกจากกลุ่มไม่ได้";
-          } else {
-            if (!draft.groups.some((group) => group.id === input.groupId)) return "ไม่พบกลุ่ม";
-            if (draft.groups.some((group) => group.leaderId === farmerId && group.id !== input.groupId)) {
-              return "ย้ายหัวหน้ากลุ่มไม่ได้";
-            }
-          }
-          farmer.groupId = input.groupId;
-        }
-        farmer.firstName = firstName;
-        farmer.lastName = lastName;
-        farmer.tel = tel;
-        farmer.address = input.address.trim();
-        farmer.subdistrict = input.subdistrict.trim();
-        farmer.district = input.district.trim();
-        farmer.province = input.province.trim();
-        return null;
-      });
-    },
-    assignFarmer(farmerId, groupId) {
-      return commit((draft) => {
-        const farmer = draft.farmers.find((item) => item.id === farmerId);
-        if (!farmer) return "ไม่พบเกษตรกร";
-        if (groupId == null) {
-          if (draft.groups.some((group) => group.leaderId === farmerId)) return "หัวหน้ากลุ่มออกจากกลุ่มไม่ได้";
-          farmer.groupId = null;
-          return null;
-        }
-        if (!draft.groups.some((group) => group.id === groupId)) return "ไม่พบกลุ่ม";
-        if (draft.groups.some((group) => group.leaderId === farmerId && group.id !== groupId)) {
-          return "ย้ายหัวหน้ากลุ่มไม่ได้";
-        }
-        farmer.groupId = groupId;
-        return null;
-      });
-    },
-    addPlot(farmerId, input) {
-      return commit((draft) => {
-        const farmer = draft.farmers.find((item) => item.id === farmerId);
-        if (!farmer) return "ไม่พบเกษตรกร";
-        const name = input.name.trim();
-        if (!name) return "กรอกชื่อแปลง";
-        if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";
-        const subdistrict = input.subdistrict.trim();
-        const district = input.district.trim();
-        const province = input.province.trim();
-        if (!subdistrict || !district || !province) return "กรอกตำบล อำเภอ และจังหวัด";
-        if (input.polygon.length > 0 && !isClosedRing(input.polygon)) return "รูปแปลงต้องมีอย่างน้อย 3 จุด";
-        const plotId = `p-${draft.plots.length + 1}-${name.length}`;
-        draft.plots.push({
-          id: plotId,
+        }),
+      ),
+    updateFarmer: (farmerId, input) =>
+      mutate(() =>
+        api.updateFarmer(farmerId, {
+          ...input,
+          firstName: input.firstName.trim(),
+          lastName: input.lastName.trim(),
+          address: input.address.trim(),
+        }),
+      ),
+    assignFarmer: (farmerId, groupId) => mutate(() => api.assignFarmerGroup(farmerId, groupId)),
+    addPlot: (farmerId, input) =>
+      mutate(() => {
+        const body = {
           farmerId,
-          name,
+          name: input.name.trim(),
           areaRai: input.areaRai,
-          subdistrict,
-          district,
-          province,
+          provinceId: input.provinceId,
+          districtId: input.districtId,
+          subdistrictId: input.subdistrictId,
           polygon: input.polygon,
+          ...(input.plantedOn || input.harvestOn
+            ? {
+                varietyId: input.varietyId,
+                plantedOn: input.plantedOn,
+                harvestOn: input.harvestOn,
+                estKg: input.estKg,
+              }
+            : {}),
+        };
+        return api.createPlot(body);
+      }),
+    savePlot: (plotId, input) =>
+      mutate(async () => {
+        const current = dataRef.current.plots.find((item) => item.id === plotId);
+        if (!current) throw new ApiError("ไม่พบแปลง", 404);
+        return api.updatePlot(plotId, {
+          name: input.name.trim(),
+          areaRai: input.areaRai,
+          provinceId: input.provinceId ?? current.provinceId,
+          districtId: input.districtId ?? current.districtId,
+          subdistrictId: input.subdistrictId ?? current.subdistrictId,
         });
-        if (!input.plantedOn && !input.harvestOn) return null;
-        if (!VARIETIES.some((item) => item.id === input.varietyId)) return "เลือกพันธุ์";
-        const schedule = validSchedule(name, input);
-        if (schedule) return schedule;
-        draft.plantings.push({
-          id: `r-${draft.plantings.length + 1}`,
-          plotId,
+      }),
+    saveBoundary: (plotId, polygon, areaRai) => mutate(() => api.saveBoundary(plotId, polygon, areaRai)),
+    removePlot: (plotId) => mutate(() => api.deletePlot(plotId)),
+    savePlanting: (plotId, input) =>
+      mutate(() => {
+        const body = {
           varietyId: input.varietyId,
           plantedOn: input.plantedOn,
           harvestOn: input.harvestOn,
           estKg: input.estKg,
-          delivered: false,
-        });
-        return null;
-      });
-    },
-    savePlot(plotId, input) {
-      return commit((draft) => {
-        const plot = draft.plots.find((item) => item.id === plotId);
-        if (!plot) return "ไม่พบแปลง";
-        const name = input.name.trim();
-        if (!name) return "กรอกชื่อแปลง";
-        if (!validArea(input.areaRai)) return "พื้นที่ต้องมากกว่า 0";
-        plot.name = name;
-        plot.areaRai = input.areaRai;
-        if (input.subdistrict != null) plot.subdistrict = input.subdistrict.trim();
-        if (input.district != null) plot.district = input.district.trim();
-        if (input.province != null) plot.province = input.province.trim();
-        return null;
-      });
-    },
-    saveBoundary(plotId, polygon, areaRai) {
-      return commit((draft) => {
-        const plot = draft.plots.find((item) => item.id === plotId);
-        if (!plot) return "ไม่พบแปลง";
-        if (polygon.length < 4 || polygon[0][0] !== polygon[polygon.length - 1][0] || polygon[0][1] !== polygon[polygon.length - 1][1]) {
-          return "รูปแปลงต้องมีอย่างน้อย 3 จุด";
-        }
-        if (!validArea(areaRai)) return "พื้นที่ต้องมากกว่า 0";
-        plot.polygon = polygon;
-        plot.areaRai = areaRai;
-        return null;
-      });
-    },
-    removePlot(plotId) {
-      return commit((draft) => {
-        const plot = draft.plots.find((item) => item.id === plotId);
-        if (!plot) return "ไม่พบแปลง";
-        if (draft.plantings.some((item) => item.plotId === plotId && item.delivered)) return "แปลงนี้มีรอบที่รับแล้ว ลบไม่ได้";
-        draft.plots = draft.plots.filter((item) => item.id !== plotId);
-        draft.plantings = draft.plantings.filter((item) => item.plotId !== plotId);
-        return null;
-      });
-    },
-    savePlanting(plotId, input) {
-      return commit((draft) => {
-        const plot = draft.plots.find((item) => item.id === plotId);
-        if (!plot) return "ไม่พบแปลง";
-        const schedule = validSchedule(plot.name, input);
-        if (schedule) return schedule;
-        if (!VARIETIES.some((item) => item.id === input.varietyId)) return "เลือกพันธุ์";
-        if (input.plantingId == null) {
-          if (draft.plantings.some((item) => item.plotId === plotId && !item.delivered)) return "แปลงนี้มีแผนที่ยังไม่รับ";
-          draft.plantings.push({
-            id: `r-${draft.plantings.length + 1}`,
-            plotId,
-            varietyId: input.varietyId,
-            plantedOn: input.plantedOn,
-            harvestOn: input.harvestOn,
-            estKg: input.estKg,
-            delivered: false,
-          });
-          return null;
-        }
-        const planting = draft.plantings.find((item) => item.id === input.plantingId);
-        if (!planting || planting.plotId !== plotId) return "ไม่พบแผน";
-        if (planting.delivered) return "รอบนี้รับเข้าแล้ว แก้ไม่ได้";
-        planting.varietyId = input.varietyId;
-        planting.plantedOn = input.plantedOn;
-        planting.harvestOn = input.harvestOn;
-        planting.estKg = input.estKg;
-        return null;
-      });
-    },
-    removePlanting(plantingId) {
-      return commit((draft) => {
-        const planting = draft.plantings.find((item) => item.id === plantingId);
-        if (!planting) return "ไม่พบแผน";
-        if (planting.delivered) return "รอบนี้รับเข้าแล้ว ลบไม่ได้";
-        draft.plantings = draft.plantings.filter((item) => item.id !== plantingId);
-        return null;
-      });
-    },
-    setPermission(role, resource, flag, on) {
-      return commit((draft) => {
-        const permission = draft.permissions.find((item) => item.role === role && item.resource === resource);
-        if (!permission) return "ไม่พบสิทธิ์";
-        permission[flag] = on;
-        return null;
-      });
-    },
-    assignRole(farmerId, role) {
-      return commit((draft) => {
-        const farmer = draft.farmers.find((item) => item.id === farmerId);
-        if (!farmer) return "ไม่พบเกษตรกร";
-        const leading = draft.groups.find((group) => group.leaderId === farmerId) ?? null;
-        if (role === "mill") {
-          if (draft.roleGrants.some((grant) => grant.farmerId === farmerId)) return "ยศนี้ใช้อยู่แล้ว";
-          draft.roleGrants.push({ farmerId, role: "mill" });
-          return null;
-        }
-        if (role === "leader") {
-          const hadMill = draft.roleGrants.some((grant) => grant.farmerId === farmerId);
-          if (!leading) {
-            if (!farmer.groupId) return "คนนี้ยังไม่มีกลุ่ม";
-            const group = draft.groups.find((item) => item.id === farmer.groupId);
-            if (!group) return "ไม่พบกลุ่ม";
-            group.leaderId = farmerId;
-          } else if (!hadMill) {
-            return "ยศนี้ใช้อยู่แล้ว";
-          }
-          draft.roleGrants = draft.roleGrants.filter((grant) => grant.farmerId !== farmerId);
-          return null;
-        }
-        if (leading) return "คนนี้เป็นหัวหน้ากลุ่ม เปลี่ยนหัวหน้าที่หน้ากลุ่มก่อน";
-        if (!draft.roleGrants.some((grant) => grant.farmerId === farmerId)) return "ยศนี้ใช้อยู่แล้ว";
-        draft.roleGrants = draft.roleGrants.filter((grant) => grant.farmerId !== farmerId);
-        return null;
-      });
-    },
-    revokeRole(farmerId) {
-      return commit((draft) => {
-        if (!draft.farmers.some((item) => item.id === farmerId)) return "ไม่พบเกษตรกร";
-        if (!draft.roleGrants.some((grant) => grant.farmerId === farmerId)) return "ไม่มีสิทธิ์ที่กำหนดเพิ่มให้ยกเลิก";
-        draft.roleGrants = draft.roleGrants.filter((grant) => grant.farmerId !== farmerId);
-        return null;
-      });
-    },
+        };
+        return input.plantingId ? api.updatePlanting(input.plantingId, body) : api.createPlanting({ plotId, ...body });
+      }),
+    removePlanting: (plantingId) => mutate(() => api.deletePlanting(plantingId)),
+    setPermission: (role, resource, flag, on) => mutate(() => api.setPermission(role, resource, flag, on)),
+    assignRole: (farmerId, role) => mutate(() => api.assignRole(farmerId, role)),
+    revokeRole: (farmerId) => mutate(() => api.revokeRole(farmerId)),
   };
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
-}
-
-function phoneTaken(farmers: Farmer[], value: string, exceptId?: string) {
-  const phone = canonicalPhone(value);
-  if (!phone) return { error: "เบอร์โทรไม่ถูกต้อง" };
-  if (farmers.some((farmer) => farmer.id !== exceptId && farmer.tel === phone)) return { error: "เบอร์นี้มีอยู่แล้ว" };
-  return phone;
-}
-
-function isoDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
-}
-
-function validArea(areaRai: number) {
-  return Number.isFinite(areaRai) && areaRai > 0;
-}
-
-function validSchedule(name: string, input: { plantedOn: string; harvestOn: string; estKg: number }) {
-  if (!isoDate(input.plantedOn)) return `วันปลูกของ ${name} ไม่ถูกต้อง`;
-  if (!isoDate(input.harvestOn)) return `กำหนดเก็บของ ${name} ไม่ถูกต้อง`;
-  if (input.harvestOn < input.plantedOn) return `กำหนดเก็บของ ${name} ต้องไม่ก่อนวันปลูก`;
-  if (input.estKg !== 0 && (!Number.isInteger(input.estKg) || input.estKg <= 0)) return `ที่คาดของ ${name} ต้องมากกว่า 0`;
-  return null;
 }
 
 export function useMill() {

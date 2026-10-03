@@ -10,12 +10,12 @@ import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, polygonAreaRai, varietyName, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
-import { districtNames, placeAt, provinceNames, subdistrictNames } from "@/lib/thai-place";
+import { districtOptions, isCompletePlace, placeAt, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
 type Notice =
-  | { tone: "confirm"; message: string; accept: () => void }
+  | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
   | { tone: "success" | "error"; message: string; done?: () => void };
 
 function NoticeBox({ notice, onDismiss }: { notice: Notice | null; onDismiss: () => void }) {
@@ -35,8 +35,9 @@ function NoticeBox({ notice, onDismiss }: { notice: Notice | null; onDismiss: ()
   );
 }
 
-function reported(error: string | null, success: string, done?: () => void): Notice {
-  return error ? { tone: "error", message: error } : { tone: "success", message: success, done };
+async function reported(error: Promise<string | null> | string | null, success: string, done?: () => void): Promise<Notice> {
+  const message = await error;
+  return message ? { tone: "error", message } : { tone: "success", message: success, done };
 }
 
 export function GroupsScreen() {
@@ -391,7 +392,7 @@ export function MemberManageScreen() {
                                 setNotice({
                                   tone: "confirm",
                                   message: `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`,
-                                  accept: () => setNotice(reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
+                                  accept: async () => setNotice(await reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
                                 })
                               }
                             >
@@ -550,9 +551,9 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
           setNotice({
             tone: "confirm",
             message: changingLeader ? `ยืนยันเปลี่ยนหัวหน้าเป็น ${leader ? farmerName(leader) : ""}` : "ยืนยันบันทึกข้อมูลกลุ่ม",
-            accept: () =>
+            accept: async () =>
               setNotice(
-                reported(updateGroup(group.id, draftName, draftLeader), changingLeader ? "เปลี่ยนหัวหน้าแล้ว" : "บันทึกกลุ่มแล้ว", () => setEditing(false)),
+                await reported(updateGroup(group.id, draftName, draftLeader), changingLeader ? "เปลี่ยนหัวหน้าแล้ว" : "บันทึกกลุ่มแล้ว", () => setEditing(false)),
               ),
           });
         }}
@@ -641,7 +642,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
                           setNotice({
                             tone: "confirm",
                             message: `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`,
-                            accept: () => setNotice(reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
+                            accept: async () => setNotice(await reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
                           })
                         }
                       >
@@ -678,9 +679,9 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
   const [lastName, setLastName] = useState(farmer.lastName);
   const [tel, setTel] = useState(farmer.tel);
   const [address, setAddress] = useState(farmer.address);
-  const [subdistrict, setSubdistrict] = useState(farmer.subdistrict);
-  const [district, setDistrict] = useState(farmer.district);
-  const [province, setProvince] = useState(farmer.province);
+  const [subdistrictId, setSubdistrictId] = useState(farmer.subdistrictId);
+  const [districtId, setDistrictId] = useState(farmer.districtId);
+  const [provinceId, setProvinceId] = useState(farmer.provinceId);
   const [groupId, setGroupId] = useState(farmer.groupId ?? "");
   const [notice, setNotice] = useState<Notice | null>(null);
   const fields = plots.filter((plot) => plot.farmerId === farmer.id);
@@ -695,20 +696,20 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     setLastName(farmer.lastName);
     setTel(farmer.tel);
     setAddress(farmer.address);
-    setSubdistrict(farmer.subdistrict);
-    setDistrict(farmer.district);
-    setProvince(farmer.province);
+    setSubdistrictId(farmer.subdistrictId);
+    setDistrictId(farmer.districtId);
+    setProvinceId(farmer.provinceId);
     setGroupId(farmer.groupId ?? "");
-  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.address, farmer.subdistrict, farmer.district, farmer.province, farmer.groupId]);
+  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.address, farmer.subdistrictId, farmer.districtId, farmer.provinceId, farmer.groupId]);
 
   const dirty =
     firstName !== farmer.firstName ||
     lastName !== farmer.lastName ||
     tel !== farmer.tel ||
     address !== farmer.address ||
-    subdistrict !== farmer.subdistrict ||
-    district !== farmer.district ||
-    province !== farmer.province ||
+    subdistrictId !== farmer.subdistrictId ||
+    districtId !== farmer.districtId ||
+    provinceId !== farmer.provinceId ||
     (groupId || null) !== farmer.groupId;
 
   function undo() {
@@ -716,9 +717,9 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     setLastName(farmer.lastName);
     setTel(farmer.tel);
     setAddress(farmer.address);
-    setSubdistrict(farmer.subdistrict);
-    setDistrict(farmer.district);
-    setProvince(farmer.province);
+    setSubdistrictId(farmer.subdistrictId);
+    setDistrictId(farmer.districtId);
+    setProvinceId(farmer.provinceId);
     setGroupId(farmer.groupId ?? "");
     if (!dirty) setEditing(false);
   }
@@ -747,10 +748,10 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             setNotice({
               tone: "confirm",
               message,
-              accept: () =>
+              accept: async () =>
                 setNotice(
-                  reported(
-                    updateFarmer(farmer.id, { firstName, lastName, tel, address, subdistrict, district, province, groupId: nextGroup }),
+                  await reported(
+                    updateFarmer(farmer.id, { firstName, lastName, tel, address, provinceId, districtId, subdistrictId, groupId: nextGroup }),
                     moving ? "ย้ายกลุ่มแล้ว" : "บันทึกเกษตรกรแล้ว",
                     () => setEditing(false),
                   ),
@@ -776,14 +777,14 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             <input value={address} disabled={!editing} onChange={(event) => setAddress(event.target.value)} className={fieldClass} />
           </label>
           <PlaceSelects
-            province={province}
-            district={district}
-            subdistrict={subdistrict}
+            provinceId={provinceId}
+            districtId={districtId}
+            subdistrictId={subdistrictId}
             disabled={!editing}
             onChange={(place) => {
-              setProvince(place.province);
-              setDistrict(place.district);
-              setSubdistrict(place.subdistrict);
+              setProvinceId(place.provinceId);
+              setDistrictId(place.districtId);
+              setSubdistrictId(place.subdistrictId);
             }}
           />
           <label className="block text-[14px] font-bold leading-[1.4]">
@@ -897,7 +898,7 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
           setNotice({
             tone: "confirm",
             message: `ยืนยันลบแปลง ${plot.name}`,
-            accept: () => setNotice(reported(removePlot(plot.id), "ลบแปลงแล้ว")),
+            accept: async () => setNotice(await reported(removePlot(plot.id), "ลบแปลงแล้ว")),
           })
         }
       />
@@ -947,7 +948,7 @@ function PlotTable({
     const round = currentPlanting(plantings, plot.id);
     if (key === "name") return plot.name;
     if (key === "area") return plot.areaRai;
-    if (key === "place") return [plot.subdistrict, plot.district, plot.province].filter(Boolean).join(" ");
+    if (key === "place") return placeLabel(plot);
     if (key === "variety") return round ? varietyName(round.varietyId) : "";
     if (key === "planted") return round?.plantedOn ?? "";
     if (key === "harvest") return round?.harvestOn ?? "";
@@ -1275,9 +1276,9 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const mark = current ? plantingMark(current) : null;
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
-  const [subdistrict, setSubdistrict] = useState(plot.subdistrict);
-  const [district, setDistrict] = useState(plot.district);
-  const [province, setProvince] = useState(plot.province);
+  const [subdistrictId, setSubdistrictId] = useState(plot.subdistrictId);
+  const [districtId, setDistrictId] = useState(plot.districtId);
+  const [provinceId, setProvinceId] = useState(plot.provinceId);
   const [variety, setVariety] = useState<Variety>(current?.varietyId ?? 1);
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? "");
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? "");
@@ -1293,9 +1294,9 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const dirty =
     name !== plot.name ||
     area !== String(plot.areaRai) ||
-    subdistrict !== plot.subdistrict ||
-    district !== plot.district ||
-    province !== plot.province ||
+    subdistrictId !== plot.subdistrictId ||
+    districtId !== plot.districtId ||
+    provinceId !== plot.provinceId ||
     variety !== (current?.varietyId ?? 1) ||
     plantedOn !== (current?.plantedOn ?? "") ||
     harvestOn !== (current?.harvestOn ?? "") ||
@@ -1305,21 +1306,21 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setEditing(false);
     setName(plot.name);
     setArea(String(plot.areaRai));
-    setSubdistrict(plot.subdistrict);
-    setDistrict(plot.district);
-    setProvince(plot.province);
+    setSubdistrictId(plot.subdistrictId);
+    setDistrictId(plot.districtId);
+    setProvinceId(plot.provinceId);
     setVariety(current?.varietyId ?? 1);
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
-  }, [plot.id, plot.name, plot.areaRai, plot.subdistrict, plot.district, plot.province, current?.id, current?.varietyId, current?.plantedOn, current?.harvestOn, current?.estKg]);
+  }, [plot.id, plot.name, plot.areaRai, plot.subdistrictId, plot.districtId, plot.provinceId, current?.id, current?.varietyId, current?.plantedOn, current?.harvestOn, current?.estKg]);
 
   function undo() {
     setName(plot.name);
     setArea(String(plot.areaRai));
-    setSubdistrict(plot.subdistrict);
-    setDistrict(plot.district);
-    setProvince(plot.province);
+    setSubdistrictId(plot.subdistrictId);
+    setDistrictId(plot.districtId);
+    setProvinceId(plot.provinceId);
     setVariety(current?.varietyId ?? 1);
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
@@ -1363,14 +1364,14 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
           setNotice({
             tone: "confirm",
             message: `ยืนยันบันทึก ${name.trim()}`,
-            accept: () => {
-              const plotError = savePlot(plot.id, { name, areaRai, subdistrict, district, province });
+            accept: async () => {
+              const plotError = await savePlot(plot.id, { name, areaRai, provinceId, districtId, subdistrictId });
               if (plotError) {
                 setNotice({ tone: "error", message: plotError });
                 return;
               }
               setNotice(
-                reported(
+                await reported(
                   savePlanting(plot.id, { plantingId: current?.id ?? null, varietyId: variety, plantedOn, harvestOn, estKg: nextKg }),
                   "บันทึกแล้ว",
                   () => setEditing(false),
@@ -1389,14 +1390,14 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
           <input value={group?.name ?? "ไม่มีกลุ่ม"} disabled className={fieldClass} />
         </label>
         <PlaceSelects
-          province={province}
-          district={district}
-          subdistrict={subdistrict}
+          provinceId={provinceId}
+          districtId={districtId}
+          subdistrictId={subdistrictId}
           disabled={!editing}
           onChange={(place) => {
-            setProvince(place.province);
-            setDistrict(place.district);
-            setSubdistrict(place.subdistrict);
+            setProvinceId(place.provinceId);
+            setDistrictId(place.districtId);
+            setSubdistrictId(place.subdistrictId);
           }}
         />
         <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1477,7 +1478,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
                   setNotice({
                     tone: "confirm",
                     message: `ยืนยันลบแผนรอบ ${formatThaiDate(current.plantedOn)}`,
-                    accept: () => setNotice(reported(removePlanting(current.id), "ลบแผนแล้ว")),
+                    accept: async () => setNotice(await reported(removePlanting(current.id), "ลบแผนแล้ว")),
                   })
                 }
               >
@@ -1494,7 +1495,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
                   setNotice({
                     tone: "confirm",
                     message: `ยืนยันลบแปลง ${plot.name}`,
-                    accept: () => setNotice(reported(removePlot(plot.id), "ลบแปลงแล้ว", onBack)),
+                    accept: async () => setNotice(await reported(removePlot(plot.id), "ลบแปลงแล้ว", onBack)),
                   })
                 }
               >
@@ -1519,30 +1520,24 @@ function RequiredMark() {
   return <span className="text-danger"> *</span>;
 }
 
-function placeOptions(names: string[], current: string) {
-  const options = names.map((name) => ({ value: name, label: name }));
-  if (current && !options.some((option) => option.value === current)) options.unshift({ value: current, label: current });
-  return options;
-}
-
 export function PlaceSelects({
-  province,
-  district,
-  subdistrict,
+  provinceId,
+  districtId,
+  subdistrictId,
   disabled = false,
   required = false,
   onChange,
 }: {
-  province: string;
-  district: string;
-  subdistrict: string;
+  provinceId: number;
+  districtId: number;
+  subdistrictId: number;
   disabled?: boolean;
   required?: boolean;
-  onChange: (place: { province: string; district: string; subdistrict: string }) => void;
+  onChange: (place: PlaceIds) => void;
 }) {
-  const provinces = useMemo(() => placeOptions(provinceNames(), province), [province]);
-  const districts = useMemo(() => placeOptions(districtNames(province), district), [province, district]);
-  const subdistricts = useMemo(() => placeOptions(subdistrictNames(province, district), subdistrict), [province, district, subdistrict]);
+  const provinces = useMemo(() => provinceOptions(), []);
+  const districts = useMemo(() => districtOptions(provinceId), [provinceId]);
+  const subdistricts = useMemo(() => subdistrictOptions(provinceId, districtId), [provinceId, districtId]);
   return (
     <>
       <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1552,10 +1547,10 @@ export function PlaceSelects({
           label="จังหวัด"
           className="mt-1"
           placeholder="เลือกจังหวัด"
-          value={province}
+          value={provinceId ? String(provinceId) : ""}
           disabled={disabled}
           options={provinces}
-          onChange={(next) => onChange({ province: next, district: "", subdistrict: "" })}
+          onChange={(next) => onChange({ provinceId: Number(next) || 0, districtId: 0, subdistrictId: 0 })}
         />
       </label>
       <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1564,11 +1559,11 @@ export function PlaceSelects({
         <SearchSelect
           label="อำเภอ"
           className="mt-1"
-          placeholder={province ? "เลือกอำเภอ" : "เลือกจังหวัดก่อน"}
-          value={district}
-          disabled={disabled || !province}
+          placeholder={provinceId ? "เลือกอำเภอ" : "เลือกจังหวัดก่อน"}
+          value={districtId ? String(districtId) : ""}
+          disabled={disabled || !provinceId}
           options={districts}
-          onChange={(next) => onChange({ province, district: next, subdistrict: "" })}
+          onChange={(next) => onChange({ provinceId, districtId: Number(next) || 0, subdistrictId: 0 })}
         />
       </label>
       <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1577,11 +1572,11 @@ export function PlaceSelects({
         <SearchSelect
           label="ตำบล"
           className="mt-1"
-          placeholder={district ? "เลือกตำบล" : "เลือกอำเภอก่อน"}
-          value={subdistrict}
-          disabled={disabled || !district}
+          placeholder={districtId ? "เลือกตำบล" : "เลือกอำเภอก่อน"}
+          value={subdistrictId ? String(subdistrictId) : ""}
+          disabled={disabled || !districtId}
           options={subdistricts}
-          onChange={(next) => onChange({ province, district, subdistrict: next })}
+          onChange={(next) => onChange({ provinceId, districtId, subdistrictId: Number(next) || 0 })}
         />
       </label>
     </>
@@ -1607,9 +1602,9 @@ export function PlotDialog({
     name: string,
     areaRai: number,
     variety: Variety,
-    place: { subdistrict: string; district: string; province: string; polygon: [number, number][] },
+    place: { provinceId: number; districtId: number; subdistrictId: number; polygon: [number, number][] },
     schedule: { plantedOn: string; harvestOn: string; estKg: number },
-  ) => string | null;
+  ) => Promise<string | null>;
 }) {
   const { farmers, groups, plots } = useMill();
   const owner = farmers.find((farmer) => farmer.id === farmerId) ?? null;
@@ -1619,9 +1614,9 @@ export function PlotDialog({
   const [boundary, setBoundary] = useState<[number, number][]>([]);
   const [drawing, setDrawing] = useState(false);
   const [draft, setDraft] = useState<[number, number][]>([]);
-  const [subdistrict, setSubdistrict] = useState(owner?.subdistrict ?? "");
-  const [district, setDistrict] = useState(owner?.district ?? "");
-  const [province, setProvince] = useState(owner?.province ?? "");
+  const [subdistrictId, setSubdistrictId] = useState(owner?.subdistrictId ?? 0);
+  const [districtId, setDistrictId] = useState(owner?.districtId ?? 0);
+  const [provinceId, setProvinceId] = useState(owner?.provinceId ?? 0);
   const [variety, setVariety] = useState<Variety>(1);
   const [plantedOn, setPlantedOn] = useState("");
   const [harvestOn, setHarvestOn] = useState("");
@@ -1642,8 +1637,8 @@ export function PlotDialog({
               setNotice({ tone: "error", message: "กรอกชื่อแปลง" });
               return;
             }
-            if (!subdistrict.trim() || !district.trim() || !province.trim()) {
-              setNotice({ tone: "error", message: "กรอกตำบล อำเภอ และจังหวัด" });
+            if (!isCompletePlace({ provinceId, districtId, subdistrictId })) {
+              setNotice({ tone: "error", message: "เลือกตำบล อำเภอ และจังหวัด" });
               return;
             }
             if (!Number.isFinite(nextArea) || nextArea <= 0) {
@@ -1665,10 +1660,10 @@ export function PlotDialog({
             setNotice({
               tone: "confirm",
               message: `ยืนยัน${title}`,
-              accept: () =>
+              accept: async () =>
                 setNotice(
-                  reported(
-                    onSave(plotName, nextArea, variety, { subdistrict, district, province, polygon: boundary }, { plantedOn, harvestOn, estKg: nextKg }),
+                  await reported(
+                    onSave(plotName, nextArea, variety, { provinceId, districtId, subdistrictId, polygon: boundary }, { plantedOn, harvestOn, estKg: nextKg }),
                     "บันทึกแปลงแล้ว",
                     onClose,
                   ),
@@ -1708,14 +1703,14 @@ export function PlotDialog({
             </p>
           </label>
           <PlaceSelects
-            province={province}
-            district={district}
-            subdistrict={subdistrict}
+            provinceId={provinceId}
+            districtId={districtId}
+            subdistrictId={subdistrictId}
             required
             onChange={(place) => {
-              setProvince(place.province);
-              setDistrict(place.district);
-              setSubdistrict(place.subdistrict);
+              setProvinceId(place.provinceId);
+              setDistrictId(place.districtId);
+              setSubdistrictId(place.subdistrictId);
             }}
           />
           {schedule && (
@@ -1784,9 +1779,9 @@ export function PlotDialog({
             setBoundary(ring);
             setAreaRai(String(measured));
             if (place) {
-              setProvince(place.province);
-              setDistrict(place.district);
-              setSubdistrict(place.subdistrict);
+              setProvinceId(place.provinceId);
+              setDistrictId(place.districtId);
+              setSubdistrictId(place.subdistrictId);
             }
             setDrawing(false);
           }}
@@ -1897,7 +1892,7 @@ function CreateGroup({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (name: string, leaderId: string) => string | null;
+  onCreate: (name: string, leaderId: string) => Promise<string | null>;
 }) {
   const [name, setName] = useState("");
   const [leaderId, setLeaderId] = useState("");
@@ -1920,7 +1915,7 @@ function CreateGroup({
             setNotice({
               tone: "confirm",
               message: "ยืนยันสร้างกลุ่ม",
-              accept: () => setNotice(reported(onCreate(name, leaderId), "สร้างกลุ่มแล้ว", onClose)),
+              accept: async () => setNotice(await reported(onCreate(name, leaderId), "สร้างกลุ่มแล้ว", onClose)),
             });
           }}
         >
@@ -1958,7 +1953,7 @@ function MoveFarmer({
 }: {
   groupId: string;
   onClose: () => void;
-  onAssign: (farmerId: string, groupId: string) => string | null;
+  onAssign: (farmerId: string, groupId: string) => Promise<string | null>;
 }) {
   const { farmers, groups } = useMill();
   const [farmerId, setFarmerId] = useState("");
@@ -1979,7 +1974,7 @@ function MoveFarmer({
             setNotice({
               tone: "confirm",
               message: `ยืนยันจัด ${farmerName(person)} เข้า${groupName}`,
-              accept: () => setNotice(reported(onAssign(person.id, groupId), "จัดเข้ากลุ่มแล้ว", onClose)),
+              accept: async () => setNotice(await reported(onAssign(person.id, groupId), "จัดเข้ากลุ่มแล้ว", onClose)),
             });
           }}
         >

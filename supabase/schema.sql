@@ -13,19 +13,15 @@ create table public.farmers (
   last_name text not null,
   tel text not null,
   address text not null,
-  subdistrict text not null,
-  district text not null,
-  province text not null,
+  province_id bigint not null,
+  district_id bigint not null,
+  subdistrict_id bigint not null,
   group_id uuid references public.groups (id) on delete restrict,
   delivered_kg integer not null default 0,
   constraint farmers_name_not_blank check (char_length(btrim(first_name)) > 0 and char_length(btrim(last_name)) > 0),
   constraint farmers_address_not_blank check (char_length(btrim(address)) > 0),
-  constraint farmers_place_not_blank check (
-    char_length(btrim(subdistrict)) > 0
-    and char_length(btrim(district)) > 0
-    and char_length(btrim(province)) > 0
-  ),
-  constraint farmers_tel_format check (tel ~ '^0[689][0-9]{2}-[0-9]{3}-[0-9]{4}$'),
+  constraint farmers_place_ids_positive check (province_id > 0 and district_id > 0 and subdistrict_id > 0),
+  constraint farmers_tel_format check (tel ~ '^0[689][0-9]-[0-9]{3}-[0-9]{4}$'),
   constraint farmers_tel_unique unique (tel),
   constraint farmers_delivered_kg_nonnegative check (delivered_kg >= 0)
 );
@@ -57,17 +53,13 @@ create table public.plots (
   farmer_id uuid not null references public.farmers (id) on delete restrict,
   name text not null,
   area_rai numeric(12, 2) not null,
-  subdistrict text not null,
-  district text not null,
-  province text not null,
+  province_id bigint not null,
+  district_id bigint not null,
+  subdistrict_id bigint not null,
   boundary extensions.geometry(Polygon, 4326),
   constraint plots_name_not_blank check (char_length(btrim(name)) > 0),
   constraint plots_area_positive check (area_rai > 0),
-  constraint plots_place_not_blank check (
-    char_length(btrim(subdistrict)) > 0
-    and char_length(btrim(district)) > 0
-    and char_length(btrim(province)) > 0
-  ),
+  constraint plots_place_ids_positive check (province_id > 0 and district_id > 0 and subdistrict_id > 0),
   constraint plots_boundary_valid check (boundary is null or extensions.st_isvalid(boundary))
 );
 
@@ -84,7 +76,9 @@ create table public.plantings (
 );
 
 create index farmers_group_id_idx on public.farmers (group_id);
+create index farmers_province_id_idx on public.farmers (province_id);
 create index plots_farmer_id_idx on public.plots (farmer_id);
+create index plots_province_id_idx on public.plots (province_id);
 create index plots_boundary_idx on public.plots using gist (boundary);
 create index plantings_plot_id_idx on public.plantings (plot_id);
 create index plantings_variety_id_idx on public.plantings (variety_id);
@@ -107,3 +101,22 @@ create table public.role_grants (
   farmer_id uuid primary key references public.farmers (id) on delete cascade,
   role_id bigint not null references public.roles (id)
 );
+
+-- Mill staff login only (username + password).
+-- Farmers/members do not use this table — they enter phone (farmers.tel) on the farmer app.
+create table public.accounts (
+  id uuid primary key default gen_random_uuid(),
+  username text not null,
+  password_hash text not null,
+  display_name text not null,
+  role_id bigint not null references public.roles (id) default 1,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  constraint accounts_username_not_blank check (char_length(btrim(username)) > 0),
+  constraint accounts_username_unique unique (username),
+  constraint accounts_password_hash_not_blank check (char_length(btrim(password_hash)) > 0),
+  constraint accounts_display_name_not_blank check (char_length(btrim(display_name)) > 0),
+  constraint accounts_mill_role_only check (role_id = 1)
+);
+
+create index accounts_role_id_idx on public.accounts (role_id);

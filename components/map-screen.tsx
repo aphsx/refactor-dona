@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { placeLabel } from "@/lib/thai-place";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
@@ -119,14 +120,14 @@ export function MapScreen() {
     setDraft((current) => (current ? closeRing(openRing(current)) : current));
   }
 
-  function saveShape() {
+  async function saveShape() {
     if (!selected || !draft || !isClosedRing(draft)) return;
     const areaRai = Number(areaText.trim());
     if (!Number.isFinite(areaRai) || areaRai <= 0) {
       setBoundaryError("พื้นที่ต้องมากกว่า 0");
       return;
     }
-    const error = saveBoundary(selected.plot.id, draft, areaRai);
+    const error = await saveBoundary(selected.plot.id, draft, areaRai);
     if (error) {
       setBoundaryError(error);
       return;
@@ -204,7 +205,7 @@ export function MapScreen() {
                             {groups.find((group) => group.id === selected.farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}
                           </p>
                           <p className="mt-1 text-[14px]">
-                            {[selected.plot.subdistrict, selected.plot.district, selected.plot.province].filter(Boolean).join(" / ") || "ยังไม่ระบุที่ตั้ง"}
+                            {placeLabel(selected.plot) === "—" ? "ยังไม่ระบุที่ตั้ง" : placeLabel(selected.plot)}
                           </p>
                           <p className="mt-1 text-[14px]">
                             {selected.plot.polygon.length >= 4 ? `พิกัด ${formatCoord(centroid(selected.plot.polygon))}` : "ยังไม่มีรูป"}
@@ -293,7 +294,7 @@ function DrawStep({
   onCloseShape: () => void;
   onRedraw: () => void;
   onCancel: () => void;
-  onSave: () => void;
+  onSave: () => void | Promise<void>;
 }) {
   const closed = isClosedRing(draft);
   const count = openRing(draft).length;
@@ -322,7 +323,7 @@ function DrawStep({
             />
           </label>
           <CanEdit resource="plots">
-            <button type="button" onClick={onSave} className="inline-flex h-10 items-center rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white">
+            <button type="button" onClick={() => void onSave()} className="inline-flex h-10 items-center rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white">
               บันทึกขอบเขต
             </button>
           </CanEdit>

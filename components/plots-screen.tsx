@@ -6,6 +6,8 @@ import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, X } from "lucide-
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlaceSelects, PlotDialog, DrawBoundary } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
+import { farmerHandle, farmerName, formatCoord, centroid, polygonAreaRai, type Plot } from "@/lib/mill";
+import { isCompletePlace, placeAt, placeLabel } from "@/lib/thai-place";
 import {
   ConfirmAlert,
   Dialog,
@@ -29,15 +31,14 @@ import {
   usePagination,
   useTableSort,
 } from "@/components/ui";
-import { farmerHandle, farmerName, formatCoord, centroid, polygonAreaRai, type Plot } from "@/lib/mill";
-import { placeAt } from "@/lib/thai-place";
 
 type Notice =
-  | { tone: "confirm"; message: string; accept: () => void }
+  | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
   | { tone: "success" | "error"; message: string; done?: () => void };
 
-function reported(error: string | null, success: string, done?: () => void): Notice {
-  if (error) return { tone: "error", message: error };
+async function reported(error: Promise<string | null> | string | null, success: string, done?: () => void): Promise<Notice> {
+  const message = await error;
+  if (message) return { tone: "error", message };
   return { tone: "success", message: success, done };
 }
 
@@ -91,7 +92,7 @@ export function PlotManageScreen() {
       if (farmerId && plot.farmerId !== farmerId) return false;
       if (groupId === "none" && owner?.groupId != null) return false;
       if (groupId && groupId !== "none" && owner?.groupId !== groupId) return false;
-      const place = `${plot.subdistrict} ${plot.district} ${plot.province}`;
+      const place = placeLabel(plot);
       return matchesQuery(name, `${plot.name} ${owner ? farmerName(owner) : ""} ${place}`);
     });
   }, [plots, farmers, name, farmerId, groupId]);
@@ -102,7 +103,7 @@ export function PlotManageScreen() {
     if (key === "owner") return owner ? farmerName(owner) : "";
     if (key === "group") return groups.find((group) => group.id === owner?.groupId)?.name ?? "";
     if (key === "area") return plot.areaRai;
-    return [plot.subdistrict, plot.district, plot.province].filter(Boolean).join(" ");
+    return placeLabel(plot);
   });
   const page = usePagination(ordered, `${name}:${farmerId}:${groupId}`);
 
@@ -245,7 +246,7 @@ export function PlotManageScreen() {
                         <td className="px-5 py-3">{owner ? farmerName(owner) : "—"}</td>
                         <td className="px-5 py-3">{group?.name ?? "ไม่มีกลุ่ม"}</td>
                         <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-                        <td className="px-5 py-3">{[plot.subdistrict, plot.district, plot.province].filter(Boolean).join(" ")}</td>
+                        <td className="px-5 py-3">{placeLabel(plot)}</td>
                       </tr>
                     );
                   })}
@@ -322,9 +323,9 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
   const { farmers, groups, plots, savePlot, saveBoundary, removePlot } = useMill();
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
-  const [province, setProvince] = useState(plot.province);
-  const [district, setDistrict] = useState(plot.district);
-  const [subdistrict, setSubdistrict] = useState(plot.subdistrict);
+  const [provinceId, setProvinceId] = useState(plot.provinceId);
+  const [districtId, setDistrictId] = useState(plot.districtId);
+  const [subdistrictId, setSubdistrictId] = useState(plot.subdistrictId);
   const [boundary, setBoundary] = useState(plot.polygon);
   const [draft, setDraft] = useState<[number, number][]>([]);
   const [drawing, setDrawing] = useState(false);
@@ -340,28 +341,28 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
   const dirty =
     name !== plot.name ||
     area !== String(plot.areaRai) ||
-    province !== plot.province ||
-    district !== plot.district ||
-    subdistrict !== plot.subdistrict ||
+    provinceId !== plot.provinceId ||
+    districtId !== plot.districtId ||
+    subdistrictId !== plot.subdistrictId ||
     boundaryChanged;
 
   useEffect(() => {
     setEditing(false);
     setName(plot.name);
     setArea(String(plot.areaRai));
-    setProvince(plot.province);
-    setDistrict(plot.district);
-    setSubdistrict(plot.subdistrict);
+    setProvinceId(plot.provinceId);
+    setDistrictId(plot.districtId);
+    setSubdistrictId(plot.subdistrictId);
     setBoundary(plot.polygon);
     setDrawing(false);
-  }, [plot.id, plot.name, plot.areaRai, plot.province, plot.district, plot.subdistrict, plot.polygon]);
+  }, [plot.id, plot.name, plot.areaRai, plot.provinceId, plot.districtId, plot.subdistrictId, plot.polygon]);
 
   function undo() {
     setName(plot.name);
     setArea(String(plot.areaRai));
-    setProvince(plot.province);
-    setDistrict(plot.district);
-    setSubdistrict(plot.subdistrict);
+    setProvinceId(plot.provinceId);
+    setDistrictId(plot.districtId);
+    setSubdistrictId(plot.subdistrictId);
     setBoundary(plot.polygon);
     if (!dirty) setEditing(false);
   }
@@ -388,21 +389,21 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
             setNotice({ tone: "error", message: "พื้นที่ต้องมากกว่า 0" });
             return;
           }
-          if (!subdistrict.trim() || !district.trim() || !province.trim()) {
+          if (!isCompletePlace({ provinceId, districtId, subdistrictId })) {
             setNotice({ tone: "error", message: "กรอกตำบล อำเภอ และจังหวัด" });
             return;
           }
           setNotice({
             tone: "confirm",
             message: `ยืนยันบันทึก ${name.trim()}`,
-            accept: () => {
-              const plotError = savePlot(plot.id, { name, areaRai, subdistrict, district, province });
+            accept: async () => {
+              const plotError = await savePlot(plot.id, { name, areaRai, provinceId, districtId, subdistrictId });
               if (plotError) {
                 setNotice({ tone: "error", message: plotError });
                 return;
               }
-              const boundaryError = boundaryChanged ? saveBoundary(plot.id, boundary, areaRai) : null;
-              setNotice(reported(boundaryError, "บันทึกแปลงแล้ว", () => setEditing(false)));
+              const boundaryError = boundaryChanged ? await saveBoundary(plot.id, boundary, areaRai) : null;
+              setNotice(await reported(boundaryError, "บันทึกแปลงแล้ว", () => setEditing(false)));
             },
           });
         }}
@@ -438,15 +439,15 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
           <input value={group?.name ?? "ไม่มีกลุ่ม"} disabled className={fieldClass} />
         </label>
         <PlaceSelects
-          province={province}
-          district={district}
-          subdistrict={subdistrict}
+          provinceId={provinceId}
+          districtId={districtId}
+          subdistrictId={subdistrictId}
           disabled={!editing}
           required
           onChange={(place) => {
-            setProvince(place.province);
-            setDistrict(place.district);
-            setSubdistrict(place.subdistrict);
+            setProvinceId(place.provinceId);
+            setDistrictId(place.districtId);
+            setSubdistrictId(place.subdistrictId);
           }}
         />
         <label className="block text-[14px] font-bold leading-[1.4]">
@@ -484,7 +485,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
                 setNotice({
                   tone: "confirm",
                   message: `ยืนยันลบแปลง ${plot.name}`,
-                  accept: () => setNotice(reported(removePlot(plot.id), "ลบแปลงแล้ว", onClose)),
+                  accept: async () => setNotice(await reported(removePlot(plot.id), "ลบแปลงแล้ว", onClose)),
                 })
               }
             >
@@ -509,9 +510,9 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
             setBoundary(ring);
             setArea(String(nextArea));
             if (place) {
-              setProvince(place.province);
-              setDistrict(place.district);
-              setSubdistrict(place.subdistrict);
+              setProvinceId(place.provinceId);
+              setDistrictId(place.districtId);
+              setSubdistrictId(place.subdistrictId);
             }
             setEditing(true);
             setDrawing(false);

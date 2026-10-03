@@ -63,8 +63,10 @@ export function PermissionsScreen() {
                               on={permission?.[flag.flag] ?? false}
                               label={`${role.title} ${resource.label} ${flag.label}`}
                               onToggle={() => {
-                                const message = setPermission(role.role, resource.resource, flag.flag, !(permission?.[flag.flag] ?? false));
-                                setError(message ?? "");
+                                void (async () => {
+                                  const message = await setPermission(role.role, resource.resource, flag.flag, !(permission?.[flag.flag] ?? false));
+                                  setError(message ?? "");
+                                })();
                               }}
                             />
                           </td>

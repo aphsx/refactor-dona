@@ -202,7 +202,7 @@ export function ConfirmAlert({
 }: {
   message: string;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 }) {
   return (
     <AlertFrame>
@@ -213,7 +213,7 @@ export function ConfirmAlert({
           <Glyph icon={X} />
           ยกเลิก
         </SecondaryButton>
-        <PrimaryButton onClick={onConfirm}>
+        <PrimaryButton onClick={() => void onConfirm()}>
           <Glyph icon={Check} />
           ยืนยัน
         </PrimaryButton>

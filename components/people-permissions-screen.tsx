@@ -13,7 +13,7 @@ const ROLE_OPTIONS: { value: PermissionRole; label: string }[] = [
 ];
 
 type Notice =
-  | { tone: "confirm"; message: string; accept: () => void }
+  | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
   | { tone: "success" | "error"; message: string };
 
 export function PeoplePermissionsScreen() {
@@ -130,7 +130,7 @@ function PersonRow({
     onNotice({
       tone: "confirm",
       message,
-      accept: () => onNotice(reported(assignRole(farmer.id, next), "ย้ายสิทธิ์แล้ว")),
+      accept: async () => onNotice(await reported(assignRole(farmer.id, next), "ย้ายสิทธิ์แล้ว")),
     });
   }
 
@@ -138,7 +138,7 @@ function PersonRow({
     onNotice({
       tone: "confirm",
       message: `ยืนยันยกเลิกยศโรงสีของ ${farmerName(farmer)}`,
-      accept: () => onNotice(reported(revokeRole(farmer.id), "ยกเลิกสิทธิ์แล้ว")),
+      accept: async () => onNotice(await reported(revokeRole(farmer.id), "ยกเลิกสิทธิ์แล้ว")),
     });
   }
 
@@ -176,6 +176,7 @@ function scopeLabel(role: PermissionRole, groups: { id: string; name: string; le
   return "ของตัวเอง";
 }
 
-function reported(error: string | null, success: string): Notice {
-  return error ? { tone: "error", message: error } : { tone: "success", message: success };
+async function reported(error: Promise<string | null> | string | null, success: string): Promise<Notice> {
+  const message = await error;
+  return message ? { tone: "error", message } : { tone: "success", message: success };
 }
