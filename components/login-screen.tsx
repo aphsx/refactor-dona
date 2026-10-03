@@ -16,7 +16,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
 
   return (
     <div
-      className="relative flex h-full min-h-0 items-center justify-center overflow-y-auto px-6 py-10"
+      className="fixed inset-0 overflow-y-auto"
       style={{
         background:
           "radial-gradient(120% 80% at 50% -10%, #d9f3e8 0%, #F3FBF7 42%, #eaf6f1 100%)",
@@ -30,6 +30,8 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
         }}
       />
 
+      {/* Extra bottom padding offsets logo height so the block sits optically higher */}
+      <div className="flex min-h-full items-center justify-center px-6 pb-28 pt-10">
       <form
         className="login-rise relative w-full max-w-[360px]"
         onSubmit={(event) => {
@@ -136,6 +138,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
           )}
         </button>
       </form>
+      </div>
     </div>
   );
 }
