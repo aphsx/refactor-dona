@@ -23,7 +23,7 @@ import {
   usePagination,
   useTableSort,
 } from "@/components/ui";
-import type { VarietyItem } from "@/lib/mill";
+import type { ProductKindItem, VarietyItem } from "@/lib/mill";
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
@@ -136,7 +136,7 @@ export function VarietiesManageScreen() {
               <tr>
                 <SortableTh label="รหัส" column="id" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 <SortableTh label="ชื่อพันธุ์" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                <th className="w-0 whitespace-nowrap px-5 py-3" />
+                <th className="w-0 whitespace-nowrap px-5 py-3 font-bold">จัดการ</th>
               </tr>
             </thead>
             <tbody>
@@ -164,8 +164,8 @@ export function VarietiesManageScreen() {
                         <span className="font-bold">{item.name}</span>
                       )}
                     </td>
-                    <td className="w-0 whitespace-nowrap px-5 py-3 text-right">
-                      <div className="inline-flex gap-2">
+                    <td className="w-0 whitespace-nowrap px-5 py-3">
+                      <div className="flex gap-2">
                         <CanEdit resource="varieties">
                           {editing ? (
                             <>
@@ -276,6 +276,250 @@ function CreateVariety({
         >
           <label className="block text-[14px] font-bold leading-[1.4]">
             ชื่อพันธุ์
+            <input value={name} onChange={(event) => setName(event.target.value)} className={`${inputClass} mt-1`} />
+          </label>
+          <div className="flex justify-end gap-3">
+            <SecondaryButton onClick={onClose}>
+              <Glyph icon={X} />
+              ยกเลิก
+            </SecondaryButton>
+            <PrimaryButton type="submit">
+              <Glyph icon={Save} />
+              บันทึก
+            </PrimaryButton>
+          </div>
+        </form>
+      </Dialog>
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+    </>
+  );
+}
+
+/** Master-data: product kinds — inline edit/delete, no detail page. */
+export function ProductKindsManageScreen() {
+  const { productKinds, createProductKind, updateProductKind, removeProductKind } = useMill();
+  const [draftName, setDraftName] = useState("");
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
+
+  const rows = useMemo(() => productKinds.filter((item) => matchesQuery(name, item.name)), [productKinds, name]);
+  const listingSort = useTableSort(name);
+  const ordered = orderBy(rows, listingSort.sort, (item, key) => {
+    if (key === "id") return item.id;
+    return item.name;
+  });
+  const page = usePagination(ordered, name);
+
+  function startEdit(item: ProductKindItem) {
+    setEditingId(item.id);
+    setEditName(item.name);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditName("");
+  }
+
+  return (
+    <div className="h-full overflow-y-auto px-7 py-6">
+      <PageHeader current="ชนิดสินค้า" />
+      <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
+        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาชนิดสินค้า</div>
+        <form
+          className="grid gap-4 px-6 py-5 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setName(draftName);
+          }}
+        >
+          <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+            ชื่อชนิด
+            <SuggestInput
+              label="ชื่อชนิด"
+              className="mt-1"
+              value={draftName}
+              onChange={setDraftName}
+              suggestions={[...productKinds].sort((a, b) => a.name.localeCompare(b.name, "th")).map((item) => item.name)}
+            />
+          </label>
+          <div className="flex flex-wrap gap-3 sm:col-span-2">
+            <PrimaryButton type="submit">
+              <Glyph icon={Search} />
+              ค้นหา
+            </PrimaryButton>
+            <SecondaryButton
+              onClick={() => {
+                setDraftName("");
+                setName("");
+              }}
+            >
+              <Glyph icon={RotateCcw} />
+              ล้าง
+            </SecondaryButton>
+            <CanAdd resource="productKinds">
+              <SecondaryButton onClick={() => setCreating(true)}>
+                <Glyph icon={Plus} />
+                เพิ่มชนิด
+              </SecondaryButton>
+            </CanAdd>
+          </div>
+        </form>
+      </div>
+
+      <div className="overflow-hidden rounded-[8px] border border-frame">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+          รายการชนิดสินค้า
+          <span className="text-[14px] font-normal">{productKinds.length} ชนิด</span>
+        </div>
+        <TableScroll>
+          <table className={tableClass}>
+            <thead className="bg-table">
+              <tr>
+                <SortableTh label="รหัส" column="id" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <SortableTh label="ชื่อชนิด" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <th className="w-0 whitespace-nowrap px-5 py-3 font-bold">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {page.rows.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-5 py-6 text-ink/60">
+                    ไม่พบชนิดสินค้า
+                  </td>
+                </tr>
+              )}
+              {page.rows.map((item, index) => {
+                const editing = editingId === item.id;
+                return (
+                  <tr key={item.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                    <td className="px-5 py-3">{item.id}</td>
+                    <td className="px-5 py-3">
+                      {editing ? (
+                        <input
+                          value={editName}
+                          onChange={(event) => setEditName(event.target.value)}
+                          className={inputClass}
+                          autoFocus
+                        />
+                      ) : (
+                        <span className="font-bold">{item.name}</span>
+                      )}
+                    </td>
+                    <td className="w-0 whitespace-nowrap px-5 py-3">
+                      <div className="flex gap-2">
+                        <CanEdit resource="productKinds">
+                          {editing ? (
+                            <>
+                              <SecondaryButton type="button" className="h-9" onClick={cancelEdit}>
+                                <Glyph icon={Undo2} />
+                                ยกเลิก
+                              </SecondaryButton>
+                              <PrimaryButton
+                                type="button"
+                                className="h-9"
+                                onClick={() => {
+                                  if (!editName.trim()) {
+                                    setNotice({ tone: "error", message: "กรอกชื่อชนิดสินค้า" });
+                                    return;
+                                  }
+                                  setNotice({
+                                    tone: "confirm",
+                                    message: "ยืนยันบันทึกชนิดสินค้า",
+                                    accept: async () =>
+                                      setNotice(
+                                        await reported(updateProductKind(item.id, editName), "บันทึกชนิดแล้ว", cancelEdit),
+                                      ),
+                                  });
+                                }}
+                              >
+                                <Glyph icon={Save} />
+                                บันทึก
+                              </PrimaryButton>
+                            </>
+                          ) : (
+                            <SecondaryButton type="button" className="h-9" onClick={() => startEdit(item)}>
+                              <Glyph icon={Pencil} />
+                              แก้ไข
+                            </SecondaryButton>
+                          )}
+                        </CanEdit>
+                        <CanDelete resource="productKinds">
+                          <SecondaryButton
+                            type="button"
+                            className="h-9"
+                            onClick={() =>
+                              setNotice({
+                                tone: "confirm",
+                                message: `ยืนยันลบชนิด ${item.name}`,
+                                accept: async () =>
+                                  setNotice(
+                                    await reported(removeProductKind(item.id), "ลบชนิดแล้ว", () => {
+                                      if (editingId === item.id) cancelEdit();
+                                    }),
+                                  ),
+                              })
+                            }
+                          >
+                            <Glyph icon={Trash2} />
+                            ลบ
+                          </SecondaryButton>
+                        </CanDelete>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </TableScroll>
+        <Pagination
+          page={page.page}
+          pageCount={page.pageCount}
+          pageSize={page.pageSize}
+          total={page.total}
+          onPageChange={page.setPage}
+          onPageSizeChange={page.setPageSize}
+        />
+      </div>
+
+      {creating && <CreateProductKind onClose={() => setCreating(false)} onCreate={createProductKind} />}
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+    </div>
+  );
+}
+
+function CreateProductKind({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (name: string) => Promise<string | null>;
+}) {
+  const [name, setName] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
+  return (
+    <>
+      <Dialog title="เพิ่มชนิดสินค้า" onClose={onClose}>
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!name.trim()) {
+              setNotice({ tone: "error", message: "กรอกชื่อชนิดสินค้า" });
+              return;
+            }
+            setNotice({
+              tone: "confirm",
+              message: "ยืนยันเพิ่มชนิดสินค้า",
+              accept: async () => setNotice(await reported(onCreate(name), "เพิ่มชนิดแล้ว", onClose)),
+            });
+          }}
+        >
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ชื่อชนิด
             <input value={name} onChange={(event) => setName(event.target.value)} className={`${inputClass} mt-1`} />
           </label>
           <div className="flex justify-end gap-3">

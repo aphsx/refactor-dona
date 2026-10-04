@@ -28,6 +28,7 @@ const KNOWN_APP_PATHS = new Set([
   "/farmers/manage",
   "/manage",
   "/manage/varieties",
+  "/manage/product-kinds",
   "/varieties/manage",
   "/permissions",
   "/permissions/people",
@@ -78,7 +79,10 @@ const NAV: NavItem[] = [
   {
     label: "จัดการ",
     icon: Settings2,
-    children: [{ href: "/manage/varieties", label: "พันธุ์ข้าว" }],
+    children: [
+      { href: "/manage/varieties", label: "พันธุ์ข้าว" },
+      { href: "/manage/product-kinds", label: "ชนิดสินค้า" },
+    ],
   },
   {
     label: "จัดการสิทธิ์",

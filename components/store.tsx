@@ -24,6 +24,9 @@ type Store = MillSnapshot & {
   createVariety: (name: string) => Promise<string | null>;
   updateVariety: (varietyId: number, name: string) => Promise<string | null>;
   removeVariety: (varietyId: number) => Promise<string | null>;
+  createProductKind: (name: string) => Promise<string | null>;
+  updateProductKind: (productKindId: number, name: string) => Promise<string | null>;
+  removeProductKind: (productKindId: number) => Promise<string | null>;
   createFarmer: (input: FarmerInput) => Promise<string | null>;
   updateFarmer: (farmerId: string, input: FarmerInput) => Promise<string | null>;
   assignFarmer: (farmerId: string, groupId: string | null) => Promise<string | null>;
@@ -31,7 +34,7 @@ type Store = MillSnapshot & {
     farmerId: string,
     input: {
       varietyId: Variety;
-      productKind: "paddy" | "seed";
+      productKindId: number;
       direction: "in" | "out" | "lend" | "return";
       kg: number;
       receivedOn: string;
@@ -84,6 +87,7 @@ const empty: MillSnapshot = {
   activities: [],
   receipts: [],
   varieties: [],
+  productKinds: [],
   permissions: [],
   roleGrants: [],
 };
@@ -173,6 +177,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createVariety: (name) => mutate(() => api.createVariety(name.trim())),
     updateVariety: (varietyId, name) => mutate(() => api.updateVariety(varietyId, name.trim())),
     removeVariety: (varietyId) => mutate(() => api.deleteVariety(varietyId)),
+    createProductKind: (name) => mutate(() => api.createProductKind(name.trim())),
+    updateProductKind: (productKindId, name) => mutate(() => api.updateProductKind(productKindId, name.trim())),
+    removeProductKind: (productKindId) => mutate(() => api.deleteProductKind(productKindId)),
     createFarmer: (input) =>
       mutate(() =>
         api.createFarmer({
@@ -197,7 +204,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         api.createMillReceipt({
           farmerId,
           varietyId: input.varietyId,
-          productKind: input.productKind,
+          productKindId: input.productKindId,
           direction: input.direction,
           kg: input.kg,
           receivedOn: input.receivedOn,

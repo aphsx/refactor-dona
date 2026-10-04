@@ -1,15 +1,14 @@
 import { apiListAll, apiRequest, getApiToken, ApiError } from "@/lib/api/client";
 import {
-  asMillProductKind,
   asMillReceiptDirection,
   closeRing,
   isClosedRing,
   openRing,
   polygonAreaRai,
+  syncProductKinds,
   syncVarieties,
   type Farmer,
   type FarmerInput,
-  type MillProductKind,
   type MillReceipt,
   type MillReceiptDirection,
   type MillSnapshot,
@@ -22,6 +21,8 @@ import {
   type PlotActivity,
   type PlotActivityPayload,
   type PlotActivityType,
+  type ProductKind,
+  type ProductKindItem,
   type RoleGrant,
   type SupplierGroup,
   type Variety,
@@ -114,19 +115,22 @@ function millGrants(people: WirePerson[]): RoleGrant[] {
 }
 
 export async function loadMillSnapshot(): Promise<MillSnapshot> {
-  const [groups, farmers, plots, plantings, activities, receipts, varieties, permissions, people] = await Promise.all([
-    apiListAll<SupplierGroup>("/groups"),
-    apiListAll<Farmer>("/farmers"),
-    apiListAll<WirePlot>("/plots"),
-    apiListAll<WirePlanting>("/plantings"),
-    apiListAll<WirePlotActivity>("/plot-activities"),
-    apiListAll<MillReceipt>("/mill-receipts"),
-    apiRequest<{ items: VarietyItem[] }>("/varieties").then((data) => data.items ?? []),
-    apiRequest<{ items: WirePermission[] }>("/permissions").then((data) => data.items ?? []),
-    apiListAll<WirePerson>("/people"),
-  ]);
+  const [groups, farmers, plots, plantings, activities, receipts, varieties, productKinds, permissions, people] =
+    await Promise.all([
+      apiListAll<SupplierGroup>("/groups"),
+      apiListAll<Farmer>("/farmers"),
+      apiListAll<WirePlot>("/plots"),
+      apiListAll<WirePlanting>("/plantings"),
+      apiListAll<WirePlotActivity>("/plot-activities"),
+      apiListAll<MillReceipt>("/mill-receipts"),
+      apiRequest<{ items: VarietyItem[] }>("/varieties").then((data) => data.items ?? []),
+      apiRequest<{ items: ProductKindItem[] }>("/product-kinds").then((data) => data.items ?? []),
+      apiRequest<{ items: WirePermission[] }>("/permissions").then((data) => data.items ?? []),
+      apiListAll<WirePerson>("/people"),
+    ]);
 
   syncVarieties(varieties);
+  syncProductKinds(productKinds);
 
   return {
     groups,
@@ -137,10 +141,11 @@ export async function loadMillSnapshot(): Promise<MillSnapshot> {
     receipts: receipts.map((item) => ({
       ...item,
       varietyId: asVariety(Number(item.varietyId)),
-      productKind: asMillProductKind(item.productKind),
+      productKindId: Number(item.productKindId),
       direction: asMillReceiptDirection(item.direction),
     })),
     varieties,
+    productKinds,
     permissions: permissions.map(asPermission),
     roleGrants: millGrants(people),
   };
@@ -160,6 +165,14 @@ export const api = {
     apiRequest<VarietyItem>(`/varieties/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
 
   deleteVariety: (id: number) => apiRequest<void>(`/varieties/${id}`, { method: "DELETE" }),
+
+  createProductKind: (name: string) =>
+    apiRequest<ProductKindItem>("/product-kinds", { method: "POST", body: JSON.stringify({ name }) }),
+
+  updateProductKind: (id: number, name: string) =>
+    apiRequest<ProductKindItem>(`/product-kinds/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+
+  deleteProductKind: (id: number) => apiRequest<void>(`/product-kinds/${id}`, { method: "DELETE" }),
 
   createFarmer: (input: FarmerInput) => apiRequest<Farmer>("/farmers", { method: "POST", body: JSON.stringify(input) }),
 
@@ -233,7 +246,7 @@ export const api = {
   createMillReceipt: (input: {
     farmerId: string;
     varietyId: Variety;
-    productKind: MillProductKind;
+    productKindId: ProductKind;
     direction: MillReceiptDirection;
     kg: number;
     receivedOn: string;
@@ -241,7 +254,7 @@ export const api = {
 
   updateMillReceipt: (id: string, input: {
     varietyId: Variety;
-    productKind: MillProductKind;
+    productKindId: ProductKind;
     direction: MillReceiptDirection;
     kg: number;
     receivedOn: string;

@@ -11,7 +11,7 @@ import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { measureRingAreaRai } from "@/lib/api";
 import type { FieldMapHandle } from "@/components/field-map";
-import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultMillProductKind, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millProductKindLabel, millReceiptDirectionLabel, openPlanting, openRing, plantingAreaSummary, plantingsOf, varietyName, type Farmer, type MillProductKind, type MillReceiptDirection, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultProductKindId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millReceiptDirectionLabel, openPlanting, openRing, plantingAreaSummary, plantingsOf, productKindName, varietyName, type Farmer, type MillReceiptDirection, type Planting, type Plot, type ProductKind, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -1105,10 +1105,10 @@ function PlotTable({
 }
 
 function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
-  const { varieties, receipts, createMillReceipt, removeMillReceipt } = useMill();
+  const { varieties, productKinds, receipts, createMillReceipt, removeMillReceipt } = useMill();
   const [adding, setAdding] = useState(false);
   const [direction, setDirection] = useState<MillReceiptDirection>("in");
-  const [productKind, setProductKind] = useState<MillProductKind>("paddy");
+  const [productKindId, setProductKindId] = useState<ProductKind>(() => defaultProductKindId("in", productKinds));
   const [receivedOn, setReceivedOn] = useState("");
   const [varietyId, setVarietyId] = useState<Variety | "">("");
   const [kg, setKg] = useState("");
@@ -1121,7 +1121,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   const ordered = orderBy(rows, listingSort.sort, (row, key) => {
     if (key === "date") return row.receivedOn;
     if (key === "direction") return millReceiptDirectionLabel(row.direction ?? "in");
-    if (key === "kind") return millProductKindLabel(row.productKind ?? "paddy");
+    if (key === "kind") return productKindName(row.productKindId);
     if (key === "variety") return varietyName(row.varietyId);
     return row.kg;
   });
@@ -1130,7 +1130,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   function resetForm() {
     setAdding(false);
     setDirection("in");
-    setProductKind("paddy");
+    setProductKindId(defaultProductKindId("in", productKinds));
     setReceivedOn("");
     setVarietyId("");
     setKg("");
@@ -1169,7 +1169,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
             )}
             {page.rows.map((row, index) => {
               const kind = millReceiptDirectionLabel(row.direction ?? "in");
-              const product = millProductKindLabel(row.productKind ?? "paddy");
+              const product = productKindName(row.productKindId);
               const tone =
                 row.direction === "out" || row.direction === "lend"
                   ? "text-danger"
@@ -1227,14 +1227,14 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
               }
               const payload = {
                 varietyId: varietyId as Variety,
-                productKind,
+                productKindId,
                 direction,
                 kg: Math.round(amount),
                 receivedOn,
               };
               setNotice({
                 tone: "confirm",
-                message: `ยืนยัน${millReceiptDirectionLabel(direction)} ${millProductKindLabel(productKind)} ${varietyName(payload.varietyId)} ${formatKg(payload.kg)}`,
+                message: `ยืนยัน${millReceiptDirectionLabel(direction)} ${productKindName(productKindId)} ${varietyName(payload.varietyId)} ${formatKg(payload.kg)}`,
                 accept: async () =>
                   setNotice(await reported(createMillReceipt(farmer.id, payload), `บันทึก${millReceiptDirectionLabel(direction)}แล้ว`, resetForm)),
               });
@@ -1250,7 +1250,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
                 onChange={(value) => {
                   const next = value as MillReceiptDirection;
                   setDirection(next);
-                  setProductKind(defaultMillProductKind(next));
+                  setProductKindId(defaultProductKindId(next, productKinds));
                 }}
                 options={[
                   { value: "in", label: "รับซื้อเข้า" },
@@ -1266,12 +1266,9 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
               <Select
                 label="ชนิด"
                 className="mt-1"
-                value={productKind}
-                onChange={(value) => setProductKind(value === "seed" ? "seed" : "paddy")}
-                options={[
-                  { value: "paddy", label: "ข้าวเปลือก" },
-                  { value: "seed", label: "เมล็ดพันธุ์" },
-                ]}
+                value={String(productKindId)}
+                onChange={(value) => setProductKindId(Number(value))}
+                options={productKinds.map((item) => ({ value: String(item.id), label: item.name }))}
               />
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">

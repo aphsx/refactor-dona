@@ -6,6 +6,14 @@ export type VarietyItem = {
   name: string;
 };
 
+/** Product kind id from API (`product_kinds.id`). */
+export type ProductKind = number;
+
+export type ProductKindItem = {
+  id: number;
+  name: string;
+};
+
 /** Seed defaults until snapshot loads; kept in sync by loadMillSnapshot. */
 export let VARIETIES: VarietyItem[] = [
   { id: 1, name: "หอมมะลิ" },
@@ -13,12 +21,26 @@ export let VARIETIES: VarietyItem[] = [
   { id: 3, name: "เหนียว" },
 ];
 
+/** Seed defaults: 1=ข้าวเปลือก 2=เมล็ดพันธุ์ */
+export let PRODUCT_KINDS: ProductKindItem[] = [
+  { id: 1, name: "ข้าวเปลือก" },
+  { id: 2, name: "เมล็ดพันธุ์" },
+];
+
 export function syncVarieties(items: VarietyItem[]) {
   if (items.length > 0) VARIETIES = items;
 }
 
+export function syncProductKinds(items: ProductKindItem[]) {
+  if (items.length > 0) PRODUCT_KINDS = items;
+}
+
 export function varietyName(id: number) {
   return VARIETIES.find((item) => item.id === id)?.name ?? "—";
+}
+
+export function productKindName(id: number) {
+  return PRODUCT_KINDS.find((item) => item.id === id)?.name ?? "—";
 }
 
 export function defaultVarietyId(varieties: VarietyItem[] = VARIETIES) {
@@ -73,16 +95,15 @@ export type Planting = {
  * lend   = ให้ยืม (ให้ไปปลูกก่อน)
  * return = รับคืน (คืนยืม)
  *
- * Variety (พันธุ์ข้าว) is separate from product kind (ข้าวเปลือก/เมล็ดพันธุ์).
+ * Variety (พันธุ์ข้าว) is separate from product kind (ชนิดสินค้า).
  */
 export type MillReceiptDirection = "in" | "out" | "lend" | "return";
-export type MillProductKind = "paddy" | "seed";
 
 export type MillReceipt = {
   id: string;
   farmerId: string;
   varietyId: Variety;
-  productKind: MillProductKind;
+  productKindId: ProductKind;
   direction: MillReceiptDirection;
   kg: number;
   receivedOn: string;
@@ -95,21 +116,20 @@ export function millReceiptDirectionLabel(direction: MillReceiptDirection) {
   return "รับซื้อเข้า";
 }
 
-export function millProductKindLabel(kind: MillProductKind) {
-  return kind === "seed" ? "เมล็ดพันธุ์" : "ข้าวเปลือก";
-}
-
 export function asMillReceiptDirection(value: string | undefined): MillReceiptDirection {
   if (value === "out" || value === "lend" || value === "return") return value;
   return "in";
 }
 
-export function asMillProductKind(value: string | undefined): MillProductKind {
-  return value === "seed" ? "seed" : "paddy";
-}
-
-export function defaultMillProductKind(direction: MillReceiptDirection): MillProductKind {
-  return direction === "lend" || direction === "return" ? "seed" : "paddy";
+export function defaultProductKindId(
+  direction: MillReceiptDirection,
+  productKinds: ProductKindItem[] = PRODUCT_KINDS,
+): ProductKind {
+  const preferSeed = direction === "lend" || direction === "return";
+  const byName = productKinds.find((item) => item.name === (preferSeed ? "เมล็ดพันธุ์" : "ข้าวเปลือก"));
+  if (byName) return byName.id;
+  if (preferSeed) return productKinds[1]?.id ?? productKinds[0]?.id ?? 2;
+  return productKinds[0]?.id ?? 1;
 }
 
 export type PlotActivityType =
@@ -206,7 +226,14 @@ export function latestActivityOfType(activities: PlotActivity[], plantingId: str
 }
 
 export type PermissionRole = "mill" | "leader" | "member";
-export type PermissionResource = "groups" | "farmers" | "plots" | "plantings" | "activities" | "varieties";
+export type PermissionResource =
+  | "groups"
+  | "farmers"
+  | "plots"
+  | "plantings"
+  | "activities"
+  | "varieties"
+  | "productKinds";
 export type PermissionFlag = "canRead" | "canAdd" | "canEdit" | "canDelete";
 
 export type Permission = {
@@ -232,6 +259,7 @@ export type MillSnapshot = {
   activities: PlotActivity[];
   receipts: MillReceipt[];
   varieties: VarietyItem[];
+  productKinds: ProductKindItem[];
   permissions: Permission[];
   roleGrants: RoleGrant[];
 };
