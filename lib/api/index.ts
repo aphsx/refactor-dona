@@ -7,6 +7,7 @@ import {
   polygonAreaRai,
   type Farmer,
   type FarmerInput,
+  type MillReceipt,
   type MillSnapshot,
   type Permission,
   type PermissionFlag,
@@ -109,12 +110,13 @@ function millGrants(people: WirePerson[]): RoleGrant[] {
 }
 
 export async function loadMillSnapshot(): Promise<MillSnapshot> {
-  const [groups, farmers, plots, plantings, activities, permissions, people] = await Promise.all([
+  const [groups, farmers, plots, plantings, activities, receipts, permissions, people] = await Promise.all([
     apiListAll<SupplierGroup>("/groups"),
     apiListAll<Farmer>("/farmers"),
     apiListAll<WirePlot>("/plots"),
     apiListAll<WirePlanting>("/plantings"),
     apiListAll<WirePlotActivity>("/plot-activities"),
+    apiListAll<MillReceipt>("/mill-receipts"),
     apiRequest<{ items: WirePermission[] }>("/permissions").then((data) => data.items ?? []),
     apiListAll<WirePerson>("/people"),
   ]);
@@ -125,6 +127,7 @@ export async function loadMillSnapshot(): Promise<MillSnapshot> {
     plots: plots.map(asPlot),
     plantings: plantings.map(asPlanting),
     activities: activities.map(asPlotActivity),
+    receipts,
     permissions: permissions.map(asPermission),
     roleGrants: millGrants(people),
   };
@@ -205,6 +208,14 @@ export const api = {
     apiRequest<WirePlanting>(`/plantings/${id}`, { method: "PUT", body: JSON.stringify(input) }).then(asPlanting),
 
   deletePlanting: (id: string) => apiRequest<void>(`/plantings/${id}`, { method: "DELETE" }),
+
+  createMillReceipt: (input: { farmerId: string; varietyId: Variety; kg: number; receivedOn: string }) =>
+    apiRequest<MillReceipt>("/mill-receipts", { method: "POST", body: JSON.stringify(input) }),
+
+  updateMillReceipt: (id: string, input: { varietyId: Variety; kg: number; receivedOn: string }) =>
+    apiRequest<MillReceipt>(`/mill-receipts/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+
+  deleteMillReceipt: (id: string) => apiRequest<void>(`/mill-receipts/${id}`, { method: "DELETE" }),
 
   createPlotActivity: (input: {
     plantingId: string;

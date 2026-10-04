@@ -49,9 +49,8 @@ export function PlanEditor({
 }) {
   const { plantings, activities, savePlot, savePlanting, saveActivity, removePlot, removePlanting } = useMill();
   const measured = plot.areaRai;
-  const current = plantings.find((item) => item.id === plot.plantingId && !item.delivered) ?? null;
+  const current = plantings.find((item) => item.id === plot.plantingId) ?? null;
   const plantingId = current?.id ?? (plot.plantingId || "");
-  const locked = plantings.some((item) => item.plotId === plot.id && item.delivered);
   const fresh = !plot.plantingId;
   const seedActivity = plantingId ? latestActivityOfType(activities, plantingId, "seed_receive") : null;
   const plantActivity = plantingId ? latestActivityOfType(activities, plantingId, "plant_actual") : null;
@@ -368,23 +367,21 @@ export function PlanEditor({
               </SecondaryButton>
             </CanDelete>
           )}
-          {!locked && (
-            <CanDelete resource="plots">
-              <SecondaryButton
-                type="button"
-                onClick={() =>
-                  setNotice({
-                    tone: "confirm",
-                    message: `ยืนยันลบแปลง ${plot.name}`,
-                    accept: async () => finish(removePlot(plot.id), "ลบแปลงแล้ว", onClose),
-                  })
-                }
-              >
-                <Glyph icon={Trash2} />
-                ลบแปลง
-              </SecondaryButton>
-            </CanDelete>
-          )}
+          <CanDelete resource="plots">
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setNotice({
+                  tone: "confirm",
+                  message: `ยืนยันลบแปลง ${plot.name}`,
+                  accept: async () => finish(removePlot(plot.id), "ลบแปลงแล้ว", onClose),
+                })
+              }
+            >
+              <Glyph icon={Trash2} />
+              ลบแปลง
+            </SecondaryButton>
+          </CanDelete>
         </div>
       </form>
       {notice?.tone === "confirm" && (

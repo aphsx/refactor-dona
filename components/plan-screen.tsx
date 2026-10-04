@@ -83,7 +83,7 @@ export function PlanScreen() {
   const openDates = useMemo(
     () =>
       plantings
-        .filter((planting) => !planting.delivered && plots.some((plot) => plot.id === planting.plotId))
+        .filter((planting) => plots.some((plot) => plot.id === planting.plotId))
         .map((planting) => planting.harvestOn),
     [plantings, plots],
   );
@@ -94,7 +94,6 @@ export function PlanScreen() {
 
   const pool = useMemo(() => {
     return plantings
-      .filter((planting) => !planting.delivered)
       .flatMap((planting) => {
         const plot = plots.find((item) => item.id === planting.plotId);
         if (!plot) return [];
@@ -237,7 +236,6 @@ export function MemberSeasonScreen() {
     if (!planFilter) return null;
     const ids = new Set<string>();
     for (const planting of plantings) {
-      if (planting.delivered) continue;
       const plot = plots.find((item) => item.id === planting.plotId);
       if (!plot) continue;
       if (applied.variety !== "all" && planting.varietyId !== Number(applied.variety)) continue;

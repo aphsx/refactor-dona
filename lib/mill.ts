@@ -49,7 +49,15 @@ export type Planting = {
   plantedOn: string;
   harvestOn: string;
   estKg: number;
-  delivered: boolean;
+};
+
+/** Rice received at the mill from a farmer — not tied to a plot. */
+export type MillReceipt = {
+  id: string;
+  farmerId: string;
+  varietyId: Variety;
+  kg: number;
+  receivedOn: string;
 };
 
 export type PlotActivityType =
@@ -170,6 +178,7 @@ export type MillSnapshot = {
   plots: Plot[];
   plantings: Planting[];
   activities: PlotActivity[];
+  receipts: MillReceipt[];
   permissions: Permission[];
   roleGrants: RoleGrant[];
 };
@@ -261,7 +270,7 @@ export function plantingsOf(plantings: Planting[], plotId: string) {
 }
 
 export function openPlanting(plantings: Planting[], plotId: string) {
-  return plantings.find((item) => item.plotId === plotId && !item.delivered) ?? null;
+  return plantingsOf(plantings, plotId)[0] ?? null;
 }
 
 export function currentPlanting(plantings: Planting[], plotId: string) {

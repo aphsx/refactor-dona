@@ -24,6 +24,8 @@ type Store = MillSnapshot & {
   createFarmer: (input: FarmerInput) => Promise<string | null>;
   updateFarmer: (farmerId: string, input: FarmerInput) => Promise<string | null>;
   assignFarmer: (farmerId: string, groupId: string | null) => Promise<string | null>;
+  createMillReceipt: (farmerId: string, input: { varietyId: Variety; kg: number; receivedOn: string }) => Promise<string | null>;
+  removeMillReceipt: (receiptId: string) => Promise<string | null>;
   addPlot: (
     farmerId: string,
     input: {
@@ -68,6 +70,7 @@ const empty: MillSnapshot = {
   plots: [],
   plantings: [],
   activities: [],
+  receipts: [],
   permissions: [],
   roleGrants: [],
 };
@@ -173,6 +176,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }),
       ),
     assignFarmer: (farmerId, groupId) => mutate(() => api.assignFarmerGroup(farmerId, groupId)),
+    createMillReceipt: (farmerId, input) =>
+      mutate(() => api.createMillReceipt({ farmerId, varietyId: input.varietyId, kg: input.kg, receivedOn: input.receivedOn })),
+    removeMillReceipt: (receiptId) => mutate(() => api.deleteMillReceipt(receiptId)),
     addPlot: async (farmerId, input) => {
       const name = input.name.trim();
       const dedupeKey = [

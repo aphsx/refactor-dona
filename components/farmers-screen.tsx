@@ -49,7 +49,7 @@ export function FarmersScreen() {
               <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="รับเข้าแล้ว" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="รับเข้าโรงสี" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="แปลง" column="plots" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             </tr>

@@ -83,7 +83,7 @@ export function GroupManageScreen() {
     if (key === "members") return people.length;
     if (key === "received") return people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
     const ids = new Set(people.map((farmer) => farmer.id));
-    return plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
+    return plantings.filter((planting) => ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
   });
   const page = usePagination(ordered, `${name}:${leaderId}`);
 
@@ -185,7 +185,7 @@ export function GroupManageScreen() {
                   <SortableTh label="หัวหน้า" column="leader" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="สมาชิก" column="members" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="คาดว่าจะได้" column="expected" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="รับเข้าแล้ว" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="รับเข้าโรงสี" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
               </thead>
               <tbody>
@@ -200,7 +200,7 @@ export function GroupManageScreen() {
                   const leader = farmers.find((farmer) => farmer.id === group.leaderId);
                   const people = farmers.filter((farmer) => farmer.groupId === group.id);
                   const ids = new Set(people.map((farmer) => farmer.id));
-                  const expected = plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
+                  const expected = plantings.filter((planting) => ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
                   const received = people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
                   return (
                     <tr key={group.id} onClick={(event) => openRow(event, () => openGroup(group.id))} className={rowTone(index)}>
@@ -368,7 +368,7 @@ export function MemberManageScreen() {
                   <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="รับเข้าแล้ว" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="รับเข้าโรงสี" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
               </thead>
@@ -454,7 +454,7 @@ function GroupDirectory() {
     if (key === "members") return people.length;
     if (key === "received") return people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
     const ids = new Set(people.map((farmer) => farmer.id));
-    return plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
+    return plantings.filter((planting) => ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
   });
   const page = usePagination(ordered);
 
@@ -472,7 +472,7 @@ function GroupDirectory() {
             <SortableTh label="หัวหน้า" column="leader" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="สมาชิก" column="members" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="คาดว่าจะได้" column="expected" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="รับเข้าแล้ว" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="รับเข้าโรงสี" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
@@ -487,7 +487,7 @@ function GroupDirectory() {
             const leader = farmers.find((farmer) => farmer.id === group.leaderId);
             const people = farmers.filter((farmer) => farmer.groupId === group.id);
             const ids = new Set(people.map((farmer) => farmer.id));
-            const expected = plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
+            const expected = plantings.filter((planting) => ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
             const received = people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
             return (
               <tr
@@ -852,7 +852,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
           </div>
         </form>
       <MemberStanding farmer={farmer} plots={fields} plantings={plantings} leads={leads} />
-      <ReceivedRounds plots={fields} plantings={plantings} />
+      <MillReceiptRounds farmer={farmer} />
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
@@ -862,13 +862,13 @@ function MemberStanding({ farmer, plots, plantings, leads }: { farmer: Farmer; p
   const group = groups.find((item) => item.id === farmer.groupId) ?? null;
   const area = plots.reduce((sum, plot) => sum + plot.areaRai, 0);
   const plotIds = new Set(plots.map((plot) => plot.id));
-  const waiting = plantings.filter((planting) => plotIds.has(planting.plotId) && !planting.delivered).reduce((sum, planting) => sum + planting.estKg, 0);
+  const waiting = plantings.filter((planting) => plotIds.has(planting.plotId)).reduce((sum, planting) => sum + planting.estKg, 0);
 
   return (
     <div className="border-b border-frame">
       <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">สถานะรับซื้อ</div>
       <div className="grid gap-4 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Fact label="รับเข้าแล้ว" value={formatKg(farmer.deliveredKg)} />
+        <Fact label="รับเข้าโรงสี" value={formatKg(farmer.deliveredKg)} />
         <Fact label="จำนวนแปลง" value={plots.length === 0 ? "ยังไม่มีแปลง" : `${plots.length} แปลง`} />
         <Fact label="พื้นที่รวม" value={plots.length === 0 ? "—" : `${area} ไร่`} />
         <Fact label="ยังไม่เข้า" value={formatKg(waiting)} />
@@ -967,7 +967,6 @@ function MemberPlots({
 
 function plotHarvest(planting: Planting | null) {
   if (!planting) return { label: "ยังไม่ปลูก", className: "text-ink/60" };
-  if (planting.delivered) return { label: "เก็บแล้ว", className: "text-ok" };
   const left = daysUntil(planting.harvestOn);
   if (left < 0) return { label: `เลย ${-left} วัน`, className: "text-brand" };
   if (left === 0) return { label: "ถึงกำหนด", className: "text-brand" };
@@ -1107,53 +1106,88 @@ function PlotTable({
   );
 }
 
-function ReceivedRounds({ plots, plantings }: { plots: Plot[]; plantings: Planting[] }) {
-  const plotNames = new Map(plots.map((plot) => [plot.id, plot.name]));
-  const rows = plantings
-    .filter((planting) => planting.delivered && plotNames.has(planting.plotId))
+function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
+  const { receipts, createMillReceipt, removeMillReceipt } = useMill();
+  const [adding, setAdding] = useState(false);
+  const [receivedOn, setReceivedOn] = useState("");
+  const [varietyId, setVarietyId] = useState<Variety | "">("");
+  const [kg, setKg] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const rows = receipts
+    .filter((receipt) => receipt.farmerId === farmer.id)
     .slice()
-    .sort((a, b) => b.harvestOn.localeCompare(a.harvestOn));
+    .sort((a, b) => b.receivedOn.localeCompare(a.receivedOn) || b.id.localeCompare(a.id));
   const listingSort = useTableSort(rows.map((row) => row.id).join(","));
-  const ordered = orderBy(rows, listingSort.sort, (round, key) => {
-    if (key === "plot") return plotNames.get(round.plotId) ?? "";
-    if (key === "planted") return round.plantedOn;
-    if (key === "harvest") return round.harvestOn;
-    return round.estKg;
+  const ordered = orderBy(rows, listingSort.sort, (row, key) => {
+    if (key === "date") return row.receivedOn;
+    if (key === "variety") return varietyName(row.varietyId);
+    return row.kg;
   });
   const page = usePagination(ordered, rows.map((row) => row.id).join(","));
 
+  function resetForm() {
+    setAdding(false);
+    setReceivedOn("");
+    setVarietyId("");
+    setKg("");
+  }
+
   return (
     <div>
-      <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">รอบที่รับแล้ว</div>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+        รอบรับเข้าโรงสี
+        <CanAdd resource="farmers">
+          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+            <Glyph icon={Plus} />
+            เพิ่มรับเข้า
+          </SecondaryButton>
+        </CanAdd>
+      </div>
       <TableScroll>
-<table className={tableClass}>
-        <thead className="bg-table">
-          <tr>
-            <SortableTh label="แปลง" column="plot" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="วันปลูก" column="planted" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="กำหนดเก็บ" column="harvest" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="ที่คาด" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-          </tr>
-        </thead>
-        <tbody>
-          {ordered.length === 0 && (
+        <table className={tableClass}>
+          <thead className="bg-table">
             <tr>
-              <td colSpan={4} className="px-5 py-6 text-ink/60">
-                ยังไม่มีรอบที่รับแล้ว
-              </td>
+              <SortableTh label="วันรับเข้า" column="date" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="จำนวน" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             </tr>
-          )}
-          {page.rows.map((round, index) => (
-            <tr key={round.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-              <td className="px-5 py-3 font-bold">{plotNames.get(round.plotId)}</td>
-              <td className="px-5 py-3">{formatThaiDate(round.plantedOn)}</td>
-              <td className="px-5 py-3">{formatThaiDate(round.harvestOn)}</td>
-              <td className="px-5 py-3">{formatKg(round.estKg)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-</TableScroll>
+          </thead>
+          <tbody>
+            {ordered.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-5 py-6 text-ink/60">
+                  ยังไม่มีรอบรับเข้าโรงสี
+                </td>
+              </tr>
+            )}
+            {page.rows.map((row, index) => (
+              <tr key={row.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                <td className="px-5 py-3 font-bold">{formatThaiDate(row.receivedOn)}</td>
+                <td className="px-5 py-3">{varietyName(row.varietyId)}</td>
+                <td className="px-5 py-3">{formatKg(row.kg)}</td>
+                <td className="px-5 py-3 text-right">
+                  <CanDelete resource="farmers">
+                    <SecondaryButton
+                      className="h-9"
+                      onClick={() =>
+                        setNotice({
+                          tone: "confirm",
+                          message: `ยืนยันลบรับเข้า ${varietyName(row.varietyId)} ${formatKg(row.kg)} วันที่ ${formatThaiDate(row.receivedOn)}`,
+                          accept: async () => setNotice(await reported(removeMillReceipt(row.id), "ลบรับเข้าแล้ว")),
+                        })
+                      }
+                    >
+                      <Glyph icon={Trash2} />
+                      ลบ
+                    </SecondaryButton>
+                  </CanDelete>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableScroll>
       <Pagination
         page={page.page}
         pageCount={page.pageCount}
@@ -1162,12 +1196,67 @@ function ReceivedRounds({ plots, plantings }: { plots: Plot[]; plantings: Planti
         onPageChange={page.setPage}
         onPageSizeChange={page.setPageSize}
       />
+      {adding && (
+        <Dialog title="เพิ่มรับเข้าโรงสี" onClose={resetForm}>
+          <form
+            className="grid gap-4"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const amount = Number(kg);
+              if (!receivedOn || varietyId === "" || !Number.isFinite(amount) || amount <= 0) {
+                setNotice({ tone: "error", message: "ใส่วันรับเข้า พันธุ์ และจำนวนกก. ให้ถูกต้อง" });
+                return;
+              }
+              setNotice(
+                await reported(
+                  createMillReceipt(farmer.id, { varietyId, kg: Math.round(amount), receivedOn }),
+                  "บันทึกรับเข้าโรงสีแล้ว",
+                  resetForm,
+                ),
+              );
+            }}
+          >
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              วันรับเข้า
+              <RequiredMark />
+              <DateField label="วันรับเข้า" className="mt-1" value={receivedOn} onChange={setReceivedOn} />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              พันธุ์
+              <RequiredMark />
+              <Select
+                label="พันธุ์"
+                className="mt-1"
+                value={varietyId === "" ? "" : String(varietyId)}
+                onChange={(value) => setVarietyId(value ? (Number(value) as Variety) : "")}
+                placeholder="เลือกพันธุ์"
+                options={VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))}
+              />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              จำนวน (กก.)
+              <RequiredMark />
+              <input value={kg} inputMode="numeric" onChange={(event) => setKg(event.target.value)} className={`${inputClass} mt-1`} />
+            </label>
+            <div className="flex flex-wrap gap-3">
+              <SecondaryButton type="button" onClick={resetForm}>
+                <Glyph icon={X} />
+                ยกเลิก
+              </SecondaryButton>
+              <PrimaryButton type="submit">
+                <Glyph icon={Save} />
+                บันทึก
+              </PrimaryButton>
+            </div>
+          </form>
+        </Dialog>
+      )}
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </div>
   );
 }
 
 function plantingMark(planting: Planting) {
-  if (planting.delivered) return { label: "รับแล้ว", className: "text-ok" };
   if (daysUntil(planting.plantedOn) > 0) return { label: "วางแผน", className: "" };
   return { label: "ปลูกแล้ว", className: "text-brand" };
 }
@@ -1410,9 +1499,7 @@ function ChoosePlanPlot({
 
 export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void }) {
   const { farmers, groups, plantings, savePlot, removePlot, savePlanting, removePlanting } = useMill();
-  const history = plantingsOf(plantings, plot.id);
   const current = openPlanting(plantings, plot.id);
-  const locked = history.some((round) => round.delivered);
   const mark = current ? plantingMark(current) : null;
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
@@ -1594,7 +1681,6 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
           ที่คาด (กก.)
           <input value={estKg} disabled={!editing} inputMode="numeric" onChange={(event) => setEstKg(event.target.value)} className={fieldClass} />
         </label>
-        {locked && <p className="text-[14px] sm:col-span-2">รอบที่รับแล้วอยู่ที่รายละเอียดเกษตรกร</p>}
         <div className="flex flex-wrap gap-3 sm:col-span-2">
           <CanEdit resource="plantings">
             {editing ? (
@@ -1632,23 +1718,21 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
               </SecondaryButton>
             </CanDelete>
           )}
-          {!locked && (
-            <CanDelete resource="plots">
-              <SecondaryButton
-                type="button"
-                onClick={() =>
-                  setNotice({
-                    tone: "confirm",
-                    message: `ยืนยันลบแปลง ${plot.name}`,
-                    accept: async () => setNotice(await reported(removePlot(plot.id), "ลบแปลงแล้ว", onBack)),
-                  })
-                }
-              >
-                <Glyph icon={Trash2} />
-                ลบแปลง
-              </SecondaryButton>
-            </CanDelete>
-          )}
+          <CanDelete resource="plots">
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setNotice({
+                  tone: "confirm",
+                  message: `ยืนยันลบแปลง ${plot.name}`,
+                  accept: async () => setNotice(await reported(removePlot(plot.id), "ลบแปลงแล้ว", onBack)),
+                })
+              }
+            >
+              <Glyph icon={Trash2} />
+              ลบแปลง
+            </SecondaryButton>
+          </CanDelete>
         </div>
       </form>
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />

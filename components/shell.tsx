@@ -162,7 +162,7 @@ function ShellFrame({
   }, [pathname]);
 
   const duePlots = plantings
-    .filter((planting) => !planting.delivered && daysUntil(planting.harvestOn) <= 7)
+    .filter((planting) => daysUntil(planting.harvestOn) <= 7)
     .flatMap((planting) => {
       const plot = plots.find((item) => item.id === planting.plotId);
       return plot ? [{ ...planting, name: plot.name }] : [];

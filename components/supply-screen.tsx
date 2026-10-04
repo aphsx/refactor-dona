@@ -6,9 +6,9 @@ import { useMill } from "@/components/store";
 import { Kpi, PageHeader, Pagination, SearchSelect, SortableTh, StatusTab, TableScroll, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { daysUntil, farmerName, formatKg, formatThaiDate, varietyName, type Plot, type Variety } from "@/lib/mill";
 
-type SupplyRow = Plot & { varietyId: Variety; plantingId: string; harvestOn: string; estKg: number; delivered: boolean };
+type SupplyRow = Plot & { varietyId: Variety; plantingId: string; harvestOn: string; estKg: number };
 
-type WindowFilter = "ใกล้เก็บเกี่ยว" | "เดือนนี้" | "ยังไม่เข้า" | "รับแล้ว";
+type WindowFilter = "ใกล้เก็บเกี่ยว" | "เดือนนี้" | "ยังไม่เข้า";
 
 export function SupplyScreen() {
   const { plots, plantings, farmers, groups } = useMill();
@@ -22,19 +22,16 @@ export function SupplyScreen() {
       const farmer = farmers.find((item) => item.id === plot.farmerId);
       if (groupId === "none" && farmer?.groupId != null) return [];
       if (groupId !== "all" && groupId !== "none" && farmer?.groupId !== groupId) return [];
-      return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, harvestOn: planting.harvestOn, estKg: planting.estKg, delivered: planting.delivered }];
+      return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, harvestOn: planting.harvestOn, estKg: planting.estKg }];
     });
   }, [plantings, plots, farmers, groupId]);
 
-  const pending = owned.filter((plot) => !plot.delivered);
-  const due = pending.filter((plot) => daysUntil(plot.harvestOn) <= 0);
-  const soon = pending.filter((plot) => daysUntil(plot.harvestOn) <= 7);
+  const due = owned.filter((plot) => daysUntil(plot.harvestOn) <= 0);
+  const soon = owned.filter((plot) => daysUntil(plot.harvestOn) <= 7);
   const soonKg = soon.reduce((sum, plot) => sum + plot.estKg, 0);
 
   const days = owned.filter((plot) => {
     const left = daysUntil(plot.harvestOn);
-    if (filter === "รับแล้ว") return plot.delivered;
-    if (plot.delivered) return false;
     if (filter === "ใกล้เก็บเกี่ยว") return left <= 7;
     if (filter === "เดือนนี้") return left <= 31;
     return true;
@@ -50,11 +47,11 @@ export function SupplyScreen() {
         <Kpi label="ใกล้เก็บเกี่ยว" value={`${soon.length} แปลง`} />
         <Kpi label="ปริมาณที่ใกล้เข้า" value={formatKg(soonKg)} />
         <Kpi label="ถึงกำหนดแล้ว" value={`${due.length} แปลง`} />
-        <Kpi label="ยังไม่เข้าทั้งหมด" value={formatKg(pending.reduce((sum, plot) => sum + plot.estKg, 0))} />
+        <Kpi label="คาดทั้งหมด" value={formatKg(owned.reduce((sum, plot) => sum + plot.estKg, 0))} />
       </div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="flex items-end gap-1">
-          {(["ใกล้เก็บเกี่ยว", "เดือนนี้", "ยังไม่เข้า", "รับแล้ว"] as WindowFilter[]).map((item) => (
+          {(["ใกล้เก็บเกี่ยว", "เดือนนี้", "ยังไม่เข้า"] as WindowFilter[]).map((item) => (
             <StatusTab key={item} label={item} active={filter === item} onClick={() => setFilter(item)} />
           ))}
         </div>
@@ -107,10 +104,8 @@ function groupByHarvest(plots: SupplyRow[]) {
 }
 
 function queueMark(plots: SupplyRow[]) {
-  const open = plots.filter((plot) => !plot.delivered);
-  if (open.length === 0) return "รับแล้ว";
-  if (open.some((plot) => daysUntil(plot.harvestOn) <= 0)) return "ถึงกำหนด";
-  if (open.some((plot) => daysUntil(plot.harvestOn) <= 7)) return "ใกล้เก็บเกี่ยว";
+  if (plots.some((plot) => daysUntil(plot.harvestOn) <= 0)) return "ถึงกำหนด";
+  if (plots.some((plot) => daysUntil(plot.harvestOn) <= 7)) return "ใกล้เก็บเกี่ยว";
   return "";
 }
 
@@ -126,7 +121,7 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
     if (key === "variety") return varietyName(plot.varietyId);
     if (key === "area") return plot.areaRai;
     if (key === "kg") return plot.estKg;
-    return plot.delivered ? "รับแล้ว" : left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
+    return left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
   });
   const mark = queueMark(plots);
   const kg = plots.reduce((sum, plot) => sum + plot.estKg, 0);
@@ -159,7 +154,7 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
           {ordered.map((plot, index) => {
             const farmer = farmers.find((item) => item.id === plot.farmerId);
             const left = daysUntil(plot.harvestOn);
-            const status = plot.delivered ? "รับแล้ว" : left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
+            const status = left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
             return (
               <tr key={plot.plantingId} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
@@ -168,7 +163,7 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
                 <td className="px-5 py-3">{varietyName(plot.varietyId)}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
                 <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
-                <td className={`px-5 py-3 font-bold ${plot.delivered ? "text-ok" : left <= 7 ? "text-brand" : ""}`}>{status}</td>
+                <td className={`px-5 py-3 font-bold ${left <= 7 ? "text-brand" : ""}`}>{status}</td>
                 <td className="px-5 py-3">
                   {farmer && (
                     <Link href={`/map?farmer=${farmer.id}`} className="font-bold text-link underline">

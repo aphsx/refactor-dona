@@ -31,12 +31,11 @@ import {
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
-type StatusKey = "due" | "upcoming" | "delivered" | "none";
+type StatusKey = "due" | "upcoming" | "none";
 
 const STATUS: Record<StatusKey, { label: string; color: string }> = {
   due: { label: "ใกล้เก็บ", color: "#C05621" },
   upcoming: { label: "รอเก็บ", color: "#1A9D72" },
-  delivered: { label: "รับแล้ว", color: "#6E8B97" },
   none: { label: "ยังไม่มีแผน", color: "#B7C4C0" },
 };
 
@@ -87,8 +86,8 @@ export function MapScreen() {
       const farmer = farmers.find((item) => item.id === plot.farmerId);
       if (!farmer) return [];
       const planting = currentPlanting(plantings, plot.id);
-      const days = planting && !planting.delivered ? daysUntil(planting.harvestOn) : null;
-      const kind: StatusKey = !planting ? "none" : planting.delivered ? "delivered" : days != null && days <= 7 ? "due" : "upcoming";
+      const days = planting ? daysUntil(planting.harvestOn) : null;
+      const kind: StatusKey = !planting ? "none" : days != null && days <= 7 ? "due" : "upcoming";
       return [{ plot, farmer, planting, variety: planting?.varietyId ?? null, status: kind, days }];
     });
   }, [plots, plantings, farmers]);
@@ -274,7 +273,7 @@ export function MapScreen() {
                                 <span className="text-ink/40"> · </span>
                                 เก็บ {formatThaiDate(selected.planting.harvestOn)}
                                 <span className="text-ink/40"> · </span>
-                                {selected.planting.delivered ? "รับเข้าแล้ว" : selected.planting.estKg > 0 ? `คาด ${formatKg(selected.planting.estKg)}` : "ยังไม่คาด"}
+                                {selected.planting.estKg > 0 ? `คาด ${formatKg(selected.planting.estKg)}` : "ยังไม่คาด"}
                               </>
                             )}
                           </p>
@@ -412,7 +411,6 @@ const mapButton = "inline-flex h-9 items-center rounded-[6px] border-2 border-br
 
 function timing(row: Row) {
   if (row.status === "none") return "ยังไม่มีแผน";
-  if (row.status === "delivered") return "รับแล้ว";
   if (row.days == null) return STATUS[row.status].label;
   if (row.days < 0) return `เลย ${Math.abs(row.days)} วัน`;
   if (row.days === 0) return "เก็บวันนี้";

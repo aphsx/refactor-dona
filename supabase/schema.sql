@@ -74,7 +74,6 @@ create table public.plantings (
   planted_on date not null,
   harvest_on date not null,
   est_kg integer not null,
-  delivered boolean not null default false,
   constraint plantings_harvest_after_plant check (harvest_on >= planted_on),
   constraint plantings_est_kg_nonnegative check (est_kg >= 0)
 );
@@ -86,7 +85,22 @@ create index plots_province_id_idx on public.plots (province_id);
 create index plots_boundary_idx on public.plots using gist (boundary);
 create index plantings_plot_id_idx on public.plantings (plot_id);
 create index plantings_variety_id_idx on public.plantings (variety_id);
-create unique index plantings_one_open_per_plot on public.plantings (plot_id) where not delivered;
+create unique index plantings_one_per_plot on public.plantings (plot_id);
+
+-- Mill intake: farmer-level, not tied to a plot.
+create table public.mill_receipts (
+  id uuid primary key default gen_random_uuid(),
+  farmer_id uuid not null references public.farmers (id) on delete restrict,
+  variety_id bigint not null references public.varieties (id),
+  kg integer not null,
+  received_on date not null,
+  created_at timestamptz not null default now(),
+  constraint mill_receipts_kg_positive check (kg > 0)
+);
+
+create index mill_receipts_farmer_id_idx on public.mill_receipts (farmer_id);
+create index mill_receipts_variety_id_idx on public.mill_receipts (variety_id);
+create index mill_receipts_received_on_idx on public.mill_receipts (received_on desc, id desc);
 
 create table public.plot_activities (
   id uuid primary key default gen_random_uuid(),
