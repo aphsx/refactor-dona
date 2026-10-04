@@ -873,16 +873,9 @@ function MemberStanding({ farmer, plots, plantings, leads }: { farmer: Farmer; p
         <Fact label="พื้นที่รวม" value={plots.length === 0 ? "—" : `${area} ไร่`} />
         <Fact label="ยังไม่เข้า" value={formatKg(waiting)} />
       </div>
-      {!leads && (
+      {!leads && group && (
         <div className="border-t border-frame px-6 py-4 text-[14px]">
-          {group ? (
-            <span className="font-bold">สมาชิก {group.name}</span>
-          ) : (
-            <>
-              <span className="font-bold">ยังไม่ได้จัดกลุ่ม</span>
-              <span> เลือกกลุ่มในแบบฟอร์มด้านบนแล้วบันทึก</span>
-            </>
-          )}
+          <span className="font-bold">สมาชิก {group.name}</span>
         </div>
       )}
     </div>
