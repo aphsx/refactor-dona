@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Plus, Save, X } from "lucide-react";
 import { CanAdd } from "@/components/can";
 import { PlaceSelects } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
-import { Dialog, Glyph, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, SortableTh, TableScroll, inputClass, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
+import { Dialog, Glyph, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, SortableTh, TableScroll, inputClass, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { farmerName, farmerVarieties, formatKg } from "@/lib/mill";
 
 export function FarmersScreen() {
+  const router = useRouter();
   const { farmers, plots, plantings, groups } = useMill();
   const [adding, setAdding] = useState(false);
   const listingSort = useTableSort();
@@ -56,7 +58,11 @@ export function FarmersScreen() {
             {page.rows.map((farmer, index) => {
               const fieldCount = plots.filter((plot) => plot.farmerId === farmer.id).length;
               return (
-                <tr key={farmer.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                <tr
+                  key={farmer.id}
+                  onClick={(event) => openRow(event, () => router.push(`/farmers/manage?farmer=${farmer.id}`))}
+                  className={rowTone(index)}
+                >
                   <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                   <td className="px-5 py-3">{farmer.tel}</td>
                   <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>

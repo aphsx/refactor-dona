@@ -37,7 +37,16 @@ function RequiredMark() {
   return <span className="text-danger"> *</span>;
 }
 
-export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => void }) {
+export function PlanEditor({
+  plot,
+  onClose,
+  embedded = false,
+}: {
+  plot: PlanRow;
+  onClose: () => void;
+  /** When true, parent already shows title / back — skip the duplicate bar. */
+  embedded?: boolean;
+}) {
   const { plantings, activities, savePlot, savePlanting, saveActivity, removePlot, removePlanting } = useMill();
   const measured = plot.areaRai;
   const current = plantings.find((item) => item.id === plot.plantingId && !item.delivered) ?? null;
@@ -127,13 +136,15 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
 
   return (
     <div className="border-t border-frame bg-white">
-      <div className="flex items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
-        <div className="text-[16px] font-bold">แผนรอบ · {plot.name}</div>
-        <button type="button" onClick={onClose} className="inline-flex h-8 items-center gap-1 rounded-full bg-white px-3 text-[12px] font-bold text-bar">
-          <X size={14} strokeWidth={1.75} aria-hidden />
-          ปิด
-        </button>
-      </div>
+      {!embedded && (
+        <div className="flex items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+          <div className="text-[16px] font-bold">แผนรอบ · {plot.name}</div>
+          <button type="button" onClick={onClose} className="inline-flex h-8 items-center gap-1 rounded-full bg-white px-3 text-[12px] font-bold text-bar">
+            <X size={14} strokeWidth={1.75} aria-hidden />
+            ปิด
+          </button>
+        </div>
+      )}
       <form
         className="px-6 py-5"
         onSubmit={(event) => {

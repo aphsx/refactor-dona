@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -235,12 +234,15 @@ export function GroupManageScreen() {
 
 export function MemberManageScreen() {
   const { groups, farmers, assignFarmer } = useMill();
-  const [tab, setTab] = useState<"listing" | "detail" | "plots" | "plan">("listing");
+  const router = useRouter();
+  const requestedId = useSearchParams().get("farmer");
+  const requested = farmers.some((farmer) => farmer.id === requestedId) ? requestedId : null;
+  const [tab, setTab] = useState<"listing" | "detail" | "plots" | "plan">(requested ? "detail" : "listing");
   const [draftName, setDraftName] = useState("");
   const [draftGroup, setDraftGroup] = useState("");
   const [name, setName] = useState("");
   const [groupId, setGroupId] = useState("");
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(requested);
   const [planPlotId, setPlanPlotId] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -267,12 +269,14 @@ export function MemberManageScreen() {
     setDetailId(id);
     setPlanPlotId(null);
     setTab("detail");
+    router.replace(`/farmers/manage?farmer=${id}`);
   }
 
   function closeDetail() {
     setDetailId(null);
     setPlanPlotId(null);
     setTab("listing");
+    router.replace("/farmers/manage");
   }
 
   function openPlan(plotId: string | null) {
@@ -439,6 +443,7 @@ export function MemberManageScreen() {
 }
 
 function GroupDirectory() {
+  const router = useRouter();
   const { groups, farmers, plots, plantings } = useMill();
   const listingSort = useTableSort("groups");
   const ordered = orderBy(groups, listingSort.sort, (group, key) => {
@@ -485,12 +490,12 @@ function GroupDirectory() {
             const expected = plantings.filter((planting) => !planting.delivered && ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
             const received = people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
             return (
-              <tr key={group.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                <td className="px-5 py-3">
-                  <Link href={`/groups/manage?group=${group.id}`} className="font-bold text-link underline">
-                    {group.name}
-                  </Link>
-                </td>
+              <tr
+                key={group.id}
+                onClick={(event) => openRow(event, () => router.push(`/groups/manage?group=${group.id}`))}
+                className={rowTone(index)}
+              >
+                <td className="px-5 py-3 font-bold">{group.name}</td>
                 <td className="px-5 py-3">{leader ? farmerName(leader) : "—"}</td>
                 <td className="px-5 py-3">{people.length}</td>
                 <td className="px-5 py-3">{formatKg(expected)}</td>
@@ -1219,9 +1224,7 @@ export function MemberPlan({
     return (
       <>
         <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
-          <div className="text-[16px] font-bold">
-            {farmerName(farmer)} · {selected.name}
-          </div>
+          <div className="text-[16px] font-bold">แผนรอบ · {selected.name}</div>
           <button
             type="button"
             onClick={() => setPlotId(null)}
@@ -1231,7 +1234,12 @@ export function MemberPlan({
           </button>
         </div>
 
-        <PlanEditor key={selected.plantingId || `new:${selected.id}`} plot={selected} onClose={() => setPlotId(null)} />
+        <PlanEditor
+          key={selected.plantingId || `new:${selected.id}`}
+          plot={selected}
+          embedded
+          onClose={() => setPlotId(null)}
+        />
 
         {selected.plantingId && selected.varietyId != null ? (
           <PlantingActivityPanel
