@@ -292,8 +292,8 @@ export function MemberManageScreen() {
         {detail && (
           <>
             <StatusTab label="รายละเอียดเกษตรกร" active={tab === "detail"} onClick={() => setTab("detail")} />
-            <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
             <StatusTab label="แปลงของเกษตรกร" active={tab === "plots"} onClick={() => setTab("plots")} />
+            <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
           </>
         )}
       </div>
