@@ -8,7 +8,7 @@ import { Search, X } from "lucide-react";
 import { CanEdit } from "@/components/can";
 import type { FieldMapHandle } from "@/components/field-map";
 import { useMill } from "@/components/store";
-import { SearchSelect, matchesQuery } from "@/components/ui";
+import { SuggestInput, matchesQuery } from "@/components/ui";
 import { measureRingAreaRai } from "@/lib/api";
 import {
   centroid,
@@ -55,11 +55,12 @@ export function MapScreen() {
   const { plots, plantings, farmers, groups, saveBoundary } = useMill();
   const mapRef = useRef<FieldMapHandle>(null);
   const [query, setQuery] = useState("");
-  const [groupId, setGroupId] = useState("all");
+  const [groupText, setGroupText] = useState("");
   const [plotId, setPlotId] = useState<string | null>(requestedPlot);
   const [draft, setDraft] = useState<[number, number][] | null>(null);
   const [areaText, setAreaText] = useState("");
   const [boundaryError, setBoundaryError] = useState("");
+  const [suggestOpen, setSuggestOpen] = useState(false);
 
   useEffect(() => {
     setPlotId(requestedPlot);
@@ -92,16 +93,32 @@ export function MapScreen() {
     });
   }, [plots, plantings, farmers]);
 
+  const groupNames = useMemo(
+    () => [...groups].map((group) => group.name).sort((a, b) => a.localeCompare(b, "th")),
+    [groups],
+  );
+
   const scoped = rows.filter((row) => {
-    if (groupId === "none" && row.farmer.groupId != null) return false;
-    if (groupId !== "all" && groupId !== "none" && row.farmer.groupId !== groupId) return false;
+    const groupName = groups.find((group) => group.id === row.farmer.groupId)?.name ?? "";
+    if (groupText.trim()) {
+      if (groupText.trim() === "ไม่มีกลุ่ม") {
+        if (row.farmer.groupId != null) return false;
+      } else if (!matchesQuery(groupText, groupName)) {
+        return false;
+      }
+    }
     return matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.tel}`);
   });
   const listedIds = new Set(scoped.map((row) => row.plot.id));
   const selected = rows.find((row) => row.plot.id === plotId) ?? null;
+  const suggestions = useMemo(() => {
+    if (!query.trim()) return [];
+    return scoped.slice(0, 8);
+  }, [scoped, query]);
 
   function choosePlot(id: string | null) {
     setPlotId(id);
+    setSuggestOpen(false);
   }
 
   function placePoint(lng: number, lat: number) {
@@ -171,27 +188,56 @@ export function MapScreen() {
         />
         <div className="absolute left-4 top-4 z-20 w-[300px] space-y-3 rounded-[8px] border border-frame bg-white p-3 shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
           <div className="relative">
-            <Search size={16} strokeWidth={1.75} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+            <Search size={16} strokeWidth={1.75} className="absolute left-3 top-3 text-ink/40" />
             <input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSuggestOpen(true);
+              }}
+              onFocus={() => setSuggestOpen(true)}
+              onBlur={() => {
+                // ให้คลิกรายการด้านล่างทันก่อนปิด
+                window.setTimeout(() => setSuggestOpen(false), 120);
+              }}
               placeholder="ค้นชื่อแปลง หรือเกษตรกร"
               aria-label="ค้นแปลง"
               className="h-10 w-full rounded-[4px] border border-line bg-white pl-9 pr-3 text-[14px] placeholder:text-ink/20"
             />
+            {suggestOpen && query.trim() && suggestions.length > 0 && (
+              <ul className="mt-1 max-h-56 overflow-y-auto rounded-[4px] border border-line bg-white py-1">
+                {suggestions.map((row) => (
+                  <li key={row.plot.id}>
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setQuery(`${row.plot.name} · ${farmerName(row.farmer)}`);
+                        choosePlot(row.plot.id);
+                      }}
+                      className="flex w-full flex-col px-3 py-2 text-left hover:bg-pick"
+                    >
+                      <span className="text-[14px] font-bold">{row.plot.name}</span>
+                      <span className="text-[12px] text-ink/60">{farmerName(row.farmer)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {suggestOpen && query.trim() && suggestions.length === 0 && (
+              <div className="mt-1 rounded-[4px] border border-line px-3 py-2 text-[13px] text-ink/60">ไม่พบรายการ</div>
+            )}
           </div>
-          <SearchSelect
-            label="กลุ่ม"
-            value={groupId}
-            onChange={setGroupId}
-            options={[
-              { value: "all", label: "ทุกกลุ่ม" },
-              { value: "none", label: "ไม่มีกลุ่ม" },
-              ...[...groups]
-                .sort((a, b) => a.name.localeCompare(b.name, "th"))
-                .map((group) => ({ value: group.id, label: group.name })),
-            ]}
-          />
+          <label className="block text-[13px] font-bold">
+            กลุ่ม
+            <SuggestInput
+              label="กลุ่ม"
+              className="mt-1"
+              value={groupText}
+              onChange={setGroupText}
+              suggestions={["ไม่มีกลุ่ม", ...groupNames]}
+            />
+          </label>
         </div>
           {selected && (
             <div className="absolute inset-x-4 bottom-4 z-20 overflow-hidden rounded-[8px] border border-frame bg-white shadow-[0_4px_16px_rgba(0,0,0,0.12)]">

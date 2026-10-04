@@ -58,12 +58,26 @@ type SeasonRow = Plot & {
   stage: string;
 };
 type HarvestQuery = { from: string; to: string; groupId: string; variety: string };
-type MemberQuery = { name: string; tel: string; groupId: string };
+type MemberQuery = {
+  name: string;
+  tel: string;
+  groupId: string;
+  variety: string;
+  plantedFrom: string;
+  plantedTo: string;
+  harvestFrom: string;
+  harvestTo: string;
+};
 
 const emptyMemberQuery: MemberQuery = {
   name: "",
   tel: "",
   groupId: "all",
+  variety: "all",
+  plantedFrom: "",
+  plantedTo: "",
+  harvestFrom: "",
+  harvestTo: "",
 };
 
 const SOON_DAYS = 14;
@@ -221,6 +235,28 @@ export function MemberSeasonScreen() {
     ...[...groups].sort((a, b) => a.name.localeCompare(b.name, "th")).map((group) => ({ value: group.id, label: group.name })),
   ];
 
+  const planFilter =
+    applied.variety !== "all" ||
+    applied.plantedFrom !== "" ||
+    applied.plantedTo !== "" ||
+    applied.harvestFrom !== "" ||
+    applied.harvestTo !== "";
+
+  const matchingPlanFarmerIds = useMemo(() => {
+    if (!planFilter) return null;
+    const ids = new Set<string>();
+    for (const planting of plantings) {
+      if (planting.delivered) continue;
+      const plot = plots.find((item) => item.id === planting.plotId);
+      if (!plot) continue;
+      if (applied.variety !== "all" && planting.varietyId !== Number(applied.variety)) continue;
+      if (!inRange(planting.plantedOn, applied.plantedFrom, applied.plantedTo)) continue;
+      if (!inRange(planting.harvestOn, applied.harvestFrom, applied.harvestTo)) continue;
+      ids.add(plot.farmerId);
+    }
+    return ids;
+  }, [plantings, plots, applied, planFilter]);
+
   const people = useMemo(() => {
     if (!searched) return [];
     return farmers
@@ -229,11 +265,12 @@ export function MemberSeasonScreen() {
         if (applied.groupId !== "all" && applied.groupId !== "none" && farmer.groupId !== applied.groupId) return false;
         if (!isWildcard(applied.name) && !matchesQuery(applied.name, farmerName(farmer))) return false;
         if (!isWildcard(applied.tel) && !farmer.tel.replace(/\D/g, "").includes(applied.tel.replace(/\D/g, ""))) return false;
+        if (matchingPlanFarmerIds && !matchingPlanFarmerIds.has(farmer.id)) return false;
         return true;
       })
       .slice()
       .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"));
-  }, [farmers, applied, searched]);
+  }, [farmers, applied, searched, matchingPlanFarmerIds]);
 
   const listingSort = useTableSort(searched ? JSON.stringify(applied) : "idle");
   const ordered = orderBy(people, listingSort.sort, (farmer, key) => {
@@ -261,12 +298,11 @@ export function MemberSeasonScreen() {
     <div className="h-full overflow-y-auto px-7 py-6">
       <PageHeader current="แผนรายเกษตรกร" />
       <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
-        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาเพื่อเปิดแผน</div>
+        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาเกษตรกร</div>
         <form
-          className="grid gap-4 px-6 py-5 md:grid-cols-2 xl:grid-cols-3"
+          className="grid gap-4 px-6 py-5 md:grid-cols-2 xl:grid-cols-4"
           onSubmit={(event) => {
             event.preventDefault();
-            setDraft(draft);
             setApplied(draft);
             setSearched(true);
             setFarmerId(null);
@@ -294,7 +330,61 @@ export function MemberSeasonScreen() {
             กลุ่ม
             <SearchSelect label="กลุ่ม" className="mt-1" value={draft.groupId} onChange={(groupId) => setDraft({ ...draft, groupId })} options={groupOptions} />
           </label>
-          <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-3">
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            พันธุ์
+            <Select
+              label="พันธุ์"
+              className="mt-1"
+              value={draft.variety}
+              onChange={(variety) => setDraft({ ...draft, variety })}
+              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))]}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            จากวันปลูก
+            <DateField
+              label="จากวันปลูก"
+              className="mt-1"
+              value={draft.plantedFrom}
+              max={draft.plantedTo}
+              onChange={(plantedFrom) =>
+                setDraft({ ...draft, plantedFrom, plantedTo: draft.plantedTo && plantedFrom && draft.plantedTo < plantedFrom ? plantedFrom : draft.plantedTo })
+              }
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ถึงวันปลูก
+            <DateField
+              label="ถึงวันปลูก"
+              className="mt-1"
+              value={draft.plantedTo}
+              min={draft.plantedFrom}
+              onChange={(plantedTo) => setDraft({ ...draft, plantedTo })}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            จากวันเก็บ
+            <DateField
+              label="จากวันเก็บ"
+              className="mt-1"
+              value={draft.harvestFrom}
+              max={draft.harvestTo}
+              onChange={(harvestFrom) =>
+                setDraft({ ...draft, harvestFrom, harvestTo: draft.harvestTo && harvestFrom && draft.harvestTo < harvestFrom ? harvestFrom : draft.harvestTo })
+              }
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ถึงวันเก็บ
+            <DateField
+              label="ถึงวันเก็บ"
+              className="mt-1"
+              value={draft.harvestTo}
+              min={draft.harvestFrom}
+              onChange={(harvestTo) => setDraft({ ...draft, harvestTo })}
+            />
+          </label>
+          <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-4">
             <PrimaryButton type="submit">
               <Glyph icon={Search} />
               ค้นหา
