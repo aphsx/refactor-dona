@@ -290,7 +290,7 @@ export function formatThaiMonth(iso: string) {
   return new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
 }
 
-const FARMER_COLORS = ["#1A9D72", "#1D4F60", "#3B6787", "#6B5BA6", "#B7791F", "#0F766E"];
+const FARMER_COLORS = ["#50AB6D", "#24586C", "#3E965A", "#6B8F9E", "#D4A84B", "#1C4A5C"];
 
 export function farmerColor(id: string) {
   let hash = 0;

@@ -4,8 +4,10 @@ import { useState } from "react";
 import { Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { apiLogin, apiMessage, clearAuthSession, type AuthSession } from "@/lib/api";
 
-const brandDark = "#0F493B";
-const brandPrimary = "#1D8A6A";
+const brandDark = "#24586C";
+const brandPrimary = "#50AB6D";
+const brandButton = "#24586C";
+const brandButtonHover = "#1C4A5C";
 
 export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) => void }) {
   const [username, setUsername] = useState("");
@@ -19,14 +21,14 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
       className="fixed inset-0 overflow-y-auto"
       style={{
         background:
-          "radial-gradient(120% 80% at 50% -10%, #d9f3e8 0%, #F3FBF7 42%, #eaf6f1 100%)",
+          "radial-gradient(120% 80% at 50% -10%, #fff6d6 0%, #f4faf7 40%, #e8f2ef 100%)",
       }}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-40"
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-50"
         style={{
-          background: "linear-gradient(180deg, rgba(29,138,106,0.14), transparent)",
+          background: "linear-gradient(180deg, rgba(80,171,109,0.16), transparent)",
         }}
       />
 
@@ -77,7 +79,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
             <span className="mb-1.5 block text-[13px] font-semibold" style={{ color: brandDark }}>
               ชื่อผู้ใช้
             </span>
-            <span className="flex items-center gap-3 rounded-2xl bg-white/90 px-4 ring-1 ring-black/5 backdrop-blur-sm transition-[box-shadow,ring-color] focus-within:ring-[#1D8A6A]/40 focus-within:shadow-[0_0_0_4px_rgba(29,138,106,0.12)]">
+            <span className="flex items-center gap-3 rounded-2xl bg-white/90 px-4 ring-1 ring-black/5 backdrop-blur-sm transition-[box-shadow,ring-color] focus-within:ring-[#50AB6D]/40 focus-within:shadow-[0_0_0_4px_rgba(80,171,109,0.14)]">
               <UserRound size={20} strokeWidth={1.75} style={{ color: `${brandPrimary}B3` }} />
               <input
                 autoFocus
@@ -94,7 +96,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
             <span className="mb-1.5 block text-[13px] font-semibold" style={{ color: brandDark }}>
               รหัสผ่าน
             </span>
-            <span className="flex items-center gap-3 rounded-2xl bg-white/90 px-4 ring-1 ring-black/5 backdrop-blur-sm transition-[box-shadow,ring-color] focus-within:ring-[#1D8A6A]/40 focus-within:shadow-[0_0_0_4px_rgba(29,138,106,0.12)]">
+            <span className="flex items-center gap-3 rounded-2xl bg-white/90 px-4 ring-1 ring-black/5 backdrop-blur-sm transition-[box-shadow,ring-color] focus-within:ring-[#50AB6D]/40 focus-within:shadow-[0_0_0_4px_rgba(80,171,109,0.14)]">
               <Lock size={20} strokeWidth={1.75} style={{ color: `${brandPrimary}B3` }} />
               <input
                 type={passwordHidden ? "password" : "text"}
@@ -128,8 +130,8 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
         <button
           type="submit"
           disabled={busy || !username.trim() || !password}
-          className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-2xl text-[15px] font-bold text-white transition-[transform,opacity,background-color] active:scale-[0.99] disabled:opacity-50"
-          style={{ backgroundColor: brandPrimary }}
+          className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-2xl text-[15px] font-bold text-white transition-[transform,opacity,background-color] hover:brightness-95 active:scale-[0.99] disabled:opacity-50"
+          style={{ backgroundColor: busy ? brandButtonHover : brandButton }}
         >
           {busy ? (
             <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />

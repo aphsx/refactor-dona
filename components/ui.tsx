@@ -109,7 +109,7 @@ export function PrimaryButton({
     <button
       type="button"
       {...props}
-      className={`inline-flex h-10 cursor-pointer select-none items-center justify-center gap-2 rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white transition-colors hover:bg-brand-hover active:bg-sidebar disabled:pointer-events-none disabled:bg-[#D0D0D0] ${className}`}
+      className={`inline-flex h-10 cursor-pointer select-none items-center justify-center gap-2 rounded-[6px] bg-bar px-4 text-[14px] font-bold text-white transition-colors hover:bg-sidebar active:bg-ink disabled:pointer-events-none disabled:bg-[#D0D0D0] ${className}`}
     >
       {children}
     </button>
@@ -125,7 +125,7 @@ export function SecondaryButton({
     <button
       type="button"
       {...props}
-      className={`inline-flex h-10 cursor-pointer select-none items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand transition-colors hover:bg-pick active:bg-table disabled:pointer-events-none disabled:border-[#D0D0D0] disabled:text-[#B0B0B0] ${className}`}
+      className={`inline-flex h-10 cursor-pointer select-none items-center justify-center gap-2 rounded-[6px] border-2 border-bar bg-white px-4 text-[14px] font-bold text-bar transition-colors hover:bg-sub active:bg-table disabled:pointer-events-none disabled:border-[#D0D0D0] disabled:text-[#B0B0B0] ${className}`}
     >
       {children}
     </button>
@@ -799,7 +799,7 @@ export function DateField({
                     }}
                     className={`mx-auto flex h-8 w-8 items-center justify-center rounded-[4px] text-[14px] ${
                       picked
-                        ? "bg-brand font-bold text-white"
+                        ? "bg-bar font-bold text-white"
                         : blocked
                           ? "cursor-not-allowed text-ink/20"
                           : iso === today

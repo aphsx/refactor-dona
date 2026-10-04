@@ -185,7 +185,7 @@ function ShellFrame({
             setRetrying(true);
             void reload().finally(() => setRetrying(false));
           }}
-          className="mt-2 inline-flex h-10 items-center rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white disabled:bg-[#D0D0D0]"
+          className="mt-2 inline-flex h-10 items-center rounded-[6px] bg-bar px-4 text-[14px] font-bold text-white hover:bg-sidebar disabled:bg-[#D0D0D0]"
         >
           {retrying ? "กำลังลองใหม่…" : "ลองเชื่อมใหม่"}
         </button>

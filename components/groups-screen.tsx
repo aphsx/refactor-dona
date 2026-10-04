@@ -1089,7 +1089,7 @@ function PlotTable({
         {shaped ? (
           <div className="h-[calc(100vh-12rem)]">
             <FieldMap
-              plots={[{ id: mapPlot.id, name: mapPlot.name, color: "#1A9D72", muted: false, polygon: mapPlot.polygon }]}
+              plots={[{ id: mapPlot.id, name: mapPlot.name, color: "#50AB6D", muted: false, polygon: mapPlot.polygon }]}
               selectedId={mapPlot.id}
               onSelect={() => {}}
               bottomInset={64}
@@ -2168,7 +2168,7 @@ export function DrawBoundary({
       <div className="h-[calc(100vh-20rem)]">
         <FieldMap
           ref={mapRef}
-          plots={plots.map((plot) => ({ id: plot.id, name: plot.name, color: "#1A9D72", muted: true, polygon: plot.polygon }))}
+          plots={plots.map((plot) => ({ id: plot.id, name: plot.name, color: "#50AB6D", muted: true, polygon: plot.polygon }))}
           selectedId={null}
           onSelect={() => {}}
           draft={draft}
