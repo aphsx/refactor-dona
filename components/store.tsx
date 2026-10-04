@@ -46,7 +46,7 @@ type Store = MillSnapshot & {
   savePlanting: (
     plotId: string,
     input: { plantingId: string | null; varietyId: Variety; plantedOn: string; harvestOn: string; estKg: number },
-  ) => Promise<string | null>;
+  ) => Promise<{ error: string | null; plantingId: string | null }>;
   removePlanting: (plantingId: string) => Promise<string | null>;
   saveActivity: (input: {
     id?: string | null;
@@ -243,16 +243,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     },
     removePlot: (plotId) => mutate(() => api.deletePlot(plotId)),
-    savePlanting: (plotId, input) =>
-      mutate(() => {
+    savePlanting: async (plotId, input) => {
+      try {
         const body = {
           varietyId: input.varietyId,
           plantedOn: input.plantedOn,
           harvestOn: input.harvestOn,
           estKg: input.estKg,
         };
-        return input.plantingId ? api.updatePlanting(input.plantingId, body) : api.createPlanting({ plotId, ...body });
-      }),
+        const item = input.plantingId
+          ? await api.updatePlanting(input.plantingId, body)
+          : await api.createPlanting({ plotId, ...body });
+        await reload();
+        return { error: null, plantingId: item.id };
+      } catch (error) {
+        return { error: apiMessage(error), plantingId: null };
+      }
+    },
     removePlanting: (plantingId) => mutate(() => api.deletePlanting(plantingId)),
     saveActivity: (input) =>
       mutate(() => {

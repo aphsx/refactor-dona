@@ -110,17 +110,39 @@ export type PlotActivity = {
   updatedAt: string;
 };
 
-export const ACTIVITY_TYPES: { id: PlotActivityType; label: string }[] = [
-  { id: "seed_receive", label: "รับเมล็ดพันธุ์" },
-  { id: "plant_actual", label: "ปลูกจริง" },
-  { id: "fertilizer_receive", label: "รับปุ๋ย" },
-  { id: "fertilizer_apply", label: "ใส่ปุ๋ยจริง" },
-  { id: "chemical", label: "ใช้สารเคมี" },
-  { id: "problem", label: "ปัญหาในแปลง" },
+/** Full labels — seed/plant stay on แผนรอบ, not the activity picker. */
+export const ACTIVITY_TYPE_LABELS: Record<PlotActivityType, string> = {
+  seed_receive: "รับเมล็ดพันธุ์",
+  plant_actual: "ปลูกจริง",
+  fertilizer_receive: "รับปุ๋ย",
+  fertilizer_apply: "ใส่ปุ๋ยจริง",
+  chemical: "ใช้สารเคมี",
+  problem: "ปัญหาในแปลง",
+};
+
+/** Types that appear on Timeline / ปุ่มเพิ่มกิจกรรม */
+export const TIMELINE_ACTIVITY_TYPES: { id: PlotActivityType; label: string; shortLabel: string }[] = [
+  { id: "fertilizer_receive", label: ACTIVITY_TYPE_LABELS.fertilizer_receive, shortLabel: "รับปุ๋ย" },
+  { id: "fertilizer_apply", label: ACTIVITY_TYPE_LABELS.fertilizer_apply, shortLabel: "ใส่ปุ๋ย" },
+  { id: "chemical", label: ACTIVITY_TYPE_LABELS.chemical, shortLabel: "สารเคมี" },
+  { id: "problem", label: ACTIVITY_TYPE_LABELS.problem, shortLabel: "ปัญหา" },
 ];
 
+export const ACTIVITY_TYPES = TIMELINE_ACTIVITY_TYPES;
+
 export function activityTypeLabel(type: PlotActivityType) {
-  return ACTIVITY_TYPES.find((item) => item.id === type)?.label ?? type;
+  return ACTIVITY_TYPE_LABELS[type] ?? type;
+}
+
+export function timelineActivitiesOf(activities: PlotActivity[], plantingId: string) {
+  return activitiesOf(activities, plantingId).filter(
+    (item) => item.type !== "seed_receive" && item.type !== "plant_actual",
+  );
+}
+
+export function latestActivityOfType(activities: PlotActivity[], plantingId: string, type: PlotActivityType) {
+  const rows = activitiesOf(activities, plantingId).filter((item) => item.type === type);
+  return rows[rows.length - 1] ?? null;
 }
 
 export type PermissionRole = "mill" | "leader" | "member";
@@ -255,18 +277,9 @@ export function activitiesOf(activities: PlotActivity[], plantingId: string) {
 
 export function plantingAreaSummary(plotAreaRai: number, activities: PlotActivity[], plantingId: string) {
   const rows = activitiesOf(activities, plantingId);
-  let intendedAreaRai = plotAreaRai;
   let plantedAreaRai = 0;
-  let hasIntended = false;
   let actuallyPlantedOn: string | null = null;
   for (const row of rows) {
-    if (row.type === "seed_receive") {
-      const payload = row.payload as SeedReceivePayload;
-      if (typeof payload.intendedAreaRai === "number" && payload.intendedAreaRai > 0) {
-        intendedAreaRai = payload.intendedAreaRai;
-        hasIntended = true;
-      }
-    }
     if (row.type === "plant_actual") {
       const payload = row.payload as PlantActualPayload;
       if (typeof payload.plantedAreaRai === "number" && payload.plantedAreaRai > 0) {
@@ -275,24 +288,28 @@ export function plantingAreaSummary(plotAreaRai: number, activities: PlotActivit
       }
     }
   }
-  if (!hasIntended) intendedAreaRai = plotAreaRai;
+  const intendedAreaRai = plotAreaRai;
   const unplantedAreaRai = Math.max(0, Math.round((intendedAreaRai - plantedAreaRai) * 100) / 100);
   return { intendedAreaRai, plantedAreaRai, unplantedAreaRai, actuallyPlantedOn };
 }
 
 export function currentActivityStage(activities: PlotActivity[], plantingId: string) {
-  const rows = activitiesOf(activities, plantingId);
-  if (rows.length === 0) return "ยังไม่มีกิจกรรม";
-  const latest = rows[rows.length - 1];
-  if (latest.type === "fertilizer_apply") {
-    const round = (latest.payload as FertilizerApplyPayload).round;
-    return `ใส่ปุ๋ยครั้งที่ ${round}`;
+  const rows = timelineActivitiesOf(activities, plantingId);
+  if (rows.length > 0) {
+    const latest = rows[rows.length - 1];
+    if (latest.type === "fertilizer_apply") {
+      const round = (latest.payload as FertilizerApplyPayload).round;
+      return `ใส่ปุ๋ยครั้งที่ ${round}`;
+    }
+    if (latest.type === "chemical") {
+      const round = (latest.payload as ChemicalPayload).round;
+      return `ใช้สารเคมีครั้งที่ ${round}`;
+    }
+    return activityTypeLabel(latest.type);
   }
-  if (latest.type === "chemical") {
-    const round = (latest.payload as ChemicalPayload).round;
-    return `ใช้สารเคมีครั้งที่ ${round}`;
-  }
-  return activityTypeLabel(latest.type);
+  if (latestActivityOfType(activities, plantingId, "plant_actual")) return "ปลูกแล้ว";
+  if (latestActivityOfType(activities, plantingId, "seed_receive")) return "รับเมล็ดแล้ว";
+  return "ยังไม่มีกิจกรรม";
 }
 
 export function nextActivityRound(activities: PlotActivity[], plantingId: string, type: "fertilizer_apply" | "chemical") {

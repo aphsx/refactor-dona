@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { CanAdd, CanDelete, CanEdit, CanRead } from "@/components/can";
 import { useMill } from "@/components/store";
@@ -12,15 +12,12 @@ import {
   PrimaryButton,
   ResultAlert,
   SecondaryButton,
-  Select,
   TableScroll,
   inputClass,
   tableClass,
 } from "@/components/ui";
 import {
-  ACTIVITY_TYPES,
-  VARIETIES,
-  activitiesOf,
+  TIMELINE_ACTIVITY_TYPES,
   activitySummary,
   activityTypeLabel,
   currentActivityStage,
@@ -28,16 +25,14 @@ import {
   formatThaiDate,
   nextActivityRound,
   plantingAreaSummary,
-  varietyName,
+  timelineActivitiesOf,
   type ChemicalPayload,
   type FertilizerApplyPayload,
   type FertilizerReceivePayload,
-  type PlantActualPayload,
   type PlotActivity,
   type PlotActivityPayload,
   type PlotActivityType,
   type ProblemPayload,
-  type SeedReceivePayload,
   type Variety,
 } from "@/lib/mill";
 
@@ -84,42 +79,48 @@ export function PlantingActivityPanel({
   varietyId: Variety;
 }) {
   const { activities, saveActivity, removeActivity } = useMill();
-  const rows = activitiesOf(activities, plantingId);
+  const rows = timelineActivitiesOf(activities, plantingId);
   const summary = plantingAreaSummary(plotAreaRai, activities, plantingId);
   const stage = currentActivityStage(activities, plantingId);
   const [editor, setEditor] = useState<null | { mode: "create" | "edit"; activity?: PlotActivity; type?: PlotActivityType }>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const hasSeed = rows.some((item) => item.type === "seed_receive");
 
   return (
     <CanRead resource="activities">
     <div className="border-t border-frame">
-      <div className="border-b border-frame bg-sub px-6 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-[16px] font-bold">Timeline กิจกรรม</div>
-            <div className="mt-1 text-[14px] text-ink/70">
-              พันธุ์ {varietyName(varietyId)} · พื้นที่แปลง {formatRai(plotAreaRai)}
-            </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+        <div className="text-[16px] font-bold">Timeline กิจกรรม</div>
+        <CanAdd resource="activities">
+          <div className="flex flex-wrap gap-2">
+            {TIMELINE_ACTIVITY_TYPES.map((item) => (
+              <SecondaryButton
+                key={item.id}
+                className="h-9"
+                onClick={() => setEditor({ mode: "create", type: item.id })}
+              >
+                <Glyph icon={Plus} />
+                {item.shortLabel}
+              </SecondaryButton>
+            ))}
           </div>
-          <CanAdd resource="activities">
-            <PrimaryButton
-              className="h-9"
-              onClick={() => setEditor({ mode: "create", type: hasSeed ? "plant_actual" : "seed_receive" })}
-            >
-              <Glyph icon={Plus} />
-              เพิ่มกิจกรรม
-            </PrimaryButton>
-          </CanAdd>
+        </CanAdd>
+      </div>
+
+      <div className="border-b border-frame">
+        <div className="grid grid-cols-3 border-b border-frame bg-table">
+          <div className="px-5 py-3 text-[14px] font-bold">ปลูกจริงแล้ว</div>
+          <div className="border-l border-frame px-5 py-3 text-[14px] font-bold">ยังไม่ปลูก</div>
+          <div className="border-l border-frame px-5 py-3 text-[14px] font-bold">ขั้นตอนปัจจุบัน</div>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryStat label="พื้นที่ตั้งใจปลูก" value={formatRai(summary.intendedAreaRai)} />
-          <SummaryStat label="ปลูกจริงแล้ว" value={formatRai(summary.plantedAreaRai)} emphasize />
-          <SummaryStat label="ยังไม่ปลูก" value={formatRai(summary.unplantedAreaRai)} />
-          <SummaryStat label="ขั้นตอนปัจจุบัน" value={stage} emphasize />
+        <div className="grid grid-cols-3 bg-white">
+          <div className="px-5 py-3 text-[14px] font-bold text-brand">{formatRai(summary.plantedAreaRai)}</div>
+          <div className="border-l border-frame px-5 py-3 text-[14px]">{formatRai(summary.unplantedAreaRai)}</div>
+          <div className="border-l border-frame px-5 py-3 text-[14px] font-bold">{stage}</div>
         </div>
         {summary.actuallyPlantedOn && (
-          <div className="mt-2 text-[13px] text-ink/60">วันที่ปลูกจริงล่าสุด {formatThaiDate(summary.actuallyPlantedOn)}</div>
+          <div className="border-t border-frame px-5 py-2 text-[13px] text-ink/60">
+            วันที่ปลูกจริงล่าสุด {formatThaiDate(summary.actuallyPlantedOn)}
+          </div>
         )}
       </div>
 
@@ -137,7 +138,7 @@ export function PlantingActivityPanel({
             {rows.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-5 py-6 text-ink/60">
-                  ยังไม่มีกิจกรรม — เริ่มจากรับเมล็ดพันธุ์หรือปลูกจริง
+                  ยังไม่มีกิจกรรม
                 </td>
               </tr>
             )}
@@ -211,15 +212,6 @@ export function PlantingActivityPanel({
   );
 }
 
-function SummaryStat({ label, value, emphasize = false }: { label: string; value: string; emphasize?: boolean }) {
-  return (
-    <div className="rounded-[8px] border border-frame bg-white px-4 py-3">
-      <div className="text-[12px] text-ink/60">{label}</div>
-      <div className={`mt-1 text-[16px] ${emphasize ? "font-bold text-brand" : "font-bold"}`}>{value}</div>
-    </div>
-  );
-}
-
 function ActivityDialog({
   plantingId,
   plotAreaRai,
@@ -248,28 +240,17 @@ function ActivityDialog({
     note?: string;
   }) => Promise<string | null>;
 }) {
-  const summary = plantingAreaSummary(plotAreaRai, activities, plantingId);
-  const [type, setType] = useState<PlotActivityType>(activity?.type ?? initialType ?? "seed_receive");
+  const type = activity?.type ?? initialType ?? "fertilizer_receive";
   const [occurredOn, setOccurredOn] = useState(activity?.occurredOn ?? todayISO());
   const [note, setNote] = useState(activity?.note ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const seed = (activity?.type === "seed_receive" ? activity.payload : null) as SeedReceivePayload | null;
-  const plant = (activity?.type === "plant_actual" ? activity.payload : null) as PlantActualPayload | null;
   const fertRecv = (activity?.type === "fertilizer_receive" ? activity.payload : null) as FertilizerReceivePayload | null;
   const fertApply = (activity?.type === "fertilizer_apply" ? activity.payload : null) as FertilizerApplyPayload | null;
   const chemical = (activity?.type === "chemical" ? activity.payload : null) as ChemicalPayload | null;
   const problem = (activity?.type === "problem" ? activity.payload : null) as ProblemPayload | null;
 
-  const [variety, setVariety] = useState<Variety | "">(seed ? (seed.varietyId as Variety) : varietyId);
-  const [quantityKg, setQuantityKg] = useState(seed ? String(seed.quantityKg) : "");
-  const [intendedAreaRai, setIntendedAreaRai] = useState(
-    seed ? String(seed.intendedAreaRai) : String(summary.intendedAreaRai || plotAreaRai),
-  );
-  const [plantedAreaRai, setPlantedAreaRai] = useState(
-    plant ? String(plant.plantedAreaRai) : summary.plantedAreaRai > 0 ? String(summary.plantedAreaRai) : "",
-  );
   const [product, setProduct] = useState(fertRecv?.product ?? "");
   const [fertQty, setFertQty] = useState(fertRecv ? String(fertRecv.quantityKg) : "");
   const [fertRound, setFertRound] = useState(
@@ -284,34 +265,8 @@ function ActivityDialog({
   const [chemDetails, setChemDetails] = useState(chemical?.details ?? "");
   const [problemDetails, setProblemDetails] = useState(problem?.details ?? "");
 
-  const softWarning = useMemo(() => {
-    if (type === "plant_actual" && !activities.some((item) => item.type === "seed_receive") && mode === "create") {
-      return "ยังไม่มีการรับเมล็ดพันธุ์ในรอบนี้ — บันทึกได้ แต่ควรใส่รับเมล็ดย้อนหลังด้วย";
-    }
-    return "";
-  }, [type, activities, mode]);
-
   function buildPayload(): { payload: PlotActivityPayload; error?: string } {
     if (!occurredOn) return { payload: { details: "" }, error: "ระบุวันที่" };
-    if (type === "seed_receive") {
-      if (!variety) return { payload: { varietyId: 1, quantityKg: 0, intendedAreaRai: 0 }, error: "เลือกพันธุ์" };
-      const qty = Number(quantityKg);
-      const area = Number(intendedAreaRai);
-      if (!(qty >= 0)) return { payload: { varietyId: variety, quantityKg: 0, intendedAreaRai: 0 }, error: "ปริมาณต้องไม่ติดลบ" };
-      if (!(area > 0)) return { payload: { varietyId: variety, quantityKg: qty, intendedAreaRai: 0 }, error: "พื้นที่ตั้งใจต้องมากกว่า 0" };
-      if (area > plotAreaRai) {
-        return { payload: { varietyId: variety, quantityKg: qty, intendedAreaRai: area }, error: "พื้นที่ตั้งใจต้องไม่เกินพื้นที่แปลง" };
-      }
-      return { payload: { varietyId: variety, quantityKg: qty, intendedAreaRai: area } };
-    }
-    if (type === "plant_actual") {
-      const area = Number(plantedAreaRai);
-      if (!(area > 0)) return { payload: { plantedAreaRai: 0 }, error: "พื้นที่ปลูกจริงต้องมากกว่า 0" };
-      if (area > summary.intendedAreaRai) {
-        return { payload: { plantedAreaRai: area }, error: "พื้นที่ปลูกจริงต้องไม่เกินพื้นที่ตั้งใจปลูก" };
-      }
-      return { payload: { plantedAreaRai: area } };
-    }
     if (type === "fertilizer_receive") {
       const qty = Number(fertQty);
       if (!product.trim()) return { payload: { product: "", quantityKg: 0 }, error: "ระบุปุ๋ยที่ได้รับ" };
@@ -338,7 +293,7 @@ function ActivityDialog({
   }
 
   return (
-    <Dialog title={mode === "edit" ? "แก้ไขกิจกรรม" : "เพิ่มกิจกรรม"} onClose={onClose}>
+    <Dialog title={mode === "edit" ? `แก้ไข${activityTypeLabel(type)}` : `เพิ่ม${activityTypeLabel(type)}`} onClose={onClose}>
       <form
         className="grid gap-4"
         onSubmit={(event) => {
@@ -356,7 +311,7 @@ function ActivityDialog({
               type,
               occurredOn,
               payload: built.payload,
-              note: type === "problem" ? note.trim() : note.trim(),
+              note: note.trim(),
             });
             setSaving(false);
             if (message) setError(message);
@@ -364,66 +319,10 @@ function ActivityDialog({
         }}
       >
         <label className="block text-[14px] font-bold">
-          ประเภทกิจกรรม
-          <RequiredMark />
-          <Select
-            label="ประเภทกิจกรรม"
-            value={type}
-            disabled={mode === "edit"}
-            onChange={(value) => setType(value as PlotActivityType)}
-            className="mt-1"
-            options={ACTIVITY_TYPES.map((item) => ({ value: item.id, label: item.label }))}
-          />
-        </label>
-
-        <label className="block text-[14px] font-bold">
           วันที่
           <RequiredMark />
           <DateField label="วันที่" className="mt-1" value={occurredOn} onChange={setOccurredOn} />
         </label>
-
-        {type === "seed_receive" && (
-          <>
-            <label className="block text-[14px] font-bold">
-              พันธุ์ข้าว
-              <RequiredMark />
-              <Select
-                label="พันธุ์ข้าว"
-                value={variety === "" ? "" : String(variety)}
-                onChange={(value) => setVariety(Number(value) as Variety)}
-                className="mt-1"
-                options={VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))}
-              />
-            </label>
-            <label className="block text-[14px] font-bold">
-              ปริมาณที่นำไป (กก.)
-              <RequiredMark />
-              <input value={quantityKg} onChange={(event) => setQuantityKg(event.target.value)} className={`${inputClass} mt-1`} inputMode="decimal" />
-            </label>
-            <label className="block text-[14px] font-bold">
-              พื้นที่ที่ตั้งใจจะปลูก (ไร่)
-              <RequiredMark />
-              <input
-                value={intendedAreaRai}
-                onChange={(event) => setIntendedAreaRai(event.target.value)}
-                className={`${inputClass} mt-1`}
-                inputMode="decimal"
-              />
-              <div className="mt-1 text-[12px] font-normal text-ink/60">ไม่เกินพื้นที่แปลง {formatRai(plotAreaRai)}</div>
-            </label>
-          </>
-        )}
-
-        {type === "plant_actual" && (
-          <label className="block text-[14px] font-bold">
-            พื้นที่ที่ปลูกจริง (ไร่)
-            <RequiredMark />
-            <input value={plantedAreaRai} onChange={(event) => setPlantedAreaRai(event.target.value)} className={`${inputClass} mt-1`} inputMode="decimal" />
-            <div className="mt-1 text-[12px] font-normal text-ink/60">
-              พื้นที่ตั้งใจ {formatRai(summary.intendedAreaRai)} · ยังไม่ปลูกจะคำนวณอัตโนมัติ
-            </div>
-          </label>
-        )}
 
         {type === "fertilizer_receive" && (
           <>
@@ -501,7 +400,6 @@ function ActivityDialog({
           </label>
         )}
 
-        {softWarning && <p className="text-[13px] text-ink/70">{softWarning}</p>}
         {error && <p className="text-[13px] text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">

@@ -1170,13 +1170,11 @@ export function MemberPlan({
     if (key === "plot") return row.name;
     if (key === "area") return row.areaRai;
     if (key === "variety") return row.varietyId ? varietyName(row.varietyId) : "";
-    if (key === "status") return row.status;
-    if (key === "planted") return row.plantedOn;
-    if (key === "harvest") return row.harvestOn;
     if (key === "actual") return row.plantedAreaRai;
     if (key === "left") return row.unplantedAreaRai;
     if (key === "stage") return row.stage;
-    return row.estKg;
+    if (key === "harvest") return row.harvestOn;
+    return row.status;
   });
   const [plotId, setPlotId] = useState<string | null>(initialPlotId);
   const [adding, setAdding] = useState(false);
@@ -1185,7 +1183,7 @@ export function MemberPlan({
   const selected = listed ?? (draft ? {
     ...draft,
     plantingId: "",
-    varietyId: null,
+    varietyId: null as Variety | null,
     plantedOn: "",
     harvestOn: "",
     estKg: 0,
@@ -1197,6 +1195,50 @@ export function MemberPlan({
   } : null);
   const available = owned.filter((plot) => !openPlanting(plantings, plot.id));
 
+  // Flow step 2: เปิดรอบปลูก → แผน + Timeline ในจอเดียว (ไม่ซ้อนใต้ตาราง)
+  if (selected) {
+    return (
+      <>
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
+          <div>
+            <div className="text-[16px] font-bold">
+              {farmerName(farmer)} · {selected.name}
+            </div>
+            <div className="mt-1 text-[13px] font-normal text-white/85">
+              {selected.varietyId ? varietyName(selected.varietyId) : "ยังไม่ตั้งพันธุ์"}
+              {" · "}ปลูกจริง {formatRai(selected.plantedAreaRai)}
+              {" · "}ยังไม่ปลูก {formatRai(selected.unplantedAreaRai)}
+              {" · "}{selected.stage}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPlotId(null)}
+            className="rounded-full bg-white px-3 py-1 text-[12px] font-bold text-bar"
+          >
+            กลับรายการ
+          </button>
+        </div>
+
+        <PlanEditor key={selected.plantingId || `new:${selected.id}`} plot={selected} onClose={() => setPlotId(null)} />
+
+        {selected.plantingId && selected.varietyId != null ? (
+          <PlantingActivityPanel
+            key={`activities:${selected.plantingId}`}
+            plotAreaRai={selected.areaRai}
+            plantingId={selected.plantingId}
+            varietyId={selected.varietyId}
+          />
+        ) : (
+          <div className="border-t border-frame px-6 py-5 text-[14px] text-ink/60">
+            บันทึกแผนรอบก่อน แล้วค่อยเพิ่มกิจกรรมบน Timeline
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Flow step 1: เลือกรอบปลูกจากรายการ
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
@@ -1222,53 +1264,34 @@ export function MemberPlan({
               <SortableTh label="แปลง" column="plot" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="พื้นที่" column="area" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="สถานะ" column="status" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="ปลูกจริง" column="actual" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="ยังไม่ปลูก" column="left" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="ขั้นตอน" column="stage" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="วันปลูก" column="planted" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ขั้นตอนปัจจุบัน" column="stage" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="กำหนดเก็บ" column="harvest" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="ที่คาด" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             </tr>
           </thead>
           <tbody>
             {ordered.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-5 py-6 text-ink/60">
-                  ยังไม่มีแผน
+                <td colSpan={7} className="px-5 py-6 text-ink/60">
+                  ยังไม่มีแผน — กดเพิ่มแผน แล้วเลือกแปลง
                 </td>
               </tr>
             )}
             {ordered.map((plot, index) => (
-                <tr key={plot.id} onClick={(event) => openRow(event, () => setPlotId(plot.id))} className={rowTone(index, plot.id === plotId)}>
-                  <td className="px-5 py-3 font-bold">{plot.name}</td>
-                  <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-                  <td className="px-5 py-3">{plot.varietyId ? varietyName(plot.varietyId) : "—"}</td>
-                  <td className={`px-5 py-3 font-bold ${plot.statusClass}`}>{plot.status}</td>
-                  <td className="px-5 py-3">{formatRai(plot.plantedAreaRai)}</td>
-                  <td className="px-5 py-3">{formatRai(plot.unplantedAreaRai)}</td>
-                  <td className="px-5 py-3 font-bold">{plot.stage}</td>
-                  <td className="px-5 py-3">{plot.plantedOn ? formatThaiDate(plot.plantedOn) : "—"}</td>
-                  <td className="px-5 py-3">{plot.harvestOn ? formatThaiDate(plot.harvestOn) : "—"}</td>
-                  <td className="px-5 py-3">{plot.estKg > 0 ? formatKg(plot.estKg) : "—"}</td>
-                </tr>
+              <tr key={plot.id} onClick={(event) => openRow(event, () => setPlotId(plot.id))} className={rowTone(index)}>
+                <td className="px-5 py-3 font-bold">{plot.name}</td>
+                <td className="px-5 py-3">{formatRai(plot.areaRai)}</td>
+                <td className="px-5 py-3">{plot.varietyId ? varietyName(plot.varietyId) : "—"}</td>
+                <td className="px-5 py-3">{formatRai(plot.plantedAreaRai)}</td>
+                <td className="px-5 py-3">{formatRai(plot.unplantedAreaRai)}</td>
+                <td className="px-5 py-3 font-bold">{plot.stage}</td>
+                <td className="px-5 py-3">{plot.harvestOn ? formatThaiDate(plot.harvestOn) : "—"}</td>
+              </tr>
             ))}
           </tbody>
         </table>
       </TableScroll>
-      {selected && (
-        <>
-          <PlanEditor key={selected.plantingId || selected.id} plot={selected} onClose={() => setPlotId(null)} />
-          {selected.plantingId && selected.varietyId != null && (
-            <PlantingActivityPanel
-              key={`activities:${selected.plantingId}`}
-              plotAreaRai={selected.areaRai}
-              plantingId={selected.plantingId}
-              varietyId={selected.varietyId}
-            />
-          )}
-        </>
-      )}
       {adding && (
         <ChoosePlanPlot
           plots={available}
@@ -1446,12 +1469,17 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
                 setNotice({ tone: "error", message: plotError });
                 return;
               }
+              const saved = await savePlanting(plot.id, {
+                plantingId: current?.id ?? null,
+                varietyId: variety,
+                plantedOn,
+                harvestOn,
+                estKg: nextKg,
+              });
               setNotice(
-                await reported(
-                  savePlanting(plot.id, { plantingId: current?.id ?? null, varietyId: variety, plantedOn, harvestOn, estKg: nextKg }),
-                  "บันทึกแล้ว",
-                  () => setEditing(false),
-                ),
+                saved.error
+                  ? { tone: "error", message: saved.error }
+                  : { tone: "success", message: "บันทึกแล้ว", done: () => setEditing(false) },
               );
             },
           });
