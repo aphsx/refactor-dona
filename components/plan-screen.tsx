@@ -1,15 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CanAdd } from "@/components/can";
-import { PlotDialog, PlotWorkspace } from "@/components/groups-screen";
+import { PlotDialog } from "@/components/groups-screen";
+import { PlantingActivityPanel } from "@/components/activities-screen";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { Calendar, Plus, RotateCcw, Search } from "lucide-react";
-import { ConfirmAlert, DateField, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, Select, SortableTh, TableScroll, inputClass, isWildcard, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort, type SortState } from "@/components/ui";
-import { VARIETIES, daysUntil, farmerName, formatKg, formatThaiDate, varietyName, type Farmer, type Plot, type Variety } from "@/lib/mill";
+import { DateField, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, Select, SortableTh, TableScroll, inputClass, isWildcard, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort, type SortState } from "@/components/ui";
+import {
+  VARIETIES,
+  currentActivityStage,
+  daysUntil,
+  farmerName,
+  formatKg,
+  formatRai,
+  formatThaiDate,
+  plantingAreaSummary,
+  varietyName,
+  type Farmer,
+  type Planting,
+  type Plot,
+  type PlotActivity,
+  type Variety,
+} from "@/lib/mill";
 
-type SeasonRow = Plot & { varietyId: Variety; plantingId: string; plantedOn: string; harvestOn: string; estKg: number };
+type SeasonRow = Plot & {
+  varietyId: Variety;
+  plantingId: string;
+  plantedOn: string;
+  harvestOn: string;
+  estKg: number;
+  plantedAreaRai: number;
+  unplantedAreaRai: number;
+  stage: string;
+};
 type HarvestQuery = { from: string; to: string; groupId: string; variety: string };
 type MemberQuery = {
   name: string;
@@ -36,7 +61,7 @@ const emptyMemberQuery: MemberQuery = {
 const SOON_DAYS = 14;
 
 export function PlanScreen() {
-  const { plots, plantings, farmers, groups } = useMill();
+  const { plots, plantings, farmers, groups, activities } = useMill();
   const openDates = useMemo(
     () =>
       plantings
@@ -59,9 +84,9 @@ export function PlanScreen() {
         if (applied.groupId === "none" && farmer?.groupId != null) return [];
         if (applied.groupId !== "all" && applied.groupId !== "none" && farmer?.groupId !== applied.groupId) return [];
         if (applied.variety !== "all" && planting.varietyId !== Number(applied.variety)) return [];
-        return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
+        return [toSeasonRow(plot, planting, activities)];
       });
-  }, [plantings, plots, farmers, applied]);
+  }, [plantings, plots, farmers, activities, applied]);
 
   const rows = useMemo(
     () => pool.filter((row) => inRange(row.harvestOn, applied.from, applied.to)).sort(byHarvest),
@@ -70,7 +95,7 @@ export function PlanScreen() {
   const listingSort = useTableSort(`${applied.from}:${applied.to}:${applied.groupId}:${applied.variety}`);
   const ordered = orderBy(rows, listingSort.sort, (row, key) => planSortValue(row, key, farmers, groups));
   const page = usePagination(ordered, `${applied.from}:${applied.to}:${applied.groupId}:${applied.variety}`);
-  const selected = rows.some((row) => row.id === plotId) ? (plots.find((plot) => plot.id === plotId) ?? null) : null;
+  const selected = rows.find((row) => row.id === plotId) ?? null;
   const expected = rows.reduce((sum, plot) => sum + plot.estKg, 0);
   const earliest = rows[0] ?? null;
   const due = rows.filter((row) => daysUntil(row.harvestOn) <= 0).length;
@@ -168,14 +193,14 @@ export function PlanScreen() {
           onPageChange={page.setPage}
           onPageSizeChange={page.setPageSize}
         />
-        {selected && <PlotWorkspace plot={selected} onBack={() => setPlotId(null)} />}
+        {selected && <PlanDetail row={selected} onClose={() => setPlotId(null)} />}
       </div>
     </div>
   );
 }
 
 export function MemberSeasonScreen() {
-  const { plantings, plots, farmers, groups, addPlot } = useMill();
+  const { plantings, plots, farmers, groups, activities, addPlot } = useMill();
   const [draft, setDraft] = useState<MemberQuery>(emptyMemberQuery);
   const [applied, setApplied] = useState<MemberQuery>(emptyMemberQuery);
   const [searched, setSearched] = useState(false);
@@ -195,9 +220,9 @@ export function MemberSeasonScreen() {
         if (applied.variety !== "all" && planting.varietyId !== Number(applied.variety)) return [];
         if (!inRange(planting.plantedOn, applied.plantedFrom, applied.plantedTo)) return [];
         if (!inRange(planting.harvestOn, applied.harvestFrom, applied.harvestTo)) return [];
-        return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, plantedOn: planting.plantedOn, harvestOn: planting.harvestOn, estKg: planting.estKg }];
+        return [toSeasonRow(plot, planting, activities)];
       });
-  }, [plantings, plots, applied]);
+  }, [plantings, plots, activities, applied]);
   const plotFilter =
     applied.variety !== "all" || applied.plantedFrom !== "" || applied.plantedTo !== "" || applied.harvestFrom !== "" || applied.harvestTo !== "";
   const people = useMemo(() => {
@@ -361,7 +386,7 @@ export function MemberSeasonScreen() {
             onPageChange={page.setPage}
             onPageSizeChange={page.setPageSize}
           />
-          {selected && <PlanEditor key={selected.plantingId} plot={selected} onClose={() => setPlotId(null)} />}
+          {selected && <PlanDetail row={selected} onClose={() => setPlotId(null)} />}
         </div>
       )}
       {adding && (
@@ -437,6 +462,21 @@ function inRange(iso: string, from: string, to: string) {
   return true;
 }
 
+function toSeasonRow(plot: Plot, planting: Planting, activities: PlotActivity[]): SeasonRow {
+  const area = plantingAreaSummary(plot.areaRai, activities, planting.id);
+  return {
+    ...plot,
+    varietyId: planting.varietyId,
+    plantingId: planting.id,
+    plantedOn: planting.plantedOn,
+    harvestOn: planting.harvestOn,
+    estKg: planting.estKg,
+    plantedAreaRai: area.plantedAreaRai,
+    unplantedAreaRai: area.unplantedAreaRai,
+    stage: currentActivityStage(activities, planting.id),
+  };
+}
+
 function byHarvest(a: SeasonRow, b: SeasonRow) {
   return a.harvestOn.localeCompare(b.harvestOn) || a.name.localeCompare(b.name, "th");
 }
@@ -449,7 +489,24 @@ function planSortValue(row: SeasonRow, key: string, farmers: Farmer[], groups: {
   if (key === "farmer") return farmer ? farmerName(farmer) : "";
   if (key === "group") return groups.find((group) => group.id === farmer?.groupId)?.name ?? "";
   if (key === "variety") return varietyName(row.varietyId);
+  if (key === "actual") return row.plantedAreaRai;
+  if (key === "left") return row.unplantedAreaRai;
+  if (key === "stage") return row.stage;
   return row.estKg;
+}
+
+function PlanDetail({ row, onClose }: { row: SeasonRow; onClose: () => void }) {
+  return (
+    <>
+      <PlanEditor key={row.plantingId} plot={row} onClose={onClose} />
+      <PlantingActivityPanel
+        key={`activities:${row.plantingId}`}
+        plotAreaRai={row.areaRai}
+        plantingId={row.plantingId}
+        varietyId={row.varietyId}
+      />
+    </>
+  );
 }
 
 function PlotRoundTable({
@@ -479,13 +536,16 @@ function PlotRoundTable({
           <SortableTh label="เกษตรกร" column="farmer" sort={sort} onSort={onSort} />
           <SortableTh label="กลุ่ม" column="group" sort={sort} onSort={onSort} />
           <SortableTh label="พันธุ์" column="variety" sort={sort} onSort={onSort} />
+          <SortableTh label="ปลูกจริง" column="actual" sort={sort} onSort={onSort} />
+          <SortableTh label="ยังไม่ปลูก" column="left" sort={sort} onSort={onSort} />
+          <SortableTh label="ขั้นตอนปัจจุบัน" column="stage" sort={sort} onSort={onSort} />
           <SortableTh label="ที่คาด" column="kg" sort={sort} onSort={onSort} />
         </tr>
       </thead>
       <tbody>
         {rows.length === 0 && (
           <tr>
-            <td colSpan={7} className="px-5 py-6 text-ink/60">
+            <td colSpan={10} className="px-5 py-6 text-ink/60">
               {emptyLabel}
             </td>
           </tr>
@@ -506,6 +566,9 @@ function PlotRoundTable({
               <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
               <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
               <td className="px-5 py-3">{varietyName(plot.varietyId)}</td>
+              <td className="px-5 py-3">{formatRai(plot.plantedAreaRai)}</td>
+              <td className="px-5 py-3">{formatRai(plot.unplantedAreaRai)}</td>
+              <td className="px-5 py-3 font-bold">{plot.stage}</td>
               <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
             </tr>
           );
