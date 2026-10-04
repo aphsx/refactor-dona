@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { CanAdd, CanDelete, CanEdit, CanRead } from "@/components/can";
 import { useMill } from "@/components/store";
@@ -22,9 +22,10 @@ import {
   TIMELINE_ACTIVITY_TYPES,
   activitySummary,
   activityTypeLabel,
+  activitiesOf,
   formatThaiDate,
+  latestActivityOfType,
   nextActivityRound,
-  timelineActivitiesOf,
   type ChemicalPayload,
   type FertilizerApplyPayload,
   type FertilizerReceivePayload,
@@ -72,16 +73,35 @@ export function PlantingActivityPanel({
   plotAreaRai,
   plantingId,
   varietyId,
+  plantedOn = "",
 }: {
   plotAreaRai: number;
   plantingId: string;
   varietyId: Variety;
+  /** From แผนรอบ — auto-creates ปลูกจริง on the timeline when missing. */
+  plantedOn?: string;
 }) {
   const { activities, saveActivity, removeActivity } = useMill();
-  const rows = timelineActivitiesOf(activities, plantingId);
+  const rows = activitiesOf(activities, plantingId);
   const page = usePagination(rows, plantingId);
   const [editor, setEditor] = useState<null | { mode: "create" | "edit"; activity?: PlotActivity; type?: PlotActivityType }>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const syncingPlant = useRef(false);
+  const hasPlantActual = Boolean(latestActivityOfType(activities, plantingId, "plant_actual"));
+
+  // Pull วันปลูก from the plan above onto Timeline as ปลูกจริง (once).
+  useEffect(() => {
+    if (!plantingId || !plantedOn || hasPlantActual || syncingPlant.current) return;
+    syncingPlant.current = true;
+    void saveActivity({
+      plantingId,
+      type: "plant_actual",
+      occurredOn: plantedOn,
+      payload: { plantedAreaRai: plotAreaRai > 0 ? plotAreaRai : 0.01 },
+    }).finally(() => {
+      syncingPlant.current = false;
+    });
+  }, [plantingId, plantedOn, plotAreaRai, hasPlantActual, saveActivity]);
 
   return (
     <CanRead resource="activities">

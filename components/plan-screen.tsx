@@ -519,6 +519,7 @@ function PlanDetail({ row, onClose }: { row: SeasonRow; onClose: () => void }) {
         plotAreaRai={row.areaRai}
         plantingId={row.plantingId}
         varietyId={row.varietyId}
+        plantedOn={row.plantedOn}
       />
     </>
   );

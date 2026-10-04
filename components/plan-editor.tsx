@@ -227,13 +227,13 @@ export function PlanEditor({
                   return;
                 }
               }
-              if (plantedArea > 0) {
+              {
                 const plantError = await saveActivity({
                   id: plantActivity?.id ?? null,
                   plantingId: saved.plantingId,
                   type: "plant_actual",
                   occurredOn: plantedOn,
-                  payload: { plantedAreaRai: plantedArea },
+                  payload: { plantedAreaRai: plantedArea > 0 ? plantedArea : areaRai },
                 });
                 if (plantError) {
                   setNotice({ tone: "error", message: plantError });

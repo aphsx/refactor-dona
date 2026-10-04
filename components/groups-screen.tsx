@@ -1343,6 +1343,7 @@ export function MemberPlan({
             plotAreaRai={selected.areaRai}
             plantingId={selected.plantingId}
             varietyId={selected.varietyId}
+            plantedOn={selected.plantedOn}
           />
         ) : (
           <div className="border-t border-frame px-6 py-5 text-[14px] text-ink/60">
