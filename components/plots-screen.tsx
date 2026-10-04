@@ -7,7 +7,7 @@ import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlaceSelects, PlotDialog, DrawBoundary } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
 import { measureRingAreaRai } from "@/lib/api";
-import { farmerHandle, farmerName, formatCoord, centroid, type Plot } from "@/lib/mill";
+import { defaultVarietyId, farmerHandle, farmerName, formatCoord, centroid, type Plot } from "@/lib/mill";
 import { isCompletePlace, placeAt, placeLabel } from "@/lib/thai-place";
 import {
   ConfirmAlert,
@@ -70,7 +70,7 @@ function parseAmount(value: string) {
 }
 
 export function PlotManageScreen() {
-  const { plots, farmers, groups, addPlot } = useMill();
+  const { varieties, plots, farmers, groups, addPlot } = useMill();
   const router = useRouter();
   const requestedId = useSearchParams().get("plot");
   const requested = plots.some((plot) => plot.id === requestedId) ? requestedId : null;
@@ -317,7 +317,7 @@ export function PlotManageScreen() {
             addPlot(ownerId, {
               name: plotName,
               areaRai,
-              varietyId: 1,
+              varietyId: defaultVarietyId(varieties),
               plantedOn: "",
               harvestOn: "",
               estKg: 0,

@@ -21,6 +21,9 @@ type Store = MillSnapshot & {
   reload: () => Promise<void>;
   createGroup: (name: string, leaderId: string) => Promise<string | null>;
   updateGroup: (groupId: string, name: string, leaderId: string) => Promise<string | null>;
+  createVariety: (name: string) => Promise<string | null>;
+  updateVariety: (varietyId: number, name: string) => Promise<string | null>;
+  removeVariety: (varietyId: number) => Promise<string | null>;
   createFarmer: (input: FarmerInput) => Promise<string | null>;
   updateFarmer: (farmerId: string, input: FarmerInput) => Promise<string | null>;
   assignFarmer: (farmerId: string, groupId: string | null) => Promise<string | null>;
@@ -80,6 +83,7 @@ const empty: MillSnapshot = {
   plantings: [],
   activities: [],
   receipts: [],
+  varieties: [],
   permissions: [],
   roleGrants: [],
 };
@@ -166,6 +170,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     reload,
     createGroup: (name, leaderId) => mutate(() => api.createGroup(name.trim(), leaderId)),
     updateGroup: (groupId, name, leaderId) => mutate(() => api.updateGroup(groupId, name.trim(), leaderId)),
+    createVariety: (name) => mutate(() => api.createVariety(name.trim())),
+    updateVariety: (varietyId, name) => mutate(() => api.updateVariety(varietyId, name.trim())),
+    removeVariety: (varietyId) => mutate(() => api.deleteVariety(varietyId)),
     createFarmer: (input) =>
       mutate(() =>
         api.createFarmer({

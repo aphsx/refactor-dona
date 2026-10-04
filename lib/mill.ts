@@ -1,13 +1,28 @@
-export type Variety = 1 | 2 | 3;
+/** Variety id from API (`varieties.id`). */
+export type Variety = number;
 
-export const VARIETIES: { id: Variety; name: string }[] = [
+export type VarietyItem = {
+  id: number;
+  name: string;
+};
+
+/** Seed defaults until snapshot loads; kept in sync by loadMillSnapshot. */
+export let VARIETIES: VarietyItem[] = [
   { id: 1, name: "หอมมะลิ" },
   { id: 2, name: "ขาว" },
   { id: 3, name: "เหนียว" },
 ];
 
+export function syncVarieties(items: VarietyItem[]) {
+  if (items.length > 0) VARIETIES = items;
+}
+
 export function varietyName(id: number) {
   return VARIETIES.find((item) => item.id === id)?.name ?? "—";
+}
+
+export function defaultVarietyId(varieties: VarietyItem[] = VARIETIES) {
+  return varieties[0]?.id ?? 1;
 }
 
 export type Farmer = {
@@ -58,7 +73,7 @@ export type Planting = {
  * lend   = ให้ยืม (ให้ไปปลูกก่อน)
  * return = รับคืน (คืนยืม)
  *
- * Variety (หอมมะลิ/ขาว/เหนียว) is separate from product kind (ข้าวเปลือก/เมล็ดพันธุ์).
+ * Variety (พันธุ์ข้าว) is separate from product kind (ข้าวเปลือก/เมล็ดพันธุ์).
  */
 export type MillReceiptDirection = "in" | "out" | "lend" | "return";
 export type MillProductKind = "paddy" | "seed";
@@ -191,7 +206,7 @@ export function latestActivityOfType(activities: PlotActivity[], plantingId: str
 }
 
 export type PermissionRole = "mill" | "leader" | "member";
-export type PermissionResource = "groups" | "farmers" | "plots" | "plantings" | "activities";
+export type PermissionResource = "groups" | "farmers" | "plots" | "plantings" | "activities" | "varieties";
 export type PermissionFlag = "canRead" | "canAdd" | "canEdit" | "canDelete";
 
 export type Permission = {
@@ -216,6 +231,7 @@ export type MillSnapshot = {
   plantings: Planting[];
   activities: PlotActivity[];
   receipts: MillReceipt[];
+  varieties: VarietyItem[];
   permissions: Permission[];
   roleGrants: RoleGrant[];
 };

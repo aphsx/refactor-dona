@@ -30,7 +30,6 @@ import {
   type SortState,
 } from "@/components/ui";
 import {
-  VARIETIES,
   currentActivityStage,
   daysUntil,
   farmerName,
@@ -79,7 +78,7 @@ const emptyMemberQuery: MemberQuery = {
 const SOON_DAYS = 14;
 
 export function PlanScreen() {
-  const { plots, plantings, farmers, groups, activities } = useMill();
+  const { plots, plantings, farmers, groups, activities, varieties } = useMill();
   const openDates = useMemo(
     () =>
       plantings
@@ -168,7 +167,7 @@ export function PlanScreen() {
               className="mt-1"
               value={draft.variety}
               onChange={(variety) => setDraft({ ...draft, variety })}
-              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))]}
+              options={[{ value: "all", label: "ทุกพันธุ์" }, ...varieties.map((item) => ({ value: String(item.id), label: item.name }))]}
             />
           </label>
           <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-4">
@@ -218,7 +217,7 @@ export function PlanScreen() {
 
 /** ค้นหาเกษตรกรเพื่อเปิดแผนรอบปลูก — ไม่จัดการแปลง/บัญชี */
 export function MemberSeasonScreen() {
-  const { farmers, groups, plots, plantings } = useMill();
+  const { farmers, groups, plots, plantings, varieties } = useMill();
   const [draft, setDraft] = useState<MemberQuery>(emptyMemberQuery);
   const [applied, setApplied] = useState<MemberQuery>(emptyMemberQuery);
   const [searched, setSearched] = useState(false);
@@ -325,7 +324,7 @@ export function MemberSeasonScreen() {
               className="mt-1"
               value={draft.variety}
               onChange={(variety) => setDraft({ ...draft, variety })}
-              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))]}
+              options={[{ value: "all", label: "ทุกพันธุ์" }, ...varieties.map((item) => ({ value: String(item.id), label: item.name }))]}
             />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">

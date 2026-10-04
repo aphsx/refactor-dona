@@ -6,7 +6,6 @@ import { CanDelete, CanEdit } from "@/components/can";
 import { useMill } from "@/components/store";
 import { ConfirmAlert, DateField, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
 import {
-  VARIETIES,
   currentActivityStage,
   formatRai,
   formatThaiDate,
@@ -47,7 +46,7 @@ export function PlanEditor({
   /** When true, parent already shows title / back — skip the duplicate bar. */
   embedded?: boolean;
 }) {
-  const { plantings, activities, savePlot, savePlanting, saveActivity, removePlot, removePlanting } = useMill();
+  const { varieties, plantings, activities, savePlot, savePlanting, saveActivity, removePlot, removePlanting } = useMill();
   const measured = plot.areaRai;
   const current = plantings.find((item) => item.id === plot.plantingId) ?? null;
   const plantingId = current?.id ?? (plot.plantingId || "");
@@ -276,8 +275,8 @@ export function PlanEditor({
                 label="พันธุ์"
                 className="mt-1"
                 value={variety === "" ? "" : String(variety)}
-                onChange={(next) => setVariety(next ? (Number(next) as Variety) : "")}
-                options={VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))}
+                onChange={(next) => setVariety(next ? Number(next) : "")}
+                options={varieties.map((item) => ({ value: String(item.id), label: item.name }))}
               />
             ) : (
               <input value={variety ? varietyName(variety) : "—"} disabled className={fieldClass} />

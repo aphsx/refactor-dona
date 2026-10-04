@@ -139,7 +139,7 @@ create table public.permissions (
   can_edit boolean not null,
   can_delete boolean not null,
   primary key (role_id, resource),
-  constraint permissions_resource check (resource in ('groups', 'farmers', 'plots', 'plantings', 'activities')),
+  constraint permissions_resource check (resource in ('groups', 'farmers', 'plots', 'plantings', 'activities', 'varieties')),
   constraint permissions_scope check (scope in ('all', 'group', 'own'))
 );
 

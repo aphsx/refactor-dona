@@ -11,7 +11,7 @@ import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { measureRingAreaRai } from "@/lib/api";
 import type { FieldMapHandle } from "@/components/field-map";
-import { VARIETIES, centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultMillProductKind, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millProductKindLabel, millReceiptDirectionLabel, openPlanting, openRing, plantingAreaSummary, plantingsOf, varietyName, type Farmer, type MillProductKind, type MillReceiptDirection, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultMillProductKind, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millProductKindLabel, millReceiptDirectionLabel, openPlanting, openRing, plantingAreaSummary, plantingsOf, varietyName, type Farmer, type MillProductKind, type MillReceiptDirection, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -898,7 +898,7 @@ function MemberPlots({
   onOpenPlan: (plotId: string) => void;
   onClose: () => void;
 }) {
-  const { plots, plantings, addPlot, removePlot } = useMill();
+  const { varieties, plots, plantings, addPlot, removePlot } = useMill();
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const fields = plots.filter((plot) => plot.farmerId === farmer.id);
@@ -945,7 +945,7 @@ function MemberPlots({
             addPlot(farmer.id, {
               name,
               areaRai,
-              varietyId: 1,
+              varietyId: defaultVarietyId(varieties),
               plantedOn: "",
               harvestOn: "",
               estKg: 0,
@@ -1105,7 +1105,7 @@ function PlotTable({
 }
 
 function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
-  const { receipts, createMillReceipt, removeMillReceipt } = useMill();
+  const { varieties, receipts, createMillReceipt, removeMillReceipt } = useMill();
   const [adding, setAdding] = useState(false);
   const [direction, setDirection] = useState<MillReceiptDirection>("in");
   const [productKind, setProductKind] = useState<MillProductKind>("paddy");
@@ -1286,9 +1286,9 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
                 label="พันธุ์"
                 className="mt-1"
                 value={varietyId === "" ? "" : String(varietyId)}
-                onChange={(value) => setVarietyId(value ? (Number(value) as Variety) : "")}
+                onChange={(value) => setVarietyId(value ? Number(value) : "")}
                 placeholder="เลือกพันธุ์"
-                options={VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))}
+                options={varieties.map((item) => ({ value: String(item.id), label: item.name }))}
               />
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1557,7 +1557,7 @@ function ChoosePlanPlot({
 }
 
 export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void }) {
-  const { farmers, groups, plantings, savePlot, removePlot, savePlanting, removePlanting } = useMill();
+  const { varieties, farmers, groups, plantings, savePlot, removePlot, savePlanting, removePlanting } = useMill();
   const current = openPlanting(plantings, plot.id);
   const mark = current ? plantingMark(current) : null;
   const [name, setName] = useState(plot.name);
@@ -1565,7 +1565,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const [subdistrictId, setSubdistrictId] = useState(plot.subdistrictId);
   const [districtId, setDistrictId] = useState(plot.districtId);
   const [provinceId, setProvinceId] = useState(plot.provinceId);
-  const [variety, setVariety] = useState<Variety>(current?.varietyId ?? 1);
+  const [variety, setVariety] = useState<Variety>(current?.varietyId ?? defaultVarietyId(varieties));
   const [plantedOn, setPlantedOn] = useState(current?.plantedOn ?? "");
   const [harvestOn, setHarvestOn] = useState(current?.harvestOn ?? "");
   const [estKg, setEstKg] = useState(current ? String(current.estKg) : "");
@@ -1583,7 +1583,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     subdistrictId !== plot.subdistrictId ||
     districtId !== plot.districtId ||
     provinceId !== plot.provinceId ||
-    variety !== (current?.varietyId ?? 1) ||
+    variety !== (current?.varietyId ?? defaultVarietyId(varieties)) ||
     plantedOn !== (current?.plantedOn ?? "") ||
     harvestOn !== (current?.harvestOn ?? "") ||
     estKg !== savedKg;
@@ -1595,11 +1595,11 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setSubdistrictId(plot.subdistrictId);
     setDistrictId(plot.districtId);
     setProvinceId(plot.provinceId);
-    setVariety(current?.varietyId ?? 1);
+    setVariety(current?.varietyId ?? defaultVarietyId(varieties));
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
-  }, [plot.id, plot.name, plot.areaRai, plot.subdistrictId, plot.districtId, plot.provinceId, current?.id, current?.varietyId, current?.plantedOn, current?.harvestOn, current?.estKg]);
+  }, [plot.id, plot.name, plot.areaRai, plot.subdistrictId, plot.districtId, plot.provinceId, current?.id, current?.varietyId, current?.plantedOn, current?.harvestOn, current?.estKg, varieties]);
 
   function undo() {
     setName(plot.name);
@@ -1607,7 +1607,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
     setSubdistrictId(plot.subdistrictId);
     setDistrictId(plot.districtId);
     setProvinceId(plot.provinceId);
-    setVariety(current?.varietyId ?? 1);
+    setVariety(current?.varietyId ?? defaultVarietyId(varieties));
     setPlantedOn(current?.plantedOn ?? "");
     setHarvestOn(current?.harvestOn ?? "");
     setEstKg(current ? String(current.estKg) : "");
@@ -1714,8 +1714,8 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
             className="mt-1"
             value={String(variety)}
             disabled={!editing}
-            onChange={(next) => setVariety(Number(next) as Variety)}
-            options={VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))}
+            onChange={(next) => setVariety(Number(next))}
+            options={varieties.map((item) => ({ value: String(item.id), label: item.name }))}
           />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1900,7 +1900,7 @@ export function PlotDialog({
     schedule: { plantedOn: string; harvestOn: string; estKg: number },
   ) => Promise<string | null>;
 }) {
-  const { farmers, groups, plots } = useMill();
+  const { varieties, farmers, groups, plots } = useMill();
   const owner = farmers.find((farmer) => farmer.id === farmerId) ?? null;
   const group = groups.find((item) => item.id === owner?.groupId) ?? null;
   const [plotName, setPlotName] = useState(name);
@@ -1913,7 +1913,7 @@ export function PlotDialog({
   const [subdistrictId, setSubdistrictId] = useState(owner?.subdistrictId ?? 0);
   const [districtId, setDistrictId] = useState(owner?.districtId ?? 0);
   const [provinceId, setProvinceId] = useState(owner?.provinceId ?? 0);
-  const [variety, setVariety] = useState<Variety>(1);
+  const [variety, setVariety] = useState<Variety>(() => defaultVarietyId(varieties));
   const [plantedOn, setPlantedOn] = useState("");
   const [harvestOn, setHarvestOn] = useState("");
   const [estKg, setEstKg] = useState("");
@@ -2033,8 +2033,8 @@ export function PlotDialog({
                 label="พันธุ์"
                 className="mt-1"
                 value={String(variety)}
-                onChange={(next) => setVariety(Number(next) as Variety)}
-                options={VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))}
+                onChange={(next) => setVariety(Number(next))}
+                options={varieties.map((item) => ({ value: String(item.id), label: item.name }))}
               />
             </label>
           )}

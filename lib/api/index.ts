@@ -1,12 +1,12 @@
 import { apiListAll, apiRequest, getApiToken, ApiError } from "@/lib/api/client";
 import {
-  VARIETIES,
   asMillProductKind,
   asMillReceiptDirection,
   closeRing,
   isClosedRing,
   openRing,
   polygonAreaRai,
+  syncVarieties,
   type Farmer,
   type FarmerInput,
   type MillProductKind,
@@ -25,6 +25,7 @@ import {
   type RoleGrant,
   type SupplierGroup,
   type Variety,
+  type VarietyItem,
 } from "@/lib/mill";
 
 export {
@@ -76,8 +77,7 @@ function asPolygon(points: number[][] | null | undefined): [number, number][] {
 }
 
 function asVariety(id: number): Variety {
-  if (VARIETIES.some((item) => item.id === id)) return id as Variety;
-  return 1;
+  return Number(id);
 }
 
 function asPermission(item: WirePermission): Permission {
@@ -114,16 +114,19 @@ function millGrants(people: WirePerson[]): RoleGrant[] {
 }
 
 export async function loadMillSnapshot(): Promise<MillSnapshot> {
-  const [groups, farmers, plots, plantings, activities, receipts, permissions, people] = await Promise.all([
+  const [groups, farmers, plots, plantings, activities, receipts, varieties, permissions, people] = await Promise.all([
     apiListAll<SupplierGroup>("/groups"),
     apiListAll<Farmer>("/farmers"),
     apiListAll<WirePlot>("/plots"),
     apiListAll<WirePlanting>("/plantings"),
     apiListAll<WirePlotActivity>("/plot-activities"),
     apiListAll<MillReceipt>("/mill-receipts"),
+    apiRequest<{ items: VarietyItem[] }>("/varieties").then((data) => data.items ?? []),
     apiRequest<{ items: WirePermission[] }>("/permissions").then((data) => data.items ?? []),
     apiListAll<WirePerson>("/people"),
   ]);
+
+  syncVarieties(varieties);
 
   return {
     groups,
@@ -137,6 +140,7 @@ export async function loadMillSnapshot(): Promise<MillSnapshot> {
       productKind: asMillProductKind(item.productKind),
       direction: asMillReceiptDirection(item.direction),
     })),
+    varieties,
     permissions: permissions.map(asPermission),
     roleGrants: millGrants(people),
   };
@@ -148,6 +152,14 @@ export const api = {
 
   updateGroup: (id: string, name: string, leaderId: string) =>
     apiRequest<SupplierGroup>(`/groups/${id}`, { method: "PUT", body: JSON.stringify({ name, leaderId }) }),
+
+  createVariety: (name: string) =>
+    apiRequest<VarietyItem>("/varieties", { method: "POST", body: JSON.stringify({ name }) }),
+
+  updateVariety: (id: number, name: string) =>
+    apiRequest<VarietyItem>(`/varieties/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+
+  deleteVariety: (id: number) => apiRequest<void>(`/varieties/${id}`, { method: "DELETE" }),
 
   createFarmer: (input: FarmerInput) => apiRequest<Farmer>("/farmers", { method: "POST", body: JSON.stringify(input) }),
 
