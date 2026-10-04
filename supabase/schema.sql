@@ -92,12 +92,14 @@ create table public.mill_receipts (
   id uuid primary key default gen_random_uuid(),
   farmer_id uuid not null references public.farmers (id) on delete restrict,
   variety_id bigint not null references public.varieties (id),
+  product_kind text not null default 'paddy',
   direction text not null default 'in',
   kg integer not null,
   received_on date not null,
   created_at timestamptz not null default now(),
   constraint mill_receipts_kg_positive check (kg > 0),
-  constraint mill_receipts_direction_check check (direction in ('in', 'out'))
+  constraint mill_receipts_product_kind_check check (product_kind in ('paddy', 'seed')),
+  constraint mill_receipts_direction_check check (direction in ('in', 'out', 'lend', 'return'))
 );
 
 create index mill_receipts_farmer_id_idx on public.mill_receipts (farmer_id);

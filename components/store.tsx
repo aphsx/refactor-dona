@@ -26,7 +26,13 @@ type Store = MillSnapshot & {
   assignFarmer: (farmerId: string, groupId: string | null) => Promise<string | null>;
   createMillReceipt: (
     farmerId: string,
-    input: { varietyId: Variety; direction: "in" | "out"; kg: number; receivedOn: string },
+    input: {
+      varietyId: Variety;
+      productKind: "paddy" | "seed";
+      direction: "in" | "out" | "lend" | "return";
+      kg: number;
+      receivedOn: string;
+    },
   ) => Promise<string | null>;
   removeMillReceipt: (receiptId: string) => Promise<string | null>;
   addPlot: (
@@ -184,6 +190,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         api.createMillReceipt({
           farmerId,
           varietyId: input.varietyId,
+          productKind: input.productKind,
           direction: input.direction,
           kg: input.kg,
           receivedOn: input.receivedOn,

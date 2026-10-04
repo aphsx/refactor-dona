@@ -50,8 +50,8 @@ function NoticeBox({ notice, onDismiss }: { notice: Notice | null; onDismiss: ()
       kind={notice.tone}
       message={notice.message}
       onClose={() => {
-        if (notice.done) notice.done();
-        else onDismiss();
+        notice.done?.();
+        onDismiss();
       }}
     />
   );

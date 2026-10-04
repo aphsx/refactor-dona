@@ -11,7 +11,7 @@ import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { measureRingAreaRai } from "@/lib/api";
 import type { FieldMapHandle } from "@/components/field-map";
-import { VARIETIES, centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millReceiptDirectionLabel, openPlanting, openRing, plantingAreaSummary, plantingsOf, varietyName, type Farmer, type MillReceiptDirection, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { VARIETIES, centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultMillProductKind, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millProductKindLabel, millReceiptDirectionLabel, openPlanting, openRing, plantingAreaSummary, plantingsOf, varietyName, type Farmer, type MillProductKind, type MillReceiptDirection, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -30,8 +30,8 @@ function NoticeBox({ notice, onDismiss }: { notice: Notice | null; onDismiss: ()
       kind={notice.tone}
       message={notice.message}
       onClose={() => {
-        if (notice.done) notice.done();
-        else onDismiss();
+        notice.done?.();
+        onDismiss();
       }}
     />
   );
@@ -861,17 +861,22 @@ function MemberStanding({ farmer, leads }: { farmer: Farmer; leads: SupplierGrou
   const { groups, receipts } = useMill();
   const group = groups.find((item) => item.id === farmer.groupId) ?? null;
   const mine = receipts.filter((item) => item.farmerId === farmer.id);
-  const boughtIn = mine.filter((item) => (item.direction ?? "in") === "in").reduce((sum, item) => sum + item.kg, 0);
+  const boughtIn = mine.filter((item) => item.direction === "in").reduce((sum, item) => sum + item.kg, 0);
   const soldOut = mine.filter((item) => item.direction === "out").reduce((sum, item) => sum + item.kg, 0);
+  const lent = mine.filter((item) => item.direction === "lend").reduce((sum, item) => sum + item.kg, 0);
+  const returned = mine.filter((item) => item.direction === "return").reduce((sum, item) => sum + item.kg, 0);
   const onHand = boughtIn - soldOut;
+  const loanOpen = lent - returned;
 
   return (
     <div className="border-b border-frame">
       <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">สถานะรับซื้อ</div>
-      <div className="grid gap-4 px-6 py-5 sm:grid-cols-3">
+      <div className="grid gap-4 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Fact label="รับซื้อเข้า" value={formatKg(boughtIn)} />
         <Fact label="ขายออก" value={formatKg(soldOut)} />
         <Fact label="คงเหลือ" value={formatKg(onHand)} />
+        <Fact label="ให้ยืม" value={formatKg(lent)} />
+        <Fact label="ค้างยืม" value={formatKg(loanOpen)} />
       </div>
       {!leads && group && (
         <div className="border-t border-frame px-6 py-4 text-[14px]">
@@ -1103,6 +1108,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   const { receipts, createMillReceipt, removeMillReceipt } = useMill();
   const [adding, setAdding] = useState(false);
   const [direction, setDirection] = useState<MillReceiptDirection>("in");
+  const [productKind, setProductKind] = useState<MillProductKind>("paddy");
   const [receivedOn, setReceivedOn] = useState("");
   const [varietyId, setVarietyId] = useState<Variety | "">("");
   const [kg, setKg] = useState("");
@@ -1114,7 +1120,8 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   const listingSort = useTableSort(rows.map((row) => row.id).join(","));
   const ordered = orderBy(rows, listingSort.sort, (row, key) => {
     if (key === "date") return row.receivedOn;
-    if (key === "direction") return row.direction === "out" ? 1 : 0;
+    if (key === "direction") return millReceiptDirectionLabel(row.direction ?? "in");
+    if (key === "kind") return millProductKindLabel(row.productKind ?? "paddy");
     if (key === "variety") return varietyName(row.varietyId);
     return row.kg;
   });
@@ -1123,6 +1130,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   function resetForm() {
     setAdding(false);
     setDirection("in");
+    setProductKind("paddy");
     setReceivedOn("");
     setVarietyId("");
     setKg("");
@@ -1145,6 +1153,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
             <tr>
               <SortableTh label="วันที่" column="date" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="ประเภท" column="direction" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ชนิด" column="kind" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="จำนวน" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -1153,17 +1162,25 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
           <tbody>
             {ordered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-6 text-ink/60">
+                <td colSpan={6} className="px-5 py-6 text-ink/60">
                   ยังไม่มีรายการซื้อขาย
                 </td>
               </tr>
             )}
             {page.rows.map((row, index) => {
               const kind = millReceiptDirectionLabel(row.direction ?? "in");
+              const product = millProductKindLabel(row.productKind ?? "paddy");
+              const tone =
+                row.direction === "out" || row.direction === "lend"
+                  ? "text-danger"
+                  : row.direction === "return"
+                    ? "text-brand"
+                    : "text-ok";
               return (
                 <tr key={row.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                   <td className="px-5 py-3 font-bold">{formatThaiDate(row.receivedOn)}</td>
-                  <td className={`px-5 py-3 font-bold ${row.direction === "out" ? "text-danger" : "text-ok"}`}>{kind}</td>
+                  <td className={`px-5 py-3 font-bold ${tone}`}>{kind}</td>
+                  <td className="px-5 py-3">{product}</td>
                   <td className="px-5 py-3">{varietyName(row.varietyId)}</td>
                   <td className="px-5 py-3">{formatKg(row.kg)}</td>
                   <td className="px-5 py-3 text-right">
@@ -1173,7 +1190,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
                         onClick={() =>
                           setNotice({
                             tone: "confirm",
-                            message: `ยืนยันลบ${kind} ${varietyName(row.varietyId)} ${formatKg(row.kg)} วันที่ ${formatThaiDate(row.receivedOn)}`,
+                            message: `ยืนยันลบ${kind} ${product} ${varietyName(row.varietyId)} ${formatKg(row.kg)} วันที่ ${formatThaiDate(row.receivedOn)}`,
                             accept: async () => setNotice(await reported(removeMillReceipt(row.id), "ลบรายการแล้ว")),
                           })
                         }
@@ -1201,20 +1218,26 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
         <Dialog title="เพิ่มรายการซื้อขาย" onClose={resetForm}>
           <form
             className="grid gap-4"
-            onSubmit={async (event) => {
+            onSubmit={(event) => {
               event.preventDefault();
               const amount = Number(kg);
               if (!receivedOn || varietyId === "" || !Number.isFinite(amount) || amount <= 0) {
                 setNotice({ tone: "error", message: "ใส่วันที่ พันธุ์ และจำนวนกก. ให้ถูกต้อง" });
                 return;
               }
-              setNotice(
-                await reported(
-                  createMillReceipt(farmer.id, { varietyId, direction, kg: Math.round(amount), receivedOn }),
-                  direction === "out" ? "บันทึกขายออกแล้ว" : "บันทึกรับซื้อเข้าแล้ว",
-                  resetForm,
-                ),
-              );
+              const payload = {
+                varietyId: varietyId as Variety,
+                productKind,
+                direction,
+                kg: Math.round(amount),
+                receivedOn,
+              };
+              setNotice({
+                tone: "confirm",
+                message: `ยืนยัน${millReceiptDirectionLabel(direction)} ${millProductKindLabel(productKind)} ${varietyName(payload.varietyId)} ${formatKg(payload.kg)}`,
+                accept: async () =>
+                  setNotice(await reported(createMillReceipt(farmer.id, payload), `บันทึก${millReceiptDirectionLabel(direction)}แล้ว`, resetForm)),
+              });
             }}
           >
             <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1224,10 +1247,30 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
                 label="ประเภท"
                 className="mt-1"
                 value={direction}
-                onChange={(value) => setDirection(value === "out" ? "out" : "in")}
+                onChange={(value) => {
+                  const next = value as MillReceiptDirection;
+                  setDirection(next);
+                  setProductKind(defaultMillProductKind(next));
+                }}
                 options={[
                   { value: "in", label: "รับซื้อเข้า" },
                   { value: "out", label: "ขายออก" },
+                  { value: "lend", label: "ให้ยืม" },
+                  { value: "return", label: "รับคืน" },
+                ]}
+              />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              ชนิด
+              <RequiredMark />
+              <Select
+                label="ชนิด"
+                className="mt-1"
+                value={productKind}
+                onChange={(value) => setProductKind(value === "seed" ? "seed" : "paddy")}
+                options={[
+                  { value: "paddy", label: "ข้าวเปลือก" },
+                  { value: "seed", label: "เมล็ดพันธุ์" },
                 ]}
               />
             </label>

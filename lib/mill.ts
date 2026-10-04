@@ -52,23 +52,49 @@ export type Planting = {
 };
 
 /**
- * Mill buy/sell quantity for a farmer — not tied to a plot.
- * in  = รับซื้อเข้า (mill bought from farmer)
- * out = ขายออก (sold from mill)
+ * Mill ledger for a farmer — not tied to a plot.
+ * in     = รับซื้อเข้า
+ * out    = ขายออก
+ * lend   = ให้ยืม (ให้ไปปลูกก่อน)
+ * return = รับคืน (คืนยืม)
+ *
+ * Variety (หอมมะลิ/ขาว/เหนียว) is separate from product kind (ข้าวเปลือก/เมล็ดพันธุ์).
  */
-export type MillReceiptDirection = "in" | "out";
+export type MillReceiptDirection = "in" | "out" | "lend" | "return";
+export type MillProductKind = "paddy" | "seed";
 
 export type MillReceipt = {
   id: string;
   farmerId: string;
   varietyId: Variety;
+  productKind: MillProductKind;
   direction: MillReceiptDirection;
   kg: number;
   receivedOn: string;
 };
 
 export function millReceiptDirectionLabel(direction: MillReceiptDirection) {
-  return direction === "out" ? "ขายออก" : "รับซื้อเข้า";
+  if (direction === "out") return "ขายออก";
+  if (direction === "lend") return "ให้ยืม";
+  if (direction === "return") return "รับคืน";
+  return "รับซื้อเข้า";
+}
+
+export function millProductKindLabel(kind: MillProductKind) {
+  return kind === "seed" ? "เมล็ดพันธุ์" : "ข้าวเปลือก";
+}
+
+export function asMillReceiptDirection(value: string | undefined): MillReceiptDirection {
+  if (value === "out" || value === "lend" || value === "return") return value;
+  return "in";
+}
+
+export function asMillProductKind(value: string | undefined): MillProductKind {
+  return value === "seed" ? "seed" : "paddy";
+}
+
+export function defaultMillProductKind(direction: MillReceiptDirection): MillProductKind {
+  return direction === "lend" || direction === "return" ? "seed" : "paddy";
 }
 
 export type PlotActivityType =

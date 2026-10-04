@@ -1,12 +1,15 @@
 import { apiListAll, apiRequest, getApiToken, ApiError } from "@/lib/api/client";
 import {
   VARIETIES,
+  asMillProductKind,
+  asMillReceiptDirection,
   closeRing,
   isClosedRing,
   openRing,
   polygonAreaRai,
   type Farmer,
   type FarmerInput,
+  type MillProductKind,
   type MillReceipt,
   type MillReceiptDirection,
   type MillSnapshot,
@@ -131,7 +134,8 @@ export async function loadMillSnapshot(): Promise<MillSnapshot> {
     receipts: receipts.map((item) => ({
       ...item,
       varietyId: asVariety(Number(item.varietyId)),
-      direction: item.direction === "out" ? ("out" as const) : ("in" as const),
+      productKind: asMillProductKind(item.productKind),
+      direction: asMillReceiptDirection(item.direction),
     })),
     permissions: permissions.map(asPermission),
     roleGrants: millGrants(people),
@@ -217,6 +221,7 @@ export const api = {
   createMillReceipt: (input: {
     farmerId: string;
     varietyId: Variety;
+    productKind: MillProductKind;
     direction: MillReceiptDirection;
     kg: number;
     receivedOn: string;
@@ -224,6 +229,7 @@ export const api = {
 
   updateMillReceipt: (id: string, input: {
     varietyId: Variety;
+    productKind: MillProductKind;
     direction: MillReceiptDirection;
     kg: number;
     receivedOn: string;
