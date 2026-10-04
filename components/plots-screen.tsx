@@ -202,12 +202,6 @@ export function PlotManageScreen() {
                 <Glyph icon={RotateCcw} />
                 ล้าง
               </SecondaryButton>
-              <CanAdd resource="plots">
-                <SecondaryButton onClick={() => setAdding(true)}>
-                  <Glyph icon={Plus} />
-                  เพิ่มแปลง
-                </SecondaryButton>
-              </CanAdd>
             </div>
           </form>
         </div>
@@ -262,6 +256,14 @@ export function PlotManageScreen() {
               onPageChange={page.setPage}
               onPageSizeChange={page.setPageSize}
             />
+            <div className="flex flex-wrap gap-5 px-6 py-4">
+              <CanAdd resource="plots">
+                <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+                  <Glyph icon={Plus} />
+                  เพิ่มแปลง
+                </SecondaryButton>
+              </CanAdd>
+            </div>
           </>
         )}
         {tab === "detail" && selected && <PlotDetail plot={selected} onClose={closeDetail} />}

@@ -63,8 +63,6 @@ type MemberQuery = {
   tel: string;
   groupId: string;
   variety: string;
-  plantedFrom: string;
-  plantedTo: string;
   harvestFrom: string;
   harvestTo: string;
 };
@@ -74,8 +72,6 @@ const emptyMemberQuery: MemberQuery = {
   tel: "",
   groupId: "all",
   variety: "all",
-  plantedFrom: "",
-  plantedTo: "",
   harvestFrom: "",
   harvestTo: "",
 };
@@ -235,12 +231,7 @@ export function MemberSeasonScreen() {
     ...[...groups].sort((a, b) => a.name.localeCompare(b.name, "th")).map((group) => ({ value: group.id, label: group.name })),
   ];
 
-  const planFilter =
-    applied.variety !== "all" ||
-    applied.plantedFrom !== "" ||
-    applied.plantedTo !== "" ||
-    applied.harvestFrom !== "" ||
-    applied.harvestTo !== "";
+  const planFilter = applied.variety !== "all" || applied.harvestFrom !== "" || applied.harvestTo !== "";
 
   const matchingPlanFarmerIds = useMemo(() => {
     if (!planFilter) return null;
@@ -250,7 +241,6 @@ export function MemberSeasonScreen() {
       const plot = plots.find((item) => item.id === planting.plotId);
       if (!plot) continue;
       if (applied.variety !== "all" && planting.varietyId !== Number(applied.variety)) continue;
-      if (!inRange(planting.plantedOn, applied.plantedFrom, applied.plantedTo)) continue;
       if (!inRange(planting.harvestOn, applied.harvestFrom, applied.harvestTo)) continue;
       ids.add(plot.farmerId);
     }
@@ -338,28 +328,6 @@ export function MemberSeasonScreen() {
               value={draft.variety}
               onChange={(variety) => setDraft({ ...draft, variety })}
               options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))]}
-            />
-          </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            จากวันปลูก
-            <DateField
-              label="จากวันปลูก"
-              className="mt-1"
-              value={draft.plantedFrom}
-              max={draft.plantedTo}
-              onChange={(plantedFrom) =>
-                setDraft({ ...draft, plantedFrom, plantedTo: draft.plantedTo && plantedFrom && draft.plantedTo < plantedFrom ? plantedFrom : draft.plantedTo })
-              }
-            />
-          </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            ถึงวันปลูก
-            <DateField
-              label="ถึงวันปลูก"
-              className="mt-1"
-              value={draft.plantedTo}
-              min={draft.plantedFrom}
-              onChange={(plantedTo) => setDraft({ ...draft, plantedTo })}
             />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">

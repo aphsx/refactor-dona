@@ -902,17 +902,9 @@ function MemberPlots({
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
         <div className="text-[16px] font-bold">แปลงของเกษตรกร · {farmerName(farmer)}</div>
-        <div className="flex items-center gap-3">
-          <CanAdd resource="plots">
-            <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
-              <Glyph icon={Plus} />
-              เพิ่มแปลง
-            </SecondaryButton>
-          </CanAdd>
-          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
-            ปิด
-          </button>
-        </div>
+        <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+          ปิด
+        </button>
       </div>
       <PlotTable
         plots={fields}
@@ -928,6 +920,14 @@ function MemberPlots({
           })
         }
       />
+      <div className="flex flex-wrap gap-5 px-6 py-4">
+        <CanAdd resource="plots">
+          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+            <Glyph icon={Plus} />
+            เพิ่มแปลง
+          </SecondaryButton>
+        </CanAdd>
+      </div>
       {adding && (
         <PlotDialog
           title="เพิ่มแปลง"
@@ -1025,7 +1025,11 @@ function PlotTable({
             const round = currentPlanting(plantings, plot.id);
             const harvest = plotHarvest(round);
             return (
-              <tr key={plot.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+              <tr
+                key={plot.id}
+                onClick={(event) => openRow(event, () => onOpenPlan(plot.id))}
+                className={rowTone(index)}
+              >
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
                 <td className="px-5 py-3">{round ? varietyName(round.varietyId) : "—"}</td>
@@ -1230,7 +1234,7 @@ export function MemberPlan({
             onClick={() => setPlotId(null)}
             className="rounded-full bg-white px-3 py-1 text-[12px] font-bold text-bar"
           >
-            กลับรายการ
+            ออกจากรายการ
           </button>
         </div>
 
@@ -1262,19 +1266,11 @@ export function MemberPlan({
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
         <div className="text-[16px] font-bold">แผนการปลูก · {farmerName(farmer)}</div>
-        <div className="flex items-center gap-3">
-          <CanAdd resource="plantings">
-            <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
-              <Glyph icon={Plus} />
-              เพิ่มแผน
-            </SecondaryButton>
-          </CanAdd>
-          {onClose && (
-            <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
-              ปิด
-            </button>
-          )}
-        </div>
+        {onClose && (
+          <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+            ปิด
+          </button>
+        )}
       </div>
       <TableScroll>
         <table className={tableClass}>
@@ -1319,6 +1315,14 @@ export function MemberPlan({
         onPageChange={page.setPage}
         onPageSizeChange={page.setPageSize}
       />
+      <div className="flex flex-wrap gap-5 px-6 py-4">
+        <CanAdd resource="plantings">
+          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+            <Glyph icon={Plus} />
+            เพิ่มแผน
+          </SecondaryButton>
+        </CanAdd>
+      </div>
       {adding && (
         <ChoosePlanPlot
           plots={available}
