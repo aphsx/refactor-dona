@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Map as MapIcon, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
+import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
 import { PlantingActivityPanel } from "@/components/activities-screen";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
@@ -292,8 +292,8 @@ export function MemberManageScreen() {
         {detail && (
           <>
             <StatusTab label="รายละเอียดเกษตรกร" active={tab === "detail"} onClick={() => setTab("detail")} />
-            <StatusTab label="แปลงของเกษตรกร" active={tab === "plots"} onClick={() => setTab("plots")} />
             <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
+            <StatusTab label="แปลงของเกษตรกร" active={tab === "plots"} onClick={() => setTab("plots")} />
           </>
         )}
       </div>
@@ -1045,11 +1045,7 @@ function PlotTable({
                 <td className="px-5 py-3">{round ? formatKg(round.estKg) : "—"}</td>
                 <td className={`px-5 py-3 font-bold ${harvest.className}`}>{harvest.label}</td>
                 <td className="px-5 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <SecondaryButton className="h-9" onClick={() => setMapPlot(plot)}>
-                      <Glyph icon={MapIcon} />
-                      ดูบนแผนที่
-                    </SecondaryButton>
+                  <div className="flex items-center justify-end gap-3">
                     {round ? (
                       <SecondaryButton className="h-9" onClick={() => onOpenPlan(plot.id)}>
                         แผนการปลูก
@@ -1062,6 +1058,13 @@ function PlotTable({
                         </SecondaryButton>
                       </CanAdd>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setMapPlot(plot)}
+                      className="text-[13px] font-bold text-link underline"
+                    >
+                      รูปแปลง
+                    </button>
                     <CanDelete resource="plots">
                       <SecondaryButton className="h-9" onClick={() => onRemove(plot)}>
                         <Glyph icon={Trash2} />
