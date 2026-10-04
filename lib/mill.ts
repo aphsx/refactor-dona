@@ -51,14 +51,25 @@ export type Planting = {
   estKg: number;
 };
 
-/** Rice received at the mill from a farmer — not tied to a plot. */
+/**
+ * Mill buy/sell quantity for a farmer — not tied to a plot.
+ * in  = รับซื้อเข้า (mill bought from farmer)
+ * out = ขายออก (sold from mill)
+ */
+export type MillReceiptDirection = "in" | "out";
+
 export type MillReceipt = {
   id: string;
   farmerId: string;
   varietyId: Variety;
+  direction: MillReceiptDirection;
   kg: number;
   receivedOn: string;
 };
+
+export function millReceiptDirectionLabel(direction: MillReceiptDirection) {
+  return direction === "out" ? "ขายออก" : "รับซื้อเข้า";
+}
 
 export type PlotActivityType =
   | "seed_receive"

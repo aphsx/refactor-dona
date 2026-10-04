@@ -11,7 +11,7 @@ import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { measureRingAreaRai } from "@/lib/api";
 import type { FieldMapHandle } from "@/components/field-map";
-import { VARIETIES, centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingAreaSummary, plantingsOf, varietyName, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { VARIETIES, centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millReceiptDirectionLabel, openPlanting, openRing, plantingAreaSummary, plantingsOf, varietyName, type Farmer, type MillReceiptDirection, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -851,27 +851,27 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             </CanEdit>
           </div>
         </form>
-      <MemberStanding farmer={farmer} plots={fields} plantings={plantings} leads={leads} />
+      <MemberStanding farmer={farmer} leads={leads} />
       <MillReceiptRounds farmer={farmer} />
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
 }
-function MemberStanding({ farmer, plots, plantings, leads }: { farmer: Farmer; plots: Plot[]; plantings: Planting[]; leads: SupplierGroup | null }) {
-  const { groups } = useMill();
+function MemberStanding({ farmer, leads }: { farmer: Farmer; leads: SupplierGroup | null }) {
+  const { groups, receipts } = useMill();
   const group = groups.find((item) => item.id === farmer.groupId) ?? null;
-  const area = plots.reduce((sum, plot) => sum + plot.areaRai, 0);
-  const plotIds = new Set(plots.map((plot) => plot.id));
-  const waiting = plantings.filter((planting) => plotIds.has(planting.plotId)).reduce((sum, planting) => sum + planting.estKg, 0);
+  const mine = receipts.filter((item) => item.farmerId === farmer.id);
+  const boughtIn = mine.filter((item) => (item.direction ?? "in") === "in").reduce((sum, item) => sum + item.kg, 0);
+  const soldOut = mine.filter((item) => item.direction === "out").reduce((sum, item) => sum + item.kg, 0);
+  const onHand = boughtIn - soldOut;
 
   return (
     <div className="border-b border-frame">
       <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">สถานะรับซื้อ</div>
-      <div className="grid gap-4 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Fact label="รับเข้าโรงสี" value={formatKg(farmer.deliveredKg)} />
-        <Fact label="จำนวนแปลง" value={plots.length === 0 ? "ยังไม่มีแปลง" : `${plots.length} แปลง`} />
-        <Fact label="พื้นที่รวม" value={plots.length === 0 ? "—" : `${area} ไร่`} />
-        <Fact label="ยังไม่เข้า" value={formatKg(waiting)} />
+      <div className="grid gap-4 px-6 py-5 sm:grid-cols-3">
+        <Fact label="รับซื้อเข้า" value={formatKg(boughtIn)} />
+        <Fact label="ขายออก" value={formatKg(soldOut)} />
+        <Fact label="คงเหลือ" value={formatKg(onHand)} />
       </div>
       {!leads && group && (
         <div className="border-t border-frame px-6 py-4 text-[14px]">
@@ -1102,6 +1102,7 @@ function PlotTable({
 function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   const { receipts, createMillReceipt, removeMillReceipt } = useMill();
   const [adding, setAdding] = useState(false);
+  const [direction, setDirection] = useState<MillReceiptDirection>("in");
   const [receivedOn, setReceivedOn] = useState("");
   const [varietyId, setVarietyId] = useState<Variety | "">("");
   const [kg, setKg] = useState("");
@@ -1113,6 +1114,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   const listingSort = useTableSort(rows.map((row) => row.id).join(","));
   const ordered = orderBy(rows, listingSort.sort, (row, key) => {
     if (key === "date") return row.receivedOn;
+    if (key === "direction") return row.direction === "out" ? 1 : 0;
     if (key === "variety") return varietyName(row.varietyId);
     return row.kg;
   });
@@ -1120,6 +1122,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
 
   function resetForm() {
     setAdding(false);
+    setDirection("in");
     setReceivedOn("");
     setVarietyId("");
     setKg("");
@@ -1128,11 +1131,11 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-        รอบรับเข้าโรงสี
+        บัญชีซื้อขายโรงสี
         <CanAdd resource="farmers">
           <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
             <Glyph icon={Plus} />
-            เพิ่มรับเข้า
+            เพิ่มรายการ
           </SecondaryButton>
         </CanAdd>
       </div>
@@ -1140,7 +1143,8 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
         <table className={tableClass}>
           <thead className="bg-table">
             <tr>
-              <SortableTh label="วันรับเข้า" column="date" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="วันที่" column="date" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ประเภท" column="direction" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="จำนวน" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -1149,35 +1153,39 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
           <tbody>
             {ordered.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-6 text-ink/60">
-                  ยังไม่มีรอบรับเข้าโรงสี
+                <td colSpan={5} className="px-5 py-6 text-ink/60">
+                  ยังไม่มีรายการซื้อขาย
                 </td>
               </tr>
             )}
-            {page.rows.map((row, index) => (
-              <tr key={row.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                <td className="px-5 py-3 font-bold">{formatThaiDate(row.receivedOn)}</td>
-                <td className="px-5 py-3">{varietyName(row.varietyId)}</td>
-                <td className="px-5 py-3">{formatKg(row.kg)}</td>
-                <td className="px-5 py-3 text-right">
-                  <CanDelete resource="farmers">
-                    <SecondaryButton
-                      className="h-9"
-                      onClick={() =>
-                        setNotice({
-                          tone: "confirm",
-                          message: `ยืนยันลบรับเข้า ${varietyName(row.varietyId)} ${formatKg(row.kg)} วันที่ ${formatThaiDate(row.receivedOn)}`,
-                          accept: async () => setNotice(await reported(removeMillReceipt(row.id), "ลบรับเข้าแล้ว")),
-                        })
-                      }
-                    >
-                      <Glyph icon={Trash2} />
-                      ลบ
-                    </SecondaryButton>
-                  </CanDelete>
-                </td>
-              </tr>
-            ))}
+            {page.rows.map((row, index) => {
+              const kind = millReceiptDirectionLabel(row.direction ?? "in");
+              return (
+                <tr key={row.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                  <td className="px-5 py-3 font-bold">{formatThaiDate(row.receivedOn)}</td>
+                  <td className={`px-5 py-3 font-bold ${row.direction === "out" ? "text-danger" : "text-ok"}`}>{kind}</td>
+                  <td className="px-5 py-3">{varietyName(row.varietyId)}</td>
+                  <td className="px-5 py-3">{formatKg(row.kg)}</td>
+                  <td className="px-5 py-3 text-right">
+                    <CanDelete resource="farmers">
+                      <SecondaryButton
+                        className="h-9"
+                        onClick={() =>
+                          setNotice({
+                            tone: "confirm",
+                            message: `ยืนยันลบ${kind} ${varietyName(row.varietyId)} ${formatKg(row.kg)} วันที่ ${formatThaiDate(row.receivedOn)}`,
+                            accept: async () => setNotice(await reported(removeMillReceipt(row.id), "ลบรายการแล้ว")),
+                          })
+                        }
+                      >
+                        <Glyph icon={Trash2} />
+                        ลบ
+                      </SecondaryButton>
+                    </CanDelete>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </TableScroll>
@@ -1190,29 +1198,43 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
         onPageSizeChange={page.setPageSize}
       />
       {adding && (
-        <Dialog title="เพิ่มรับเข้าโรงสี" onClose={resetForm}>
+        <Dialog title="เพิ่มรายการซื้อขาย" onClose={resetForm}>
           <form
             className="grid gap-4"
             onSubmit={async (event) => {
               event.preventDefault();
               const amount = Number(kg);
               if (!receivedOn || varietyId === "" || !Number.isFinite(amount) || amount <= 0) {
-                setNotice({ tone: "error", message: "ใส่วันรับเข้า พันธุ์ และจำนวนกก. ให้ถูกต้อง" });
+                setNotice({ tone: "error", message: "ใส่วันที่ พันธุ์ และจำนวนกก. ให้ถูกต้อง" });
                 return;
               }
               setNotice(
                 await reported(
-                  createMillReceipt(farmer.id, { varietyId, kg: Math.round(amount), receivedOn }),
-                  "บันทึกรับเข้าโรงสีแล้ว",
+                  createMillReceipt(farmer.id, { varietyId, direction, kg: Math.round(amount), receivedOn }),
+                  direction === "out" ? "บันทึกขายออกแล้ว" : "บันทึกรับซื้อเข้าแล้ว",
                   resetForm,
                 ),
               );
             }}
           >
             <label className="block text-[14px] font-bold leading-[1.4]">
-              วันรับเข้า
+              ประเภท
               <RequiredMark />
-              <DateField label="วันรับเข้า" className="mt-1" value={receivedOn} onChange={setReceivedOn} />
+              <Select
+                label="ประเภท"
+                className="mt-1"
+                value={direction}
+                onChange={(value) => setDirection(value === "out" ? "out" : "in")}
+                options={[
+                  { value: "in", label: "รับซื้อเข้า" },
+                  { value: "out", label: "ขายออก" },
+                ]}
+              />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              วันที่
+              <RequiredMark />
+              <DateField label="วันที่" className="mt-1" value={receivedOn} onChange={setReceivedOn} />
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               พันธุ์

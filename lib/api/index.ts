@@ -8,6 +8,7 @@ import {
   type Farmer,
   type FarmerInput,
   type MillReceipt,
+  type MillReceiptDirection,
   type MillSnapshot,
   type Permission,
   type PermissionFlag,
@@ -127,7 +128,11 @@ export async function loadMillSnapshot(): Promise<MillSnapshot> {
     plots: plots.map(asPlot),
     plantings: plantings.map(asPlanting),
     activities: activities.map(asPlotActivity),
-    receipts,
+    receipts: receipts.map((item) => ({
+      ...item,
+      varietyId: asVariety(Number(item.varietyId)),
+      direction: item.direction === "out" ? ("out" as const) : ("in" as const),
+    })),
     permissions: permissions.map(asPermission),
     roleGrants: millGrants(people),
   };
@@ -209,11 +214,20 @@ export const api = {
 
   deletePlanting: (id: string) => apiRequest<void>(`/plantings/${id}`, { method: "DELETE" }),
 
-  createMillReceipt: (input: { farmerId: string; varietyId: Variety; kg: number; receivedOn: string }) =>
-    apiRequest<MillReceipt>("/mill-receipts", { method: "POST", body: JSON.stringify(input) }),
+  createMillReceipt: (input: {
+    farmerId: string;
+    varietyId: Variety;
+    direction: MillReceiptDirection;
+    kg: number;
+    receivedOn: string;
+  }) => apiRequest<MillReceipt>("/mill-receipts", { method: "POST", body: JSON.stringify(input) }),
 
-  updateMillReceipt: (id: string, input: { varietyId: Variety; kg: number; receivedOn: string }) =>
-    apiRequest<MillReceipt>(`/mill-receipts/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  updateMillReceipt: (id: string, input: {
+    varietyId: Variety;
+    direction: MillReceiptDirection;
+    kg: number;
+    receivedOn: string;
+  }) => apiRequest<MillReceipt>(`/mill-receipts/${id}`, { method: "PUT", body: JSON.stringify(input) }),
 
   deleteMillReceipt: (id: string) => apiRequest<void>(`/mill-receipts/${id}`, { method: "DELETE" }),
 
