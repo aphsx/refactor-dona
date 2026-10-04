@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useMill } from "@/components/store";
-import { PageHeader, TableScroll, tableClass } from "@/components/ui";
-import { type PermissionFlag, type PermissionResource, type PermissionRole } from "@/lib/mill";
+import { PageHeader, Pagination, TableScroll, tableClass, usePagination } from "@/components/ui";
+import { type Permission, type PermissionFlag, type PermissionResource, type PermissionRole } from "@/lib/mill";
 
 const ROLES: { role: PermissionRole; title: string; scope: string }[] = [
   { role: "mill", title: "โรงสี", scope: "ทั้งโรงสี" },
@@ -35,54 +35,82 @@ export function PermissionsScreen() {
       <PageHeader current="จัดการสิทธิ์" />
       <div className="flex flex-col gap-6">
         {ROLES.map((role) => (
-          <section key={role.role} className="overflow-hidden rounded-[8px] border border-frame">
-            <div className="bg-bar px-6 py-4 text-white">
-              <div className="text-[16px] font-bold">{role.title}</div>
-              <div className="mt-1 text-[14px] font-normal">{role.scope}</div>
-            </div>
-            <TableScroll>
-              <table className={tableClass}>
-                <thead className="bg-table">
-                  <tr>
-                    <th className="border-r border-white px-5 py-3 font-bold">ข้อมูล</th>
-                    {FLAGS.map((flag) => (
-                      <th key={flag.flag} className="border-r border-white px-5 py-3 text-center font-bold last:border-r-0">
-                        {flag.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {RESOURCES.map((resource, index) => {
-                    const permission = permissions.find((item) => item.role === role.role && item.resource === resource.resource);
-                    return (
-                      <tr key={resource.resource} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                        <td className="px-5 py-3 font-bold">{resource.label}</td>
-                        {FLAGS.map((flag) => (
-                          <td key={flag.flag} className="px-5 py-3 text-center">
-                            <Flag
-                              on={permission?.[flag.flag] ?? false}
-                              label={`${role.title} ${resource.label} ${flag.label}`}
-                              onToggle={() => {
-                                void (async () => {
-                                  const message = await setPermission(role.role, resource.resource, flag.flag, !(permission?.[flag.flag] ?? false));
-                                  setError(message ?? "");
-                                })();
-                              }}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </TableScroll>
-          </section>
+          <RolePermissionTable
+            key={role.role}
+            role={role}
+            permissions={permissions}
+            onToggle={async (resource, flag, next) => {
+              const message = await setPermission(role.role, resource, flag, next);
+              setError(message ?? "");
+            }}
+          />
         ))}
         {error && <p className="text-[14px] text-danger">{error}</p>}
       </div>
     </div>
+  );
+}
+
+function RolePermissionTable({
+  role,
+  permissions,
+  onToggle,
+}: {
+  role: (typeof ROLES)[number];
+  permissions: Permission[];
+  onToggle: (resource: PermissionResource, flag: PermissionFlag, next: boolean) => Promise<void>;
+}) {
+  const page = usePagination(RESOURCES, role.role);
+  return (
+    <section className="overflow-hidden rounded-[8px] border border-frame">
+      <div className="bg-bar px-6 py-4 text-white">
+        <div className="text-[16px] font-bold">{role.title}</div>
+        <div className="mt-1 text-[14px] font-normal">{role.scope}</div>
+      </div>
+      <TableScroll>
+        <table className={tableClass}>
+          <thead className="bg-table">
+            <tr>
+              <th className="border-r border-white px-5 py-3 font-bold">ข้อมูล</th>
+              {FLAGS.map((flag) => (
+                <th key={flag.flag} className="border-r border-white px-5 py-3 text-center font-bold last:border-r-0">
+                  {flag.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {page.rows.map((resource, index) => {
+              const permission = permissions.find((item) => item.role === role.role && item.resource === resource.resource);
+              return (
+                <tr key={resource.resource} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                  <td className="px-5 py-3 font-bold">{resource.label}</td>
+                  {FLAGS.map((flag) => (
+                    <td key={flag.flag} className="px-5 py-3 text-center">
+                      <Flag
+                        on={permission?.[flag.flag] ?? false}
+                        label={`${role.title} ${resource.label} ${flag.label}`}
+                        onToggle={() => {
+                          void onToggle(resource.resource, flag.flag, !(permission?.[flag.flag] ?? false));
+                        }}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </TableScroll>
+      <Pagination
+        page={page.page}
+        pageCount={page.pageCount}
+        pageSize={page.pageSize}
+        total={page.total}
+        onPageChange={page.setPage}
+        onPageSizeChange={page.setPageSize}
+      />
+    </section>
   );
 }
 

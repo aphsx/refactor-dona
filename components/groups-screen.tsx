@@ -990,6 +990,7 @@ function PlotTable({
     if (key === "kg") return round?.estKg ?? -1;
     return plotHarvest(round).label;
   });
+  const page = usePagination(ordered, farmerId);
   const shaped = mapPlot != null && mapPlot.polygon.length >= 4;
   return (
     <>
@@ -1015,7 +1016,7 @@ function PlotTable({
               </td>
             </tr>
           )}
-          {ordered.map((plot, index) => {
+          {page.rows.map((plot, index) => {
             const round = currentPlanting(plantings, plot.id);
             const harvest = plotHarvest(round);
             return (
@@ -1059,6 +1060,14 @@ function PlotTable({
         </tbody>
       </table>
 </TableScroll>
+    <Pagination
+      page={page.page}
+      pageCount={page.pageCount}
+      pageSize={page.pageSize}
+      total={page.total}
+      onPageChange={page.setPage}
+      onPageSizeChange={page.setPageSize}
+    />
     {mapPlot && (
       <Dialog title={`แผนที่ · ${mapPlot.name}`} wide onClose={() => setMapPlot(null)}>
         {shaped ? (
@@ -1092,6 +1101,7 @@ function ReceivedRounds({ plots, plantings }: { plots: Plot[]; plantings: Planti
     if (key === "harvest") return round.harvestOn;
     return round.estKg;
   });
+  const page = usePagination(ordered, rows.map((row) => row.id).join(","));
 
   return (
     <div>
@@ -1114,7 +1124,7 @@ function ReceivedRounds({ plots, plantings }: { plots: Plot[]; plantings: Planti
               </td>
             </tr>
           )}
-          {ordered.map((round, index) => (
+          {page.rows.map((round, index) => (
             <tr key={round.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
               <td className="px-5 py-3 font-bold">{plotNames.get(round.plotId)}</td>
               <td className="px-5 py-3">{formatThaiDate(round.plantedOn)}</td>
@@ -1125,6 +1135,14 @@ function ReceivedRounds({ plots, plantings }: { plots: Plot[]; plantings: Planti
         </tbody>
       </table>
 </TableScroll>
+      <Pagination
+        page={page.page}
+        pageCount={page.pageCount}
+        pageSize={page.pageSize}
+        total={page.total}
+        onPageChange={page.setPage}
+        onPageSizeChange={page.setPageSize}
+      />
     </div>
   );
 }
@@ -1176,6 +1194,7 @@ export function MemberPlan({
     if (key === "harvest") return row.harvestOn;
     return row.status;
   });
+  const page = usePagination(ordered, farmer.id);
   const [plotId, setPlotId] = useState<string | null>(initialPlotId);
   const [adding, setAdding] = useState(false);
   const listed = ordered.find((plot) => plot.id === plotId) ?? null;
@@ -1270,7 +1289,7 @@ export function MemberPlan({
                 </td>
               </tr>
             )}
-            {ordered.map((plot, index) => (
+            {page.rows.map((plot, index) => (
               <tr key={plot.id} onClick={(event) => openRow(event, () => setPlotId(plot.id))} className={rowTone(index)}>
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{formatRai(plot.areaRai)}</td>
@@ -1284,6 +1303,14 @@ export function MemberPlan({
           </tbody>
         </table>
       </TableScroll>
+      <Pagination
+        page={page.page}
+        pageCount={page.pageCount}
+        pageSize={page.pageSize}
+        total={page.total}
+        onPageChange={page.setPage}
+        onPageSizeChange={page.setPageSize}
+      />
       {adding && (
         <ChoosePlanPlot
           plots={available}

@@ -9,12 +9,14 @@ import {
   DateField,
   Dialog,
   Glyph,
+  Pagination,
   PrimaryButton,
   ResultAlert,
   SecondaryButton,
   TableScroll,
   inputClass,
   tableClass,
+  usePagination,
 } from "@/components/ui";
 import {
   TIMELINE_ACTIVITY_TYPES,
@@ -77,6 +79,7 @@ export function PlantingActivityPanel({
 }) {
   const { activities, saveActivity, removeActivity } = useMill();
   const rows = timelineActivitiesOf(activities, plantingId);
+  const page = usePagination(rows, plantingId);
   const [editor, setEditor] = useState<null | { mode: "create" | "edit"; activity?: PlotActivity; type?: PlotActivityType }>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
 
@@ -119,7 +122,7 @@ export function PlantingActivityPanel({
                 </td>
               </tr>
             )}
-            {rows.map((row, index) => (
+            {page.rows.map((row, index) => (
               <tr key={row.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3">{formatThaiDate(row.occurredOn)}</td>
                 <td className="px-5 py-3 font-bold">{activityTypeLabel(row.type)}</td>
@@ -160,6 +163,14 @@ export function PlantingActivityPanel({
           </tbody>
         </table>
       </TableScroll>
+      <Pagination
+        page={page.page}
+        pageCount={page.pageCount}
+        pageSize={page.pageSize}
+        total={page.total}
+        onPageChange={page.setPage}
+        onPageSizeChange={page.setPageSize}
+      />
 
       {editor && (
         <ActivityDialog
