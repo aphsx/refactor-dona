@@ -20,11 +20,8 @@ import {
   TIMELINE_ACTIVITY_TYPES,
   activitySummary,
   activityTypeLabel,
-  currentActivityStage,
-  formatRai,
   formatThaiDate,
   nextActivityRound,
-  plantingAreaSummary,
   timelineActivitiesOf,
   type ChemicalPayload,
   type FertilizerApplyPayload,
@@ -80,8 +77,6 @@ export function PlantingActivityPanel({
 }) {
   const { activities, saveActivity, removeActivity } = useMill();
   const rows = timelineActivitiesOf(activities, plantingId);
-  const summary = plantingAreaSummary(plotAreaRai, activities, plantingId);
-  const stage = currentActivityStage(activities, plantingId);
   const [editor, setEditor] = useState<null | { mode: "create" | "edit"; activity?: PlotActivity; type?: PlotActivityType }>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
 
@@ -104,24 +99,6 @@ export function PlantingActivityPanel({
             ))}
           </div>
         </CanAdd>
-      </div>
-
-      <div className="border-b border-frame">
-        <div className="grid grid-cols-3 border-b border-frame bg-table">
-          <div className="px-5 py-3 text-[14px] font-bold">ปลูกจริงแล้ว</div>
-          <div className="border-l border-frame px-5 py-3 text-[14px] font-bold">ยังไม่ปลูก</div>
-          <div className="border-l border-frame px-5 py-3 text-[14px] font-bold">ขั้นตอนปัจจุบัน</div>
-        </div>
-        <div className="grid grid-cols-3 bg-white">
-          <div className="px-5 py-3 text-[14px] font-bold text-brand">{formatRai(summary.plantedAreaRai)}</div>
-          <div className="border-l border-frame px-5 py-3 text-[14px]">{formatRai(summary.unplantedAreaRai)}</div>
-          <div className="border-l border-frame px-5 py-3 text-[14px] font-bold">{stage}</div>
-        </div>
-        {summary.actuallyPlantedOn && (
-          <div className="border-t border-frame px-5 py-2 text-[13px] text-ink/60">
-            วันที่ปลูกจริงล่าสุด {formatThaiDate(summary.actuallyPlantedOn)}
-          </div>
-        )}
       </div>
 
       <TableScroll>

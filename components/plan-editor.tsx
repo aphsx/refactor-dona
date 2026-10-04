@@ -7,9 +7,11 @@ import { useMill } from "@/components/store";
 import { ConfirmAlert, DateField, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
 import {
   VARIETIES,
+  currentActivityStage,
   formatRai,
   formatThaiDate,
   latestActivityOfType,
+  plantingAreaSummary,
   varietyName,
   type PlantActualPayload,
   type SeedReceivePayload,
@@ -62,6 +64,10 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
   const savedSeedQty = seedPayload ? kgField(seedPayload.quantityKg) : "";
   const savedPlantedArea = plantPayload ? String(plantPayload.plantedAreaRai) : "";
   const savedPlantedOn = plantActivity?.occurredOn || current?.plantedOn || plot.plantedOn;
+  const summary = plantingId
+    ? plantingAreaSummary(Number(area) || plot.areaRai, activities, plantingId)
+    : { plantedAreaRai: 0, unplantedAreaRai: Number(area) || plot.areaRai, actuallyPlantedOn: null as string | null };
+  const stage = plantingId ? currentActivityStage(activities, plantingId) : "ยังไม่มีกิจกรรม";
 
   const dirty =
     area !== String(plot.areaRai) ||
@@ -230,6 +236,18 @@ export function PlanEditor({ plot, onClose }: { plot: PlanRow; onClose: () => vo
         }}
       >
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ปลูกจริงแล้ว
+            <input value={formatRai(summary.plantedAreaRai)} disabled className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ยังไม่ปลูก
+            <input value={formatRai(summary.unplantedAreaRai)} disabled className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ขั้นตอนปัจจุบัน
+            <input value={stage} disabled className={fieldClass} />
+          </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             ชื่อแปลง
             <input value={plot.name} disabled className={fieldClass} />

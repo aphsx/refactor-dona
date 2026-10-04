@@ -1200,16 +1200,8 @@ export function MemberPlan({
     return (
       <>
         <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-white">
-          <div>
-            <div className="text-[16px] font-bold">
-              {farmerName(farmer)} · {selected.name}
-            </div>
-            <div className="mt-1 text-[13px] font-normal text-white/85">
-              {selected.varietyId ? varietyName(selected.varietyId) : "ยังไม่ตั้งพันธุ์"}
-              {" · "}ปลูกจริง {formatRai(selected.plantedAreaRai)}
-              {" · "}ยังไม่ปลูก {formatRai(selected.unplantedAreaRai)}
-              {" · "}{selected.stage}
-            </div>
+          <div className="text-[16px] font-bold">
+            {farmerName(farmer)} · {selected.name}
           </div>
           <button
             type="button"
