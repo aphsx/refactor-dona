@@ -519,6 +519,7 @@ function GroupDirectory() {
 }
 
 function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => void }) {
+  const router = useRouter();
   const { farmers, plots, plantings, updateGroup, assignFarmer } = useMill();
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(group.name);
@@ -614,12 +615,6 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
       </form>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame bg-bar px-6 py-4 text-white">
         <div className="text-[16px] font-bold">สมาชิก · {members.length} คน</div>
-        <CanEdit resource="farmers">
-          <SecondaryButton className="h-9" onClick={() => setMoving(true)}>
-            <Glyph icon={UserPlus} />
-            จัดเข้ากลุ่ม
-          </SecondaryButton>
-        </CanEdit>
       </div>
       <TableScroll>
 <table className={tableClass}>
@@ -642,7 +637,11 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
           {page.rows.map((farmer, index) => {
             const leadsGroup = group.leaderId === farmer.id;
             return (
-              <tr key={farmer.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+              <tr
+                key={farmer.id}
+                onClick={(event) => openRow(event, () => router.push(`/farmers/manage?farmer=${farmer.id}`))}
+                className={rowTone(index)}
+              >
                 <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                 <td className="px-5 py-3">{farmer.tel}</td>
                 <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
@@ -681,6 +680,14 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
         onPageChange={page.setPage}
         onPageSizeChange={page.setPageSize}
       />
+      <div className="flex flex-wrap gap-5 px-6 py-4">
+        <CanEdit resource="farmers">
+          <SecondaryButton className="h-9" onClick={() => setMoving(true)}>
+            <Glyph icon={UserPlus} />
+            จัดเข้ากลุ่ม
+          </SecondaryButton>
+        </CanEdit>
+      </div>
       {moving && <MoveFarmer groupId={group.id} onClose={() => setMoving(false)} onAssign={assignFarmer} />}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
