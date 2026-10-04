@@ -11,7 +11,7 @@ import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { measureRingAreaRai } from "@/lib/api";
 import type { FieldMapHandle } from "@/components/field-map";
-import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultProductKindId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millReceiptDirectionLabel, openPlanting, openRing, plantingAreaSummary, plantingsOf, productKindName, varietyName, type Farmer, type MillReceiptDirection, type Planting, type Plot, type ProductKind, type SupplierGroup, type Variety } from "@/lib/mill";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultProductKindId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millReceiptDirectionLabel, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, productKindName, roleTitle, varietyName, type Farmer, type MillReceiptDirection, type Planting, type Plot, type ProductKind, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -233,7 +233,7 @@ export function GroupManageScreen() {
 }
 
 export function MemberManageScreen() {
-  const { groups, farmers, assignFarmer } = useMill();
+  const { groups, farmers, roleGrants, assignFarmer } = useMill();
   const router = useRouter();
   const requestedId = useSearchParams().get("farmer");
   const requested = farmers.some((farmer) => farmer.id === requestedId) ? requestedId : null;
@@ -261,6 +261,7 @@ export function MemberManageScreen() {
     if (key === "name") return farmerName(farmer);
     if (key === "tel") return farmer.tel;
     if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
+    if (key === "role") return roleTitle(personRole(roleGrants, groups, farmer.id));
     return farmer.deliveredKg;
   });
   const page = usePagination(ordered, `${name}:${groupId}`);
@@ -368,6 +369,7 @@ export function MemberManageScreen() {
                   <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="ตำแหน่ง" column="role" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="รับเข้าโรงสี" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
@@ -375,7 +377,7 @@ export function MemberManageScreen() {
               <tbody>
                 {page.rows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-6 text-ink/60">
+                    <td colSpan={6} className="px-5 py-6 text-ink/60">
                       ไม่พบเกษตรกร
                     </td>
                   </tr>
@@ -387,11 +389,10 @@ export function MemberManageScreen() {
                       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                       <td className="px-5 py-3">{farmer.tel}</td>
                       <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}</td>
+                      <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
                       <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                       <td className="px-5 py-3 text-right">
-                        {leads ? (
-                          <span className="text-[12px] font-bold text-ink/50">หัวหน้า</span>
-                        ) : (
+                        {!leads && (
                           <CanEdit resource="farmers">
                             <SecondaryButton
                               className="h-9"

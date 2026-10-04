@@ -8,18 +8,18 @@ import { CanAdd } from "@/components/can";
 import { PlaceSelects } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
 import { Dialog, Glyph, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, SortableTh, TableScroll, inputClass, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { farmerName, farmerVarieties, formatKg } from "@/lib/mill";
+import { farmerName, formatKg, personRole, roleTitle } from "@/lib/mill";
 
 export function FarmersScreen() {
   const router = useRouter();
-  const { farmers, plots, plantings, groups } = useMill();
+  const { farmers, plots, groups, roleGrants } = useMill();
   const [adding, setAdding] = useState(false);
   const listingSort = useTableSort();
   const ordered = orderBy(farmers, listingSort.sort, (farmer, key) => {
     if (key === "name") return farmerName(farmer);
     if (key === "tel") return farmer.tel;
     if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
-    if (key === "variety") return farmerVarieties(plots, plantings, farmer.id);
+    if (key === "role") return roleTitle(personRole(roleGrants, groups, farmer.id));
     if (key === "plots") return plots.filter((plot) => plot.farmerId === farmer.id).length;
     return farmer.deliveredKg;
   });
@@ -48,7 +48,7 @@ export function FarmersScreen() {
               <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ตำแหน่ง" column="role" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="รับเข้าโรงสี" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="แปลง" column="plots" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -66,7 +66,7 @@ export function FarmersScreen() {
                   <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                   <td className="px-5 py-3">{farmer.tel}</td>
                   <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>
-                  <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
+                  <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
                   <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                   <td className="px-5 py-3">{fieldCount}</td>
                   <td className="px-5 py-3">
