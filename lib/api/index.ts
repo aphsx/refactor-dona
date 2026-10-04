@@ -14,6 +14,9 @@ import {
   type PermissionRole,
   type Planting,
   type Plot,
+  type PlotActivity,
+  type PlotActivityPayload,
+  type PlotActivityType,
   type RoleGrant,
   type SupplierGroup,
   type Variety,
@@ -47,6 +50,11 @@ type WirePerson = Farmer & { role: string; scope: string };
 type WirePlot = Omit<Plot, "polygon"> & { polygon: number[][] };
 
 type WirePlanting = Omit<Planting, "varietyId"> & { varietyId: number };
+
+type WirePlotActivity = Omit<PlotActivity, "type" | "payload"> & {
+  type: string;
+  payload: PlotActivityPayload | Record<string, unknown>;
+};
 
 const ROLE_ID: Record<PermissionRole, number> = { mill: 1, leader: 2, member: 3 };
 const ROLE_CODE: Record<number, PermissionRole> = { 1: "mill", 2: "leader", 3: "member" };
@@ -87,16 +95,26 @@ function asPlanting(item: WirePlanting): Planting {
   return { ...item, varietyId: asVariety(item.varietyId) };
 }
 
+function asPlotActivity(item: WirePlotActivity): PlotActivity {
+  return {
+    ...item,
+    type: item.type as PlotActivityType,
+    payload: (item.payload ?? {}) as PlotActivityPayload,
+    note: item.note ?? "",
+  };
+}
+
 function millGrants(people: WirePerson[]): RoleGrant[] {
   return people.filter((person) => person.role === "mill").map((person) => ({ farmerId: person.id, role: "mill" as const }));
 }
 
 export async function loadMillSnapshot(): Promise<MillSnapshot> {
-  const [groups, farmers, plots, plantings, permissions, people] = await Promise.all([
+  const [groups, farmers, plots, plantings, activities, permissions, people] = await Promise.all([
     apiListAll<SupplierGroup>("/groups"),
     apiListAll<Farmer>("/farmers"),
     apiListAll<WirePlot>("/plots"),
     apiListAll<WirePlanting>("/plantings"),
+    apiListAll<WirePlotActivity>("/plot-activities"),
     apiRequest<{ items: WirePermission[] }>("/permissions").then((data) => data.items ?? []),
     apiListAll<WirePerson>("/people"),
   ]);
@@ -106,6 +124,7 @@ export async function loadMillSnapshot(): Promise<MillSnapshot> {
     farmers,
     plots: plots.map(asPlot),
     plantings: plantings.map(asPlanting),
+    activities: activities.map(asPlotActivity),
     permissions: permissions.map(asPermission),
     roleGrants: millGrants(people),
   };
@@ -186,6 +205,21 @@ export const api = {
     apiRequest<WirePlanting>(`/plantings/${id}`, { method: "PUT", body: JSON.stringify(input) }).then(asPlanting),
 
   deletePlanting: (id: string) => apiRequest<void>(`/plantings/${id}`, { method: "DELETE" }),
+
+  createPlotActivity: (input: {
+    plantingId: string;
+    type: PlotActivityType;
+    occurredOn: string;
+    payload: PlotActivityPayload;
+    note?: string;
+  }) => apiRequest<WirePlotActivity>("/plot-activities", { method: "POST", body: JSON.stringify(input) }).then(asPlotActivity),
+
+  updatePlotActivity: (
+    id: string,
+    input: { type: PlotActivityType; occurredOn: string; payload: PlotActivityPayload; note?: string },
+  ) => apiRequest<WirePlotActivity>(`/plot-activities/${id}`, { method: "PUT", body: JSON.stringify(input) }).then(asPlotActivity),
+
+  deletePlotActivity: (id: string) => apiRequest<void>(`/plot-activities/${id}`, { method: "DELETE" }),
 
   setPermission: (role: PermissionRole, resource: PermissionResource, flag: PermissionFlag, on: boolean) =>
     apiRequest<WirePermission>(`/permissions/${ROLE_ID[role]}/${resource}`, {

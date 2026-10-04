@@ -88,6 +88,30 @@ create index plantings_plot_id_idx on public.plantings (plot_id);
 create index plantings_variety_id_idx on public.plantings (variety_id);
 create unique index plantings_one_open_per_plot on public.plantings (plot_id) where not delivered;
 
+create table public.plot_activities (
+  id uuid primary key default gen_random_uuid(),
+  planting_id uuid not null references public.plantings (id) on delete cascade,
+  type text not null,
+  occurred_on date not null,
+  payload jsonb not null default '{}'::jsonb,
+  note text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint plot_activities_type_check check (
+    type in (
+      'seed_receive',
+      'plant_actual',
+      'fertilizer_receive',
+      'fertilizer_apply',
+      'chemical',
+      'problem'
+    )
+  )
+);
+
+create index plot_activities_planting_id_idx on public.plot_activities (planting_id);
+create index plot_activities_occurred_on_idx on public.plot_activities (occurred_on, created_at);
+
 create table public.permissions (
   role_id bigint not null references public.roles (id),
   resource text not null,
@@ -97,7 +121,7 @@ create table public.permissions (
   can_edit boolean not null,
   can_delete boolean not null,
   primary key (role_id, resource),
-  constraint permissions_resource check (resource in ('groups', 'farmers', 'plots', 'plantings')),
+  constraint permissions_resource check (resource in ('groups', 'farmers', 'plots', 'plantings', 'activities')),
   constraint permissions_scope check (scope in ('all', 'group', 'own'))
 );
 

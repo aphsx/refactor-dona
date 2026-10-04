@@ -9,6 +9,8 @@ import type {
   PermissionResource,
   PermissionRole,
   Plot,
+  PlotActivityPayload,
+  PlotActivityType,
   Variety,
 } from "@/lib/mill";
 
@@ -46,6 +48,15 @@ type Store = MillSnapshot & {
     input: { plantingId: string | null; varietyId: Variety; plantedOn: string; harvestOn: string; estKg: number },
   ) => Promise<string | null>;
   removePlanting: (plantingId: string) => Promise<string | null>;
+  saveActivity: (input: {
+    id?: string | null;
+    plantingId: string;
+    type: PlotActivityType;
+    occurredOn: string;
+    payload: PlotActivityPayload;
+    note?: string;
+  }) => Promise<string | null>;
+  removeActivity: (activityId: string) => Promise<string | null>;
   setPermission: (role: PermissionRole, resource: PermissionResource, flag: PermissionFlag, on: boolean) => Promise<string | null>;
   assignRole: (farmerId: string, role: PermissionRole) => Promise<string | null>;
   revokeRole: (farmerId: string) => Promise<string | null>;
@@ -56,6 +67,7 @@ const empty: MillSnapshot = {
   groups: [],
   plots: [],
   plantings: [],
+  activities: [],
   permissions: [],
   roleGrants: [],
 };
@@ -242,6 +254,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return input.plantingId ? api.updatePlanting(input.plantingId, body) : api.createPlanting({ plotId, ...body });
       }),
     removePlanting: (plantingId) => mutate(() => api.deletePlanting(plantingId)),
+    saveActivity: (input) =>
+      mutate(() => {
+        const body = {
+          type: input.type,
+          occurredOn: input.occurredOn,
+          payload: input.payload,
+          note: input.note ?? "",
+        };
+        return input.id
+          ? api.updatePlotActivity(input.id, body)
+          : api.createPlotActivity({ plantingId: input.plantingId, ...body });
+      }),
+    removeActivity: (activityId) => mutate(() => api.deletePlotActivity(activityId)),
     setPermission: (role, resource, flag, on) => mutate(() => api.setPermission(role, resource, flag, on)),
     assignRole: (farmerId, role) => mutate(() => api.assignRole(farmerId, role)),
     revokeRole: (farmerId) => mutate(() => api.revokeRole(farmerId)),

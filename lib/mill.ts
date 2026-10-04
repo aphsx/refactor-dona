@@ -52,8 +52,79 @@ export type Planting = {
   delivered: boolean;
 };
 
+export type PlotActivityType =
+  | "seed_receive"
+  | "plant_actual"
+  | "fertilizer_receive"
+  | "fertilizer_apply"
+  | "chemical"
+  | "problem";
+
+export type SeedReceivePayload = {
+  varietyId: number;
+  quantityKg: number;
+  intendedAreaRai: number;
+};
+
+export type PlantActualPayload = {
+  plantedAreaRai: number;
+};
+
+export type FertilizerReceivePayload = {
+  product: string;
+  quantityKg: number;
+};
+
+export type FertilizerApplyPayload = {
+  round: number;
+  brand: string;
+  rateKgPerRai: number;
+};
+
+export type ChemicalPayload = {
+  round: number;
+  name: string;
+  details: string;
+};
+
+export type ProblemPayload = {
+  details: string;
+};
+
+export type PlotActivityPayload =
+  | SeedReceivePayload
+  | PlantActualPayload
+  | FertilizerReceivePayload
+  | FertilizerApplyPayload
+  | ChemicalPayload
+  | ProblemPayload;
+
+export type PlotActivity = {
+  id: string;
+  plantingId: string;
+  type: PlotActivityType;
+  occurredOn: string;
+  payload: PlotActivityPayload;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const ACTIVITY_TYPES: { id: PlotActivityType; label: string }[] = [
+  { id: "seed_receive", label: "รับเมล็ดพันธุ์" },
+  { id: "plant_actual", label: "ปลูกจริง" },
+  { id: "fertilizer_receive", label: "รับปุ๋ย" },
+  { id: "fertilizer_apply", label: "ใส่ปุ๋ยจริง" },
+  { id: "chemical", label: "ใช้สารเคมี" },
+  { id: "problem", label: "ปัญหาในแปลง" },
+];
+
+export function activityTypeLabel(type: PlotActivityType) {
+  return ACTIVITY_TYPES.find((item) => item.id === type)?.label ?? type;
+}
+
 export type PermissionRole = "mill" | "leader" | "member";
-export type PermissionResource = "groups" | "farmers" | "plots" | "plantings";
+export type PermissionResource = "groups" | "farmers" | "plots" | "plantings" | "activities";
 export type PermissionFlag = "canRead" | "canAdd" | "canEdit" | "canDelete";
 
 export type Permission = {
@@ -76,6 +147,7 @@ export type MillSnapshot = {
   groups: SupplierGroup[];
   plots: Plot[];
   plantings: Planting[];
+  activities: PlotActivity[];
   permissions: Permission[];
   roleGrants: RoleGrant[];
 };
@@ -172,6 +244,93 @@ export function openPlanting(plantings: Planting[], plotId: string) {
 
 export function currentPlanting(plantings: Planting[], plotId: string) {
   return openPlanting(plantings, plotId) ?? plantingsOf(plantings, plotId)[0] ?? null;
+}
+
+export function activitiesOf(activities: PlotActivity[], plantingId: string) {
+  return activities
+    .filter((item) => item.plantingId === plantingId)
+    .slice()
+    .sort((a, b) => a.occurredOn.localeCompare(b.occurredOn) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+}
+
+export function plantingAreaSummary(plotAreaRai: number, activities: PlotActivity[], plantingId: string) {
+  const rows = activitiesOf(activities, plantingId);
+  let intendedAreaRai = plotAreaRai;
+  let plantedAreaRai = 0;
+  let hasIntended = false;
+  let actuallyPlantedOn: string | null = null;
+  for (const row of rows) {
+    if (row.type === "seed_receive") {
+      const payload = row.payload as SeedReceivePayload;
+      if (typeof payload.intendedAreaRai === "number" && payload.intendedAreaRai > 0) {
+        intendedAreaRai = payload.intendedAreaRai;
+        hasIntended = true;
+      }
+    }
+    if (row.type === "plant_actual") {
+      const payload = row.payload as PlantActualPayload;
+      if (typeof payload.plantedAreaRai === "number" && payload.plantedAreaRai > 0) {
+        plantedAreaRai = payload.plantedAreaRai;
+        actuallyPlantedOn = row.occurredOn;
+      }
+    }
+  }
+  if (!hasIntended) intendedAreaRai = plotAreaRai;
+  const unplantedAreaRai = Math.max(0, Math.round((intendedAreaRai - plantedAreaRai) * 100) / 100);
+  return { intendedAreaRai, plantedAreaRai, unplantedAreaRai, actuallyPlantedOn };
+}
+
+export function currentActivityStage(activities: PlotActivity[], plantingId: string) {
+  const rows = activitiesOf(activities, plantingId);
+  if (rows.length === 0) return "ยังไม่มีกิจกรรม";
+  const latest = rows[rows.length - 1];
+  if (latest.type === "fertilizer_apply") {
+    const round = (latest.payload as FertilizerApplyPayload).round;
+    return `ใส่ปุ๋ยครั้งที่ ${round}`;
+  }
+  if (latest.type === "chemical") {
+    const round = (latest.payload as ChemicalPayload).round;
+    return `ใช้สารเคมีครั้งที่ ${round}`;
+  }
+  return activityTypeLabel(latest.type);
+}
+
+export function nextActivityRound(activities: PlotActivity[], plantingId: string, type: "fertilizer_apply" | "chemical") {
+  const rounds = activitiesOf(activities, plantingId)
+    .filter((item) => item.type === type)
+    .map((item) => Number((item.payload as FertilizerApplyPayload | ChemicalPayload).round) || 0);
+  return rounds.length === 0 ? 1 : Math.max(...rounds) + 1;
+}
+
+export function activitySummary(activity: PlotActivity) {
+  switch (activity.type) {
+    case "seed_receive": {
+      const payload = activity.payload as SeedReceivePayload;
+      return `${varietyName(payload.varietyId)} · ${payload.quantityKg} กก. · ตั้งใจ ${formatRai(payload.intendedAreaRai)}`;
+    }
+    case "plant_actual": {
+      const payload = activity.payload as PlantActualPayload;
+      return `ปลูกจริง ${formatRai(payload.plantedAreaRai)}`;
+    }
+    case "fertilizer_receive": {
+      const payload = activity.payload as FertilizerReceivePayload;
+      return `${payload.product} · ${payload.quantityKg} กก.`;
+    }
+    case "fertilizer_apply": {
+      const payload = activity.payload as FertilizerApplyPayload;
+      return `ครั้งที่ ${payload.round} · ${payload.brand} · ${payload.rateKgPerRai} กก./ไร่`;
+    }
+    case "chemical": {
+      const payload = activity.payload as ChemicalPayload;
+      return `ครั้งที่ ${payload.round} · ${payload.name}`;
+    }
+    case "problem": {
+      const payload = activity.payload as ProblemPayload;
+      return payload.details;
+    }
+    default:
+      return "—";
+  }
 }
 
 export function centroid(points: [number, number][]) {

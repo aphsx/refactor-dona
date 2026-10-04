@@ -5,13 +5,14 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapIcon, Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
+import { PlantingActivityPanel } from "@/components/activities-screen";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { measureRingAreaRai } from "@/lib/api";
 import type { FieldMapHandle } from "@/components/field-map";
-import { VARIETIES, centroid, closeRing, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingsOf, varietyName, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
+import { VARIETIES, centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingAreaSummary, plantingsOf, varietyName, type Farmer, type Planting, type Plot, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -421,7 +422,14 @@ export function MemberManageScreen() {
           </>
         )}
         {tab === "detail" && detail && <MemberDetail farmer={detail} onClose={closeDetail} />}
-        {tab === "plots" && detail && <MemberPlots farmer={detail} onAddRound={(plotId) => openPlan(plotId)} onClose={closeDetail} />}
+        {tab === "plots" && detail && (
+          <MemberPlots
+            farmer={detail}
+            onAddRound={(plotId) => openPlan(plotId)}
+            onOpenPlan={(plotId) => openPlan(plotId)}
+            onClose={closeDetail}
+          />
+        )}
         {tab === "plan" && detail && <MemberPlan key={`${detail.id}:${planPlotId ?? "list"}`} farmer={detail} initialPlotId={planPlotId} onClose={closeDetail} />}
       </div>
       {moving && assignGroupId && <MoveFarmer groupId={assignGroupId} onClose={() => setMoving(false)} onAssign={assignFarmer} />}
@@ -869,7 +877,17 @@ function MemberStanding({ farmer, plots, plantings, leads }: { farmer: Farmer; p
   );
 }
 
-function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRound: (plotId: string) => void; onClose: () => void }) {
+function MemberPlots({
+  farmer,
+  onAddRound,
+  onOpenPlan,
+  onClose,
+}: {
+  farmer: Farmer;
+  onAddRound: (plotId: string) => void;
+  onOpenPlan: (plotId: string) => void;
+  onClose: () => void;
+}) {
   const { plots, plantings, addPlot, removePlot } = useMill();
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -896,6 +914,7 @@ function MemberPlots({ farmer, onAddRound, onClose }: { farmer: Farmer; onAddRou
         plantings={plantings}
         farmerId={farmer.id}
         onAddRound={onAddRound}
+        onOpenPlan={onOpenPlan}
         onRemove={(plot) =>
           setNotice({
             tone: "confirm",
@@ -948,12 +967,14 @@ function PlotTable({
   plantings,
   farmerId,
   onAddRound,
+  onOpenPlan,
   onRemove,
 }: {
   plots: Plot[];
   plantings: Planting[];
   farmerId: string;
   onAddRound: (plotId: string) => void;
+  onOpenPlan: (plotId: string) => void;
   onRemove: (plot: Plot) => void;
 }) {
   const [mapPlot, setMapPlot] = useState<Plot | null>(null);
@@ -1012,7 +1033,11 @@ function PlotTable({
                       <Glyph icon={MapIcon} />
                       ดูบนแผนที่
                     </SecondaryButton>
-                    {!round && (
+                    {round ? (
+                      <SecondaryButton className="h-9" onClick={() => onOpenPlan(plot.id)}>
+                        แผนการปลูก
+                      </SecondaryButton>
+                    ) : (
                       <CanAdd resource="plantings">
                         <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
                           <Glyph icon={Plus} />
@@ -1119,12 +1144,13 @@ export function MemberPlan({
   initialPlotId?: string | null;
   onClose?: () => void;
 }) {
-  const { plots, plantings } = useMill();
+  const { plots, plantings, activities } = useMill();
   const owned = plots.filter((plot) => plot.farmerId === farmer.id);
   const rounds = owned.flatMap((plot) => {
     const round = openPlanting(plantings, plot.id);
     if (!round) return [];
     const mark = plantingMark(round);
+    const area = plantingAreaSummary(plot.areaRai, activities, round.id);
     return [{
       ...plot,
       plantingId: round.id,
@@ -1134,6 +1160,9 @@ export function MemberPlan({
       estKg: round.estKg,
       status: mark.label,
       statusClass: mark.className,
+      plantedAreaRai: area.plantedAreaRai,
+      unplantedAreaRai: area.unplantedAreaRai,
+      stage: currentActivityStage(activities, round.id),
     }];
   });
   const listingSort = useTableSort(farmer.id);
@@ -1144,13 +1173,28 @@ export function MemberPlan({
     if (key === "status") return row.status;
     if (key === "planted") return row.plantedOn;
     if (key === "harvest") return row.harvestOn;
+    if (key === "actual") return row.plantedAreaRai;
+    if (key === "left") return row.unplantedAreaRai;
+    if (key === "stage") return row.stage;
     return row.estKg;
   });
   const [plotId, setPlotId] = useState<string | null>(initialPlotId);
   const [adding, setAdding] = useState(false);
   const listed = ordered.find((plot) => plot.id === plotId) ?? null;
   const draft = listed || !plotId ? null : owned.find((plot) => plot.id === plotId) ?? null;
-  const selected = listed ?? (draft ? { ...draft, plantingId: "", varietyId: null, plantedOn: "", harvestOn: "", estKg: 0, status: "", statusClass: "" } : null);
+  const selected = listed ?? (draft ? {
+    ...draft,
+    plantingId: "",
+    varietyId: null,
+    plantedOn: "",
+    harvestOn: "",
+    estKg: 0,
+    status: "",
+    statusClass: "",
+    plantedAreaRai: 0,
+    unplantedAreaRai: draft.areaRai,
+    stage: "ยังไม่มีกิจกรรม",
+  } : null);
   const available = owned.filter((plot) => !openPlanting(plantings, plot.id));
 
   return (
@@ -1179,6 +1223,9 @@ export function MemberPlan({
               <SortableTh label="พื้นที่" column="area" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="สถานะ" column="status" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ปลูกจริง" column="actual" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ยังไม่ปลูก" column="left" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              <SortableTh label="ขั้นตอน" column="stage" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="วันปลูก" column="planted" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="กำหนดเก็บ" column="harvest" sort={listingSort.sort} onSort={listingSort.toggleSort} />
               <SortableTh label="ที่คาด" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -1187,7 +1234,7 @@ export function MemberPlan({
           <tbody>
             {ordered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-6 text-ink/60">
+                <td colSpan={10} className="px-5 py-6 text-ink/60">
                   ยังไม่มีแผน
                 </td>
               </tr>
@@ -1198,6 +1245,9 @@ export function MemberPlan({
                   <td className="px-5 py-3">{plot.areaRai} ไร่</td>
                   <td className="px-5 py-3">{plot.varietyId ? varietyName(plot.varietyId) : "—"}</td>
                   <td className={`px-5 py-3 font-bold ${plot.statusClass}`}>{plot.status}</td>
+                  <td className="px-5 py-3">{formatRai(plot.plantedAreaRai)}</td>
+                  <td className="px-5 py-3">{formatRai(plot.unplantedAreaRai)}</td>
+                  <td className="px-5 py-3 font-bold">{plot.stage}</td>
                   <td className="px-5 py-3">{plot.plantedOn ? formatThaiDate(plot.plantedOn) : "—"}</td>
                   <td className="px-5 py-3">{plot.harvestOn ? formatThaiDate(plot.harvestOn) : "—"}</td>
                   <td className="px-5 py-3">{plot.estKg > 0 ? formatKg(plot.estKg) : "—"}</td>
@@ -1206,7 +1256,19 @@ export function MemberPlan({
           </tbody>
         </table>
       </TableScroll>
-      {selected && <PlanEditor key={selected.plantingId || selected.id} plot={selected} onClose={() => setPlotId(null)} />}
+      {selected && (
+        <>
+          <PlanEditor key={selected.plantingId || selected.id} plot={selected} onClose={() => setPlotId(null)} />
+          {selected.plantingId && selected.varietyId != null && (
+            <PlantingActivityPanel
+              key={`activities:${selected.plantingId}`}
+              plotAreaRai={selected.areaRai}
+              plantingId={selected.plantingId}
+              varietyId={selected.varietyId}
+            />
+          )}
+        </>
+      )}
       {adding && (
         <ChoosePlanPlot
           plots={available}
