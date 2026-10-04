@@ -1058,19 +1058,19 @@ function PlotTable({
                         </SecondaryButton>
                       </CanAdd>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setMapPlot(plot)}
-                      className="text-[13px] font-bold text-link underline"
-                    >
-                      รูปแปลง
-                    </button>
                     <CanDelete resource="plots">
                       <SecondaryButton className="h-9" onClick={() => onRemove(plot)}>
                         <Glyph icon={Trash2} />
                         ลบแปลง
                       </SecondaryButton>
                     </CanDelete>
+                    <button
+                      type="button"
+                      onClick={() => setMapPlot(plot)}
+                      className="cursor-pointer text-[13px] font-bold text-link underline"
+                    >
+                      รูปแปลง
+                    </button>
                   </div>
                 </td>
               </tr>
