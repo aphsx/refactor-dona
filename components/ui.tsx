@@ -23,7 +23,7 @@ export function openRow(event: React.MouseEvent<HTMLElement>, action: () => void
 }
 
 export function rowTone(index: number, picked = false) {
-  return `cursor-pointer transition-colors ${picked ? "bg-pick" : index % 2 === 1 ? "bg-table hover:bg-sub" : "bg-white hover:bg-sub"}`;
+  return `cursor-pointer ${picked ? "bg-pick" : index % 2 === 1 ? "bg-table" : "bg-white"}`;
 }
 
 export const tableClass = "w-max min-w-full border-collapse whitespace-nowrap text-left text-[14px]";
