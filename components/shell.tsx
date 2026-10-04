@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, CalendarDays, ChevronDown, Layers, Map, Menu, Shield, Sprout, Users, Wheat, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, Layers, Map, Menu, Settings2, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
 import { LoginScreen } from "@/components/login-screen";
 import { StoreProvider, useMill } from "@/components/store";
 import {
@@ -26,6 +26,8 @@ const KNOWN_APP_PATHS = new Set([
   "/groups/manage",
   "/farmers",
   "/farmers/manage",
+  "/manage",
+  "/manage/varieties",
   "/varieties/manage",
   "/permissions",
   "/permissions/people",
@@ -73,7 +75,11 @@ const NAV: NavItem[] = [
       { href: "/farmers/manage", label: "จัดการเกษตรกร" },
     ],
   },
-  { href: "/varieties/manage", label: "จัดการพันธุ์ข้าว", icon: Wheat },
+  {
+    label: "จัดการ",
+    icon: Settings2,
+    children: [{ href: "/manage/varieties", label: "พันธุ์ข้าว" }],
+  },
   {
     label: "จัดการสิทธิ์",
     icon: Shield,
