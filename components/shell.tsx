@@ -44,7 +44,7 @@ const NAV: NavItem[] = [
     icon: Sprout,
     children: [
       { href: "/plan", label: "แผนรวม" },
-      { href: "/plan/members", label: "รายเกษตรกร" },
+      { href: "/plan/members", label: "แผนรายเกษตรกร" },
     ],
   },
   { href: "/supply", label: "แผนรับข้าว", icon: CalendarDays },

@@ -1,13 +1,34 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CanAdd } from "@/components/can";
-import { PlotDialog } from "@/components/groups-screen";
+import { MemberPlan } from "@/components/groups-screen";
 import { PlantingActivityPanel } from "@/components/activities-screen";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
-import { Calendar, Plus, RotateCcw, Search } from "lucide-react";
-import { DateField, Glyph, Kpi, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, Select, SortableTh, TableScroll, inputClass, isWildcard, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort, type SortState } from "@/components/ui";
+import { Calendar, RotateCcw, Search } from "lucide-react";
+import {
+  DateField,
+  Glyph,
+  Kpi,
+  PageHeader,
+  Pagination,
+  PrimaryButton,
+  SearchSelect,
+  SecondaryButton,
+  Select,
+  SortableTh,
+  TableScroll,
+  inputClass,
+  isWildcard,
+  matchesQuery,
+  openRow,
+  orderBy,
+  rowTone,
+  tableClass,
+  usePagination,
+  useTableSort,
+  type SortState,
+} from "@/components/ui";
 import {
   VARIETIES,
   currentActivityStage,
@@ -16,6 +37,7 @@ import {
   formatKg,
   formatRai,
   formatThaiDate,
+  openPlanting,
   plantingAreaSummary,
   varietyName,
   type Farmer,
@@ -36,26 +58,12 @@ type SeasonRow = Plot & {
   stage: string;
 };
 type HarvestQuery = { from: string; to: string; groupId: string; variety: string };
-type MemberQuery = {
-  name: string;
-  tel: string;
-  groupId: string;
-  variety: string;
-  plantedFrom: string;
-  plantedTo: string;
-  harvestFrom: string;
-  harvestTo: string;
-};
+type MemberQuery = { name: string; tel: string; groupId: string };
 
 const emptyMemberQuery: MemberQuery = {
   name: "",
   tel: "",
   groupId: "all",
-  variety: "all",
-  plantedFrom: "",
-  plantedTo: "",
-  harvestFrom: "",
-  harvestTo: "",
 };
 
 const SOON_DAYS = 14;
@@ -199,81 +207,69 @@ export function PlanScreen() {
   );
 }
 
+/** ค้นหาเกษตรกรเพื่อเปิดแผนรอบปลูก — ไม่จัดการแปลง/บัญชี */
 export function MemberSeasonScreen() {
-  const { plantings, plots, farmers, groups, activities, addPlot } = useMill();
+  const { farmers, groups, plots, plantings } = useMill();
   const [draft, setDraft] = useState<MemberQuery>(emptyMemberQuery);
   const [applied, setApplied] = useState<MemberQuery>(emptyMemberQuery);
   const [searched, setSearched] = useState(false);
-  const [plotId, setPlotId] = useState<string | null>(null);
-  const [addingId, setAddingId] = useState<string | null>(null);
+  const [farmerId, setFarmerId] = useState<string | null>(null);
+
   const groupOptions = [
     { value: "all", label: "ทุกกลุ่ม" },
     { value: "none", label: "ไม่มีกลุ่ม" },
     ...[...groups].sort((a, b) => a.name.localeCompare(b.name, "th")).map((group) => ({ value: group.id, label: group.name })),
   ];
-  const rounds = useMemo(() => {
-    return plantings
-      .filter((planting) => !planting.delivered)
-      .flatMap((planting) => {
-        const plot = plots.find((item) => item.id === planting.plotId);
-        if (!plot) return [];
-        if (applied.variety !== "all" && planting.varietyId !== Number(applied.variety)) return [];
-        if (!inRange(planting.plantedOn, applied.plantedFrom, applied.plantedTo)) return [];
-        if (!inRange(planting.harvestOn, applied.harvestFrom, applied.harvestTo)) return [];
-        return [toSeasonRow(plot, planting, activities)];
-      });
-  }, [plantings, plots, activities, applied]);
-  const plotFilter =
-    applied.variety !== "all" || applied.plantedFrom !== "" || applied.plantedTo !== "" || applied.harvestFrom !== "" || applied.harvestTo !== "";
+
   const people = useMemo(() => {
+    if (!searched) return [];
     return farmers
       .filter((farmer) => {
         if (applied.groupId === "none" && farmer.groupId != null) return false;
         if (applied.groupId !== "all" && applied.groupId !== "none" && farmer.groupId !== applied.groupId) return false;
         if (!isWildcard(applied.name) && !matchesQuery(applied.name, farmerName(farmer))) return false;
         if (!isWildcard(applied.tel) && !farmer.tel.replace(/\D/g, "").includes(applied.tel.replace(/\D/g, ""))) return false;
-        if (plotFilter && !rounds.some((row) => row.farmerId === farmer.id)) return false;
         return true;
       })
       .slice()
       .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"));
-  }, [farmers, applied, plotFilter, rounds]);
-  const listed = useMemo(() => {
-    const ids = new Set(people.map((farmer) => farmer.id));
-    return rounds.filter((row) => ids.has(row.farmerId)).sort(byHarvest);
-  }, [people, rounds]);
+  }, [farmers, applied, searched]);
+
   const listingSort = useTableSort(searched ? JSON.stringify(applied) : "idle");
-  const ordered = orderBy(listed, listingSort.sort, (row, key) => planSortValue(row, key, farmers, groups));
+  const ordered = orderBy(people, listingSort.sort, (farmer, key) => {
+    if (key === "name") return farmerName(farmer);
+    if (key === "tel") return farmer.tel;
+    if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
+    if (key === "plans") return openPlanCount(farmer.id, plots, plantings);
+    return plots.filter((plot) => plot.farmerId === farmer.id).length;
+  });
   const page = usePagination(ordered, searched ? JSON.stringify(applied) : "idle");
-  const selected = listed.find((row) => row.id === plotId) ?? null;
-  const adding = people.find((farmer) => farmer.id === addingId) ?? null;
+  const selected = farmers.find((farmer) => farmer.id === farmerId) ?? null;
 
-  function search(next: MemberQuery) {
-    setDraft(next);
-    setApplied(next);
-    setSearched(true);
-    setPlotId(null);
-    setAddingId(null);
-  }
-
-  function clear() {
-    setDraft(emptyMemberQuery);
-    setApplied(emptyMemberQuery);
-    setSearched(false);
-    setPlotId(null);
-    setAddingId(null);
+  if (selected) {
+    return (
+      <div className="h-full overflow-y-auto px-7 py-6">
+        <PageHeader current="แผนรายเกษตรกร" />
+        <div className="overflow-hidden rounded-[8px] border border-frame">
+          <MemberPlan key={selected.id} farmer={selected} onClose={() => setFarmerId(null)} />
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
-      <PageHeader current="รายเกษตรกร" />
+      <PageHeader current="แผนรายเกษตรกร" />
       <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
-        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาเกษตรกร</div>
+        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาเพื่อเปิดแผน</div>
         <form
-          className="grid gap-4 px-6 py-5 md:grid-cols-2 xl:grid-cols-4"
+          className="grid gap-4 px-6 py-5 md:grid-cols-2 xl:grid-cols-3"
           onSubmit={(event) => {
             event.preventDefault();
-            search(draft);
+            setDraft(draft);
+            setApplied(draft);
+            setSearched(true);
+            setFarmerId(null);
           }}
         >
           <label className="block text-[14px] font-bold leading-[1.4]">
@@ -298,66 +294,20 @@ export function MemberSeasonScreen() {
             กลุ่ม
             <SearchSelect label="กลุ่ม" className="mt-1" value={draft.groupId} onChange={(groupId) => setDraft({ ...draft, groupId })} options={groupOptions} />
           </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            พันธุ์
-            <Select
-              label="พันธุ์"
-              className="mt-1"
-              value={draft.variety}
-              onChange={(variety) => setDraft({ ...draft, variety })}
-              options={[{ value: "all", label: "ทุกพันธุ์" }, ...VARIETIES.map((item) => ({ value: String(item.id), label: item.name }))]}
-            />
-          </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            จากวันปลูก
-            <DateField
-              label="จากวันปลูก"
-              className="mt-1"
-              value={draft.plantedFrom}
-              max={draft.plantedTo}
-              onChange={(plantedFrom) =>
-                setDraft({ ...draft, plantedFrom, plantedTo: draft.plantedTo && plantedFrom && draft.plantedTo < plantedFrom ? plantedFrom : draft.plantedTo })
-              }
-            />
-          </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            ถึงวันปลูก
-            <DateField
-              label="ถึงวันปลูก"
-              className="mt-1"
-              value={draft.plantedTo}
-              min={draft.plantedFrom}
-              onChange={(plantedTo) => setDraft({ ...draft, plantedTo })}
-            />
-          </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            จากวันเก็บ
-            <DateField
-              label="จากวันเก็บ"
-              className="mt-1"
-              value={draft.harvestFrom}
-              max={draft.harvestTo}
-              onChange={(harvestFrom) =>
-                setDraft({ ...draft, harvestFrom, harvestTo: draft.harvestTo && harvestFrom && draft.harvestTo < harvestFrom ? harvestFrom : draft.harvestTo })
-              }
-            />
-          </label>
-          <label className="block text-[14px] font-bold leading-[1.4]">
-            ถึงวันเก็บ
-            <DateField
-              label="ถึงวันเก็บ"
-              className="mt-1"
-              value={draft.harvestTo}
-              min={draft.harvestFrom}
-              onChange={(harvestTo) => setDraft({ ...draft, harvestTo })}
-            />
-          </label>
-          <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-4">
+          <div className="flex flex-wrap gap-3 md:col-span-2 xl:col-span-3">
             <PrimaryButton type="submit">
               <Glyph icon={Search} />
               ค้นหา
             </PrimaryButton>
-            <SecondaryButton type="button" onClick={clear}>
+            <SecondaryButton
+              type="button"
+              onClick={() => {
+                setDraft(emptyMemberQuery);
+                setApplied(emptyMemberQuery);
+                setSearched(false);
+                setFarmerId(null);
+              }}
+            >
               <Glyph icon={RotateCcw} />
               ล้าง
             </SecondaryButton>
@@ -366,18 +316,46 @@ export function MemberSeasonScreen() {
       </div>
       {searched && (
         <div className="overflow-hidden rounded-[8px] border border-frame">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-[8px] bg-bar px-6 py-4 text-white">
-            <div className="text-[16px] font-bold">แผนที่จะเข้า</div>
-            {people.length === 1 && (
-              <CanAdd resource="plots">
-                <SecondaryButton className="h-9" onClick={() => setAddingId(people[0].id)}>
-                  <Glyph icon={Plus} />
-                  เพิ่มแปลง
-                </SecondaryButton>
-              </CanAdd>
-            )}
-          </div>
-          <PlotRoundTable rows={page.rows} selectedId={selected?.id ?? null} onSelect={setPlotId} emptyLabel="ไม่พบแปลง" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+          <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">เลือกเกษตรกรเพื่อจัดการแผน</div>
+          <TableScroll>
+            <table className={tableClass}>
+              <thead className="bg-table">
+                <tr>
+                  <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="แผนเปิด" column="plans" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="แปลง" column="plots" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                </tr>
+              </thead>
+              <tbody>
+                {ordered.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-6 text-ink/60">
+                      ไม่พบเกษตรกร
+                    </td>
+                  </tr>
+                )}
+                {page.rows.map((farmer, index) => {
+                  const planCount = openPlanCount(farmer.id, plots, plantings);
+                  const plotCount = plots.filter((plot) => plot.farmerId === farmer.id).length;
+                  return (
+                    <tr
+                      key={farmer.id}
+                      onClick={(event) => openRow(event, () => setFarmerId(farmer.id))}
+                      className={rowTone(index)}
+                    >
+                      <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
+                      <td className="px-5 py-3">{farmer.tel}</td>
+                      <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>
+                      <td className="px-5 py-3 font-bold">{planCount}</td>
+                      <td className="px-5 py-3">{plotCount}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableScroll>
           <Pagination
             page={page.page}
             pageCount={page.pageCount}
@@ -386,33 +364,14 @@ export function MemberSeasonScreen() {
             onPageChange={page.setPage}
             onPageSizeChange={page.setPageSize}
           />
-          {selected && <PlanDetail row={selected} onClose={() => setPlotId(null)} />}
         </div>
-      )}
-      {adding && (
-        <PlotDialog
-          title={`เพิ่มแปลง · ${farmerName(adding)}`}
-          name=""
-          area=""
-          onClose={() => setAddingId(null)}
-          farmerId={adding.id}
-          onSave={(name, areaRai, varietyId, place, schedule) =>
-            addPlot(adding.id, {
-              name,
-              areaRai,
-              varietyId,
-              ...schedule,
-              provinceId: place.provinceId,
-              districtId: place.districtId,
-              subdistrictId: place.subdistrictId,
-              polygon: place.polygon,
-              preview: place.preview,
-            })
-          }
-        />
       )}
     </div>
   );
+}
+
+function openPlanCount(farmerId: string, plots: Plot[], plantings: Planting[]) {
+  return plots.filter((plot) => plot.farmerId === farmerId && openPlanting(plantings, plot.id)).length;
 }
 
 function harvestMark(harvestOn: string) {
@@ -528,54 +487,53 @@ function PlotRoundTable({
   return (
     <TableScroll>
       <table className={tableClass}>
-      <thead className="bg-table">
-        <tr>
-          <SortableTh label="กำหนดเก็บ" column="harvest" sort={sort} onSort={onSort} />
-          <SortableTh label="สถานะ" column="status" sort={sort} onSort={onSort} />
-          <SortableTh label="แปลง" column="plot" sort={sort} onSort={onSort} />
-          <SortableTh label="เกษตรกร" column="farmer" sort={sort} onSort={onSort} />
-          <SortableTh label="กลุ่ม" column="group" sort={sort} onSort={onSort} />
-          <SortableTh label="พันธุ์" column="variety" sort={sort} onSort={onSort} />
-          <SortableTh label="ปลูกจริง" column="actual" sort={sort} onSort={onSort} />
-          <SortableTh label="ยังไม่ปลูก" column="left" sort={sort} onSort={onSort} />
-          <SortableTh label="ขั้นตอนปัจจุบัน" column="stage" sort={sort} onSort={onSort} />
-          <SortableTh label="ที่คาด" column="kg" sort={sort} onSort={onSort} />
-        </tr>
-      </thead>
-      <tbody>
-        {rows.length === 0 && (
+        <thead className="bg-table">
           <tr>
-            <td colSpan={10} className="px-5 py-6 text-ink/60">
-              {emptyLabel}
-            </td>
+            <SortableTh label="กำหนดเก็บ" column="harvest" sort={sort} onSort={onSort} />
+            <SortableTh label="สถานะ" column="status" sort={sort} onSort={onSort} />
+            <SortableTh label="แปลง" column="plot" sort={sort} onSort={onSort} />
+            <SortableTh label="เกษตรกร" column="farmer" sort={sort} onSort={onSort} />
+            <SortableTh label="กลุ่ม" column="group" sort={sort} onSort={onSort} />
+            <SortableTh label="พันธุ์" column="variety" sort={sort} onSort={onSort} />
+            <SortableTh label="ปลูกจริง" column="actual" sort={sort} onSort={onSort} />
+            <SortableTh label="ยังไม่ปลูก" column="left" sort={sort} onSort={onSort} />
+            <SortableTh label="ขั้นตอนปัจจุบัน" column="stage" sort={sort} onSort={onSort} />
+            <SortableTh label="ที่คาด" column="kg" sort={sort} onSort={onSort} />
           </tr>
-        )}
-        {rows.map((plot, index) => {
-          const farmer = farmers.find((item) => item.id === plot.farmerId);
-          const mark = harvestMark(plot.harvestOn);
-          const picked = plot.id === selectedId;
-          return (
-            <tr
-              key={plot.plantingId}
-              onClick={(event) => openRow(event, () => onSelect(plot.id))}
-              className={rowTone(index, picked)}
-            >
-              <td className="px-5 py-3 font-bold">{formatThaiDate(plot.harvestOn)}</td>
-              <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
-              <td className="px-5 py-3 font-bold">{plot.name}</td>
-              <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
-              <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
-              <td className="px-5 py-3">{varietyName(plot.varietyId)}</td>
-              <td className="px-5 py-3">{formatRai(plot.plantedAreaRai)}</td>
-              <td className="px-5 py-3">{formatRai(plot.unplantedAreaRai)}</td>
-              <td className="px-5 py-3 font-bold">{plot.stage}</td>
-              <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={10} className="px-5 py-6 text-ink/60">
+                {emptyLabel}
+              </td>
             </tr>
-          );
-        })}
-      </tbody>
-    </table>
+          )}
+          {rows.map((plot, index) => {
+            const farmer = farmers.find((item) => item.id === plot.farmerId);
+            const mark = harvestMark(plot.harvestOn);
+            const picked = plot.id === selectedId;
+            return (
+              <tr
+                key={plot.plantingId}
+                onClick={(event) => openRow(event, () => onSelect(plot.id))}
+                className={rowTone(index, picked)}
+              >
+                <td className="px-5 py-3 font-bold">{formatThaiDate(plot.harvestOn)}</td>
+                <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
+                <td className="px-5 py-3 font-bold">{plot.name}</td>
+                <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
+                <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
+                <td className="px-5 py-3">{varietyName(plot.varietyId)}</td>
+                <td className="px-5 py-3">{formatRai(plot.plantedAreaRai)}</td>
+                <td className="px-5 py-3">{formatRai(plot.unplantedAreaRai)}</td>
+                <td className="px-5 py-3 font-bold">{plot.stage}</td>
+                <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </TableScroll>
   );
 }
-
