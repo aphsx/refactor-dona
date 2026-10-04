@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "measure:usage": "node scripts/measure-registration-usage.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.49.0",

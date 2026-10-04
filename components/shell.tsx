@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Bell, CalendarDays, ChevronDown, Layers, Map, Menu, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
 import { LoginScreen } from "@/components/login-screen";
@@ -12,6 +12,28 @@ import {
   type AuthSession,
 } from "@/lib/api";
 import { daysUntil } from "@/lib/mill";
+
+const HOME_PATH = "/plan";
+
+const KNOWN_APP_PATHS = new Set([
+  "/",
+  "/plan",
+  "/plan/members",
+  "/supply",
+  "/map",
+  "/map/manage",
+  "/groups",
+  "/groups/manage",
+  "/farmers",
+  "/farmers/manage",
+  "/permissions",
+  "/permissions/people",
+  "/dashboard",
+]);
+
+function isKnownAppPath(pathname: string) {
+  return KNOWN_APP_PATHS.has(pathname);
+}
 
 type NavChild = { href: string; label: string };
 type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavChild[] };
@@ -61,6 +83,8 @@ const NAV: NavItem[] = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [boot, setBoot] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
 
@@ -74,12 +98,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setBoot(true);
   }, []);
 
+  useEffect(() => {
+    if (!boot || !session) return;
+    // Logged-in users on unknown/legacy URLs land on home.
+    if (!isKnownAppPath(pathname) || pathname === "/" || pathname === "/dashboard") {
+      router.replace(HOME_PATH);
+    }
+  }, [boot, session, pathname, router]);
+
   if (!boot) {
     return <div className="flex h-full items-center justify-center bg-white text-[14px] text-ink/60">กำลังโหลด…</div>;
   }
 
   if (!session) {
-    return <LoginScreen onSuccess={setSession} />;
+    return (
+      <LoginScreen
+        onSuccess={(next) => {
+          setSession(next);
+          // Always open the real home after login — never stay on a dead URL.
+          router.replace(HOME_PATH);
+        }}
+      />
+    );
   }
 
   return (
