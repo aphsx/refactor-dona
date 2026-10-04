@@ -205,10 +205,7 @@ function ShellFrame({
           >
             <Menu size={24} strokeWidth={1.75} />
           </button>
-          <div className="flex items-center gap-2">
-            <img src="/dona-logo.png" alt="Dona" className="h-11 w-11 object-contain" />
-            <span className="text-[16px] font-bold tracking-tight">dona</span>
-          </div>
+          <img src="/logo.png" alt="DONA TECHNOLOGY" className="h-10 w-auto object-contain" />
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">

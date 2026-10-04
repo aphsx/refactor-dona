@@ -59,17 +59,11 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
       >
         <div className="mb-8 text-center">
           <img
-            src="/dona-logo.png"
-            alt="dona"
-            className="mx-auto h-16 w-16 object-contain drop-shadow-sm"
+            src="/logo.png"
+            alt="DONA TECHNOLOGY"
+            className="mx-auto h-14 w-auto object-contain drop-shadow-sm"
           />
-          <div
-            className="mt-4 text-[34px] font-bold tracking-tight"
-            style={{ color: brandDark }}
-          >
-            dona
-          </div>
-          <p className="mt-1 text-[15px]" style={{ color: `${brandDark}99` }}>
+          <p className="mt-4 text-[15px]" style={{ color: `${brandDark}99` }}>
             เข้าสู่ระบบโรงสี
           </p>
         </div>
