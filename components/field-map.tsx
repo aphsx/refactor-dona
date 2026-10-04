@@ -268,7 +268,7 @@ export const FieldMap = forwardRef<
             id="plot-line"
             type="line"
             paint={{
-              "line-color": ["case", ["==", ["get", "id"], highlight], "#FFE682", "#ffffff"],
+              "line-color": ["case", ["==", ["get", "id"], highlight], "#F4A800", "#ffffff"],
               "line-width": ["case", ["==", ["get", "id"], highlight], 3, 1.5],
               "line-opacity": ["case", ["==", ["get", "muted"], 1], 0.35, 1],
             }}
@@ -277,16 +277,16 @@ export const FieldMap = forwardRef<
         {draftData && (
           <Source id="draft" type="geojson" data={draftData}>
             {draftClosed ? (
-              <Layer id="draft-fill" type="fill" paint={{ "fill-color": "#FFE682", "fill-opacity": 0.45 }} />
+              <Layer id="draft-fill" type="fill" paint={{ "fill-color": "#F4A800", "fill-opacity": 0.45 }} />
             ) : (
-              <Layer id="draft-line" type="line" paint={{ "line-color": "#FFE682", "line-width": 2 }} />
+              <Layer id="draft-line" type="line" paint={{ "line-color": "#F4A800", "line-width": 2 }} />
             )}
-            {draftClosed && <Layer id="draft-outline" type="line" paint={{ "line-color": "#FFE682", "line-width": 2 }} />}
+            {draftClosed && <Layer id="draft-outline" type="line" paint={{ "line-color": "#F4A800", "line-width": 2 }} />}
           </Source>
         )}
         {draftOpen.map((point, index) => (
           <Marker key={`${point[0]}:${point[1]}:${index}`} longitude={point[0]} latitude={point[1]} anchor="center">
-            <span className="block h-3 w-3 rounded-full border-2 border-white bg-[#FFE682]" />
+            <span className="block h-3 w-3 rounded-full border-2 border-white bg-[#F4A800]" />
           </Marker>
         ))}
         {selected && selectedPoint && (
@@ -302,7 +302,7 @@ export const FieldMap = forwardRef<
           type="button"
           onClick={() => setMode("satellite")}
           className={`inline-flex h-9 items-center gap-2 rounded-[6px] px-3 text-[14px] font-bold ${
-            mode === "satellite" ? "bg-bar text-white" : "border-2 border-bar bg-white text-bar"
+            mode === "satellite" ? "bg-bar text-white" : "border-2 border-brand bg-white text-brand"
           }`}
         >
           <Satellite size={16} strokeWidth={1.75} />
@@ -312,7 +312,7 @@ export const FieldMap = forwardRef<
           type="button"
           onClick={() => setMode("street")}
           className={`inline-flex h-9 items-center gap-2 rounded-[6px] px-3 text-[14px] font-bold ${
-            mode === "street" ? "bg-bar text-white" : "border-2 border-bar bg-white text-bar"
+            mode === "street" ? "bg-bar text-white" : "border-2 border-brand bg-white text-brand"
           }`}
         >
           <MapIcon size={16} strokeWidth={1.75} />
@@ -322,7 +322,7 @@ export const FieldMap = forwardRef<
           type="button"
           aria-label="จัดขอบเขตแปลง"
           onClick={fitFrame}
-          className="inline-flex h-9 items-center gap-2 rounded-[6px] border-2 border-bar bg-white px-3 text-[14px] font-bold text-bar"
+          className="inline-flex h-9 items-center gap-2 rounded-[6px] border-2 border-brand bg-white px-3 text-[14px] font-bold text-brand"
         >
           <LocateFixed size={16} strokeWidth={1.75} />
         </button>

@@ -1089,7 +1089,7 @@ function PlotTable({
         {shaped ? (
           <div className="h-[calc(100vh-12rem)]">
             <FieldMap
-              plots={[{ id: mapPlot.id, name: mapPlot.name, color: "#50AB6D", muted: false, polygon: mapPlot.polygon }]}
+              plots={[{ id: mapPlot.id, name: mapPlot.name, color: "#5098BA", muted: false, polygon: mapPlot.polygon }]}
               selectedId={mapPlot.id}
               onSelect={() => {}}
               bottomInset={64}
@@ -1316,7 +1316,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
 
 function plantingMark(planting: Planting) {
   if (daysUntil(planting.plantedOn) > 0) return { label: "วางแผน", className: "" };
-  return { label: "ปลูกแล้ว", className: "text-brand" };
+  return { label: "ปลูกแล้ว", className: "text-ok" };
 }
 
 export function MemberPlan({
@@ -2006,7 +2006,7 @@ export function PlotDialog({
                 setDraft([]);
                 setDrawing(true);
               }}
-              className="mt-2 text-[14px] font-bold text-brand underline"
+              className="mt-2 text-[14px] font-bold text-link underline"
             >
               {boundary.length > 0 ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
             </button>
@@ -2168,7 +2168,7 @@ export function DrawBoundary({
       <div className="h-[calc(100vh-20rem)]">
         <FieldMap
           ref={mapRef}
-          plots={plots.map((plot) => ({ id: plot.id, name: plot.name, color: "#50AB6D", muted: true, polygon: plot.polygon }))}
+          plots={plots.map((plot) => ({ id: plot.id, name: plot.name, color: "#5098BA", muted: true, polygon: plot.polygon }))}
           selectedId={null}
           onSelect={() => {}}
           draft={draft}

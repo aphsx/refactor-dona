@@ -1,22 +1,21 @@
 @import "tailwindcss";
 
-/* Palette derived from dona logo: leaf green, deep teal, sun yellow */
+/* Blue UI chrome; green only for success / growth status (see --color-ok) */
 @theme {
   --font-sans: var(--font-noto), var(--font-thai), "Noto Sans Thai", "Noto Sans", sans-serif;
-  --color-ink: #1a3f4c;
-  --color-brand: #50ab6d;
-  --color-brand-hover: #3e965a;
-  --color-bar: #24586c;
-  --color-sidebar: #1c4a5c;
-  --color-sub: #f4faf7;
-  --color-table: #e7f2ec;
-  --color-frame: #a8c9b8;
+  --color-ink: #041942;
+  --color-brand: #5098ba;
+  --color-brand-hover: #22759c;
+  --color-bar: #005983;
+  --color-sidebar: #024f7b;
+  --color-sub: #f5f9fe;
+  --color-table: #e6edf2;
+  --color-frame: #acc4e4;
   --color-line: #707070;
-  --color-link: #3e965a;
-  --color-ok: #50ab6d;
-  --color-pick: #d4efe0;
-  --color-danger: #e11d48;
-  --color-accent: #ffe682;
+  --color-link: #4591b5;
+  --color-ok: #18b473;
+  --color-pick: #c7e1f4;
+  --color-danger: #ff0000;
 }
 
 html,
@@ -27,7 +26,7 @@ body {
 body {
   margin: 0;
   background: #ffffff;
-  color: #1a3f4c;
+  color: #041942;
   font-size: 14px;
   font-family: var(--font-noto), var(--font-thai), "Noto Sans Thai", "Noto Sans", sans-serif;
 }
@@ -54,8 +53,8 @@ textarea:-webkit-autofill:focus,
 select:-webkit-autofill,
 select:-webkit-autofill:hover,
 select:-webkit-autofill:focus {
-  -webkit-text-fill-color: #1a3f4c;
-  caret-color: #1a3f4c;
+  -webkit-text-fill-color: #041942;
+  caret-color: #041942;
   transition: background-color 99999s ease-in-out 0s;
   box-shadow: 0 0 0 1000px #ffffff inset;
 }

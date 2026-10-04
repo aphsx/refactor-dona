@@ -445,7 +445,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
                 setDraft([]);
                 setDrawing(true);
               }}
-              className="mt-2 text-[14px] font-bold text-brand underline"
+              className="mt-2 text-[14px] font-bold text-link underline"
             >
               {drawn ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
             </button>

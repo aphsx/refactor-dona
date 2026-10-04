@@ -35,8 +35,8 @@ type StatusKey = "due" | "upcoming" | "none";
 
 const STATUS: Record<StatusKey, { label: string; color: string }> = {
   due: { label: "ใกล้เก็บ", color: "#C05621" },
-  upcoming: { label: "รอเก็บ", color: "#50AB6D" },
-  none: { label: "ยังไม่มีแผน", color: "#A8B8B4" },
+  upcoming: { label: "รอเก็บ", color: "#18B473" },
+  none: { label: "ยังไม่มีแผน", color: "#B7C4D0" },
 };
 
 type Row = {
@@ -163,7 +163,7 @@ export function MapScreen() {
     .map((row) => ({
       id: row.plot.id,
       name: row.plot.name,
-      color: "#50AB6D",
+      color: "#5098BA",
       muted: !listedIds.has(row.plot.id),
       polygon: row.plot.polygon,
     }));
@@ -374,7 +374,7 @@ function DrawStep({
             />
           </label>
           <CanEdit resource="plots">
-            <button type="button" onClick={() => void onSave()} className="inline-flex h-10 items-center rounded-[6px] bg-bar px-4 text-[14px] font-bold text-white hover:bg-sidebar">
+            <button type="button" onClick={() => void onSave()} className="inline-flex h-10 items-center rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white hover:bg-brand-hover">
               บันทึกขอบเขต
             </button>
           </CanEdit>
@@ -407,7 +407,7 @@ function nearPoint(a: [number, number], b: [number, number]) {
   return lng * lng + lat * lat < 0.00008 * 0.00008;
 }
 
-const mapButton = "inline-flex h-9 items-center rounded-[6px] border-2 border-bar bg-white px-3 text-[14px] font-bold text-bar disabled:border-[#D0D0D0] disabled:text-[#B0B0B0]";
+const mapButton = "inline-flex h-9 items-center rounded-[6px] border-2 border-brand bg-white px-3 text-[14px] font-bold text-brand disabled:border-[#D0D0D0] disabled:text-[#B0B0B0]";
 
 function timing(row: Row) {
   if (row.status === "none") return "ยังไม่มีแผน";
