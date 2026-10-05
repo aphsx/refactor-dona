@@ -16,6 +16,11 @@ import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, pro
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
+/** Flip on when rolling out plot/planting-plan tabs under farmer manage. */
+const SHOW_MEMBER_PLOT_PLAN_TABS = false;
+/** Flip on when rolling out receipt standing + mill ledger under farmer detail. */
+const SHOW_MEMBER_RECEIPT_SECTIONS = false;
+
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
   | { tone: "success" | "error"; message: string; done?: () => void };
@@ -293,8 +298,12 @@ export function MemberManageScreen() {
         {detail && (
           <>
             <StatusTab label="รายละเอียดเกษตรกร" active={tab === "detail"} onClick={() => setTab("detail")} />
-            <StatusTab label="แปลงของเกษตรกร" active={tab === "plots"} onClick={() => setTab("plots")} />
-            <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
+            {SHOW_MEMBER_PLOT_PLAN_TABS && (
+              <>
+                <StatusTab label="แปลงของเกษตรกร" active={tab === "plots"} onClick={() => setTab("plots")} />
+                <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
+              </>
+            )}
           </>
         )}
       </div>
@@ -427,7 +436,7 @@ export function MemberManageScreen() {
           </>
         )}
         {tab === "detail" && detail && <MemberDetail farmer={detail} onClose={closeDetail} />}
-        {tab === "plots" && detail && (
+        {SHOW_MEMBER_PLOT_PLAN_TABS && tab === "plots" && detail && (
           <MemberPlots
             farmer={detail}
             onAddRound={(plotId) => openPlan(plotId)}
@@ -435,7 +444,9 @@ export function MemberManageScreen() {
             onClose={closeDetail}
           />
         )}
-        {tab === "plan" && detail && <MemberPlan key={`${detail.id}:${planPlotId ?? "list"}`} farmer={detail} initialPlotId={planPlotId} onClose={closeDetail} />}
+        {SHOW_MEMBER_PLOT_PLAN_TABS && tab === "plan" && detail && (
+          <MemberPlan key={`${detail.id}:${planPlotId ?? "list"}`} farmer={detail} initialPlotId={planPlotId} onClose={closeDetail} />
+        )}
       </div>
       {moving && assignGroupId && <MoveFarmer groupId={assignGroupId} onClose={() => setMoving(false)} onAssign={assignFarmer} />}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
@@ -852,8 +863,12 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             </CanEdit>
           </div>
         </form>
-      <MemberStanding farmer={farmer} leads={leads} />
-      <MillReceiptRounds farmer={farmer} />
+      {SHOW_MEMBER_RECEIPT_SECTIONS && (
+        <>
+          <MemberStanding farmer={farmer} leads={leads} />
+          <MillReceiptRounds farmer={farmer} />
+        </>
+      )}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
