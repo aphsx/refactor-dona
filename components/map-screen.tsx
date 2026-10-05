@@ -141,7 +141,7 @@ export function MapScreen() {
         id: item.farmerId,
         firstName: item.ownerName ?? "",
         lastName: "",
-        tel: "",
+        tel: item.ownerTel ?? "",
         address: "",
         provinceId: 0,
         districtId: 0,
@@ -269,6 +269,7 @@ export function MapScreen() {
         farmerId: selected.plot.farmerId,
         name: selected.plot.name,
         ownerName: prev?.ownerName ?? selected.farmer.firstName,
+        ownerTel: prev?.ownerTel ?? selected.farmer.tel,
         groupId: prev?.groupId ?? selected.farmer.groupId,
         groupName: prev?.groupName ?? selected.farmer.groupName,
         polygon: draft,
@@ -372,7 +373,7 @@ export function MapScreen() {
                 // ให้คลิกรายการด้านล่างทันก่อนปิด
                 window.setTimeout(() => setSuggestOpen(false), 120);
               }}
-              placeholder="ค้นชื่อแปลง หรือเกษตรกร"
+              placeholder="ค้นชื่อแปลง เกษตรกร หรือเบอร์"
               aria-label="ค้นแปลง"
               className="h-10 w-full rounded-[4px] border border-line bg-white pl-9 pr-3 text-[14px] placeholder:text-ink/20"
             />
@@ -387,7 +388,10 @@ export function MapScreen() {
                       className="flex w-full flex-col px-3 py-2 text-left hover:bg-pick"
                     >
                       <span className="text-[14px] font-bold">{row.plot.name}</span>
-                      <span className="text-[12px] text-ink/60">{farmerName(row.farmer)}</span>
+                      <span className="text-[12px] text-ink/60">
+                        {farmerName(row.farmer)}
+                        {row.farmer.tel ? ` · ${row.farmer.tel}` : ""}
+                      </span>
                     </button>
                   </li>
                 ))}

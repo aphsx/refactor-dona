@@ -95,6 +95,7 @@ export type PlotBoundary = {
   farmerId: string;
   name: string;
   ownerName?: string;
+  ownerTel?: string;
   groupId?: string | null;
   groupName?: string;
   polygon: [number, number][];
