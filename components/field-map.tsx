@@ -145,17 +145,16 @@ export const FieldMap = forwardRef<
       return;
     }
 
-    // Filter set (unmuted) wins over a single selection so group/search
-    // shows every matching boundary; click still highlights one plot.
+    // Group/search with nothing picked → frame the whole filter set.
+    // Click a plot → zoom into that plot for detail (close panel to see group again).
     const active = drawn.filter((plot) => !plot.muted);
-    const filtered = active.length > 0 && active.length < drawn.length;
     const picked = selectedId ? drawn.filter((plot) => plot.id === selectedId) : [];
-    if (selectedId && picked.length === 0 && !filtered) {
+    if (selectedId && picked.length === 0) {
       flyToFocus();
       return;
     }
 
-    const subject = filtered ? active : picked.length > 0 ? picked : active;
+    const subject = picked.length > 0 ? picked : active;
     const frame = subject.length > 0 ? subject : drawn;
     const lngs = frame.flatMap((plot) => plot.polygon.map((point) => point[0]));
     const lats = frame.flatMap((plot) => plot.polygon.map((point) => point[1]));
