@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Plus, Save, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { CanAdd } from "@/components/can";
-import { PlaceSelects } from "@/components/groups-screen";
+import { AddFarmer } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
-import { Dialog, Glyph, PageHeader, Pagination, PrimaryButton, SearchSelect, SecondaryButton, SortableTh, TableScroll, inputClass, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
+import { Glyph, PageHeader, Pagination, SecondaryButton, SortableTh, TableScroll, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { farmerName, formatKg, personRole, roleTitle } from "@/lib/mill";
 
 export function FarmersScreen() {
@@ -31,15 +31,7 @@ export function FarmersScreen() {
       <div className="overflow-hidden rounded-[8px] border border-frame">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
           บัญชีรับซื้อ
-          <div className="flex items-center gap-3">
-            <span className="text-[14px] font-normal">{farmers.length} คน</span>
-            <CanAdd resource="farmers">
-              <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
-                <Glyph icon={Plus} />
-                เพิ่มเกษตรกร
-              </SecondaryButton>
-            </CanAdd>
-          </div>
+          <span className="text-[14px] font-normal">{farmers.length} คน</span>
         </div>
         <TableScroll>
 <table className={tableClass}>
@@ -88,109 +80,16 @@ export function FarmersScreen() {
           onPageChange={page.setPage}
           onPageSizeChange={page.setPageSize}
         />
+        <div className="flex flex-wrap gap-5 px-6 py-4">
+          <CanAdd resource="farmers">
+            <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+              <Glyph icon={Plus} />
+              เพิ่มเกษตรกร
+            </SecondaryButton>
+          </CanAdd>
+        </div>
       </div>
       {adding && <AddFarmer onClose={() => setAdding(false)} />}
     </div>
-  );
-}
-
-function RequiredMark() {
-  return <span className="text-danger"> *</span>;
-}
-
-function AddFarmer({ onClose }: { onClose: () => void }) {
-  const { groups, createFarmer } = useMill();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [tel, setTel] = useState("");
-  const [address, setAddress] = useState("");
-  const [provinceId, setProvinceId] = useState(0);
-  const [districtId, setDistrictId] = useState(0);
-  const [subdistrictId, setSubdistrictId] = useState(0);
-  const [groupId, setGroupId] = useState("");
-  const [error, setError] = useState("");
-
-  return (
-    <Dialog title="เพิ่มเกษตรกร" onClose={onClose}>
-      <form
-        className="grid gap-4 sm:grid-cols-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void (async () => {
-            const message = await createFarmer({
-              firstName,
-              lastName,
-              tel,
-              address,
-              provinceId,
-              districtId,
-              subdistrictId,
-              groupId: groupId || null,
-            });
-            if (message) {
-              setError(message);
-              return;
-            }
-            onClose();
-          })();
-        }}
-      >
-        <label className="block text-[14px] font-bold leading-[1.4]">
-          ชื่อ
-          <RequiredMark />
-          <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className={`${inputClass} mt-1`} />
-        </label>
-        <label className="block text-[14px] font-bold leading-[1.4]">
-          นามสกุล
-          <RequiredMark />
-          <input value={lastName} onChange={(event) => setLastName(event.target.value)} className={`${inputClass} mt-1`} />
-        </label>
-        <label className="block text-[14px] font-bold leading-[1.4]">
-          เบอร์โทร
-          <RequiredMark />
-          <input value={tel} inputMode="tel" autoComplete="tel" placeholder="0812345678" onChange={(event) => setTel(event.target.value)} className={`${inputClass} mt-1`} />
-        </label>
-        <label className="block text-[14px] font-bold leading-[1.4]">
-          ที่อยู่
-          <RequiredMark />
-          <input value={address} onChange={(event) => setAddress(event.target.value)} className={`${inputClass} mt-1`} />
-        </label>
-        <PlaceSelects
-          provinceId={provinceId}
-          districtId={districtId}
-          subdistrictId={subdistrictId}
-          onChange={(place) => {
-            setProvinceId(place.provinceId);
-            setDistrictId(place.districtId);
-            setSubdistrictId(place.subdistrictId);
-          }}
-        />
-        <label className="block text-[14px] font-bold leading-[1.4]">
-          กลุ่ม
-          <SearchSelect
-            label="กลุ่ม"
-            className="mt-1"
-            placeholder="ไม่เลือก"
-            value={groupId}
-            onChange={setGroupId}
-            options={[
-              { value: "", label: "ไม่เลือก" },
-              ...[...groups].sort((a, b) => a.name.localeCompare(b.name, "th")).map((group) => ({ value: group.id, label: group.name })),
-            ]}
-          />
-        </label>
-        {error && <p className="text-[14px] text-danger sm:col-span-2">{error}</p>}
-        <div className="flex justify-end gap-3 sm:col-span-2">
-          <SecondaryButton onClick={onClose}>
-            <Glyph icon={X} />
-            ยกเลิก
-          </SecondaryButton>
-          <PrimaryButton type="submit">
-            <Glyph icon={Save} />
-            บันทึก
-          </PrimaryButton>
-        </div>
-      </form>
-    </Dialog>
   );
 }

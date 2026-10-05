@@ -252,6 +252,7 @@ export function MemberManageScreen() {
   const [detailId, setDetailId] = useState<string | null>(requested);
   const [planPlotId, setPlanPlotId] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const detail = farmers.find((farmer) => farmer.id === detailId) ?? null;
   const assignGroupId = draftGroup && draftGroup !== "none" ? draftGroup : (groups[0]?.id ?? "");
@@ -362,6 +363,12 @@ export function MemberManageScreen() {
                   จัดเข้ากลุ่ม
                 </SecondaryButton>
               </CanEdit>
+              <CanAdd resource="farmers">
+                <SecondaryButton type="button" onClick={() => setAdding(true)}>
+                  <Glyph icon={Plus} />
+                  เพิ่มเกษตรกร
+                </SecondaryButton>
+              </CanAdd>
             </div>
           </form>
         </div>
@@ -451,6 +458,7 @@ export function MemberManageScreen() {
         )}
       </div>
       {moving && assignGroupId && <MoveFarmer groupId={assignGroupId} onClose={() => setMoving(false)} onAssign={assignFarmer} />}
+      {adding && <AddFarmer onClose={() => setAdding(false)} />}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </div>
   );
@@ -1841,6 +1849,103 @@ function parseAmount(value: string) {
 
 function RequiredMark() {
   return <span className="text-danger"> *</span>;
+}
+
+export function AddFarmer({ onClose }: { onClose: () => void }) {
+  const { groups, createFarmer } = useMill();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [tel, setTel] = useState("");
+  const [address, setAddress] = useState("");
+  const [provinceId, setProvinceId] = useState(0);
+  const [districtId, setDistrictId] = useState(0);
+  const [subdistrictId, setSubdistrictId] = useState(0);
+  const [groupId, setGroupId] = useState("");
+  const [error, setError] = useState("");
+
+  return (
+    <Dialog title="เพิ่มเกษตรกร" onClose={onClose}>
+      <form
+        className="grid gap-4 sm:grid-cols-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void (async () => {
+            const message = await createFarmer({
+              firstName,
+              lastName,
+              tel,
+              address,
+              provinceId,
+              districtId,
+              subdistrictId,
+              groupId: groupId || null,
+            });
+            if (message) {
+              setError(message);
+              return;
+            }
+            onClose();
+          })();
+        }}
+      >
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          ชื่อ
+          <RequiredMark />
+          <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className={`${inputClass} mt-1`} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          นามสกุล
+          <RequiredMark />
+          <input value={lastName} onChange={(event) => setLastName(event.target.value)} className={`${inputClass} mt-1`} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          เบอร์โทร
+          <RequiredMark />
+          <input value={tel} inputMode="tel" autoComplete="tel" placeholder="0812345678" onChange={(event) => setTel(event.target.value)} className={`${inputClass} mt-1`} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          ที่อยู่
+          <RequiredMark />
+          <input value={address} onChange={(event) => setAddress(event.target.value)} className={`${inputClass} mt-1`} />
+        </label>
+        <PlaceSelects
+          provinceId={provinceId}
+          districtId={districtId}
+          subdistrictId={subdistrictId}
+          onChange={(place) => {
+            setProvinceId(place.provinceId);
+            setDistrictId(place.districtId);
+            setSubdistrictId(place.subdistrictId);
+          }}
+        />
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          กลุ่ม
+          <SearchSelect
+            label="กลุ่ม"
+            className="mt-1"
+            placeholder="ไม่เลือก"
+            value={groupId}
+            onChange={setGroupId}
+            options={[
+              { value: "", label: "ไม่เลือก" },
+              ...[...groups].sort((a, b) => a.name.localeCompare(b.name, "th")).map((group) => ({ value: group.id, label: group.name })),
+            ]}
+          />
+        </label>
+        {error && <p className="text-[14px] text-danger sm:col-span-2">{error}</p>}
+        <div className="flex justify-end gap-3 sm:col-span-2">
+          <SecondaryButton onClick={onClose}>
+            <Glyph icon={X} />
+            ยกเลิก
+          </SecondaryButton>
+          <PrimaryButton type="submit">
+            <Glyph icon={Save} />
+            บันทึก
+          </PrimaryButton>
+        </div>
+      </form>
+    </Dialog>
+  );
 }
 
 export function PlaceSelects({
