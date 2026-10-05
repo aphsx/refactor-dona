@@ -18,6 +18,7 @@ import {
   type PermissionRole,
   type Planting,
   type Plot,
+  type PlotBoundary,
   type PlotActivity,
   type PlotActivityPayload,
   type PlotActivityType,
@@ -54,7 +55,8 @@ type WirePermission = {
 
 type WirePerson = Farmer & { role: string; scope: string };
 
-type WirePlot = Omit<Plot, "polygon"> & { polygon: number[][] };
+type WirePlot = Omit<Plot, "polygon"> & { polygon?: number[][] | null; hasBoundary?: boolean };
+type WirePlotBoundary = Omit<PlotBoundary, "polygon"> & { polygon: number[][] };
 
 type WirePlanting = Omit<Planting, "varietyId"> & { varietyId: number };
 
@@ -94,6 +96,15 @@ function asPermission(item: WirePermission): Permission {
 }
 
 function asPlot(item: WirePlot): Plot {
+  const polygon = asPolygon(item.polygon);
+  return {
+    ...item,
+    polygon,
+    hasBoundary: item.hasBoundary ?? polygon.length >= 4,
+  };
+}
+
+function asPlotBoundary(item: WirePlotBoundary): PlotBoundary {
   return { ...item, polygon: asPolygon(item.polygon) };
 }
 
@@ -180,6 +191,19 @@ export const api = {
 
   assignFarmerGroup: (id: string, groupId: string | null) =>
     apiRequest<Farmer>(`/farmers/${id}/group`, { method: "PATCH", body: JSON.stringify({ groupId }) }),
+
+  getPlot: (id: string) => apiRequest<WirePlot>(`/plots/${id}`).then(asPlot),
+
+  listPlotBoundaries: (query?: { groupId?: string; farmerId?: string; q?: string }) => {
+    const params = new URLSearchParams();
+    if (query?.groupId) params.set("groupId", query.groupId);
+    if (query?.farmerId) params.set("farmerId", query.farmerId);
+    if (query?.q) params.set("q", query.q);
+    const qs = params.toString();
+    return apiListAll<WirePlotBoundary>(`/plots/boundaries${qs ? `?${qs}` : ""}`).then((items) =>
+      items.map(asPlotBoundary).filter((item) => item.polygon.length >= 4),
+    );
+  },
 
   createPlot: (input: {
     farmerId: string;

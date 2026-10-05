@@ -9,7 +9,7 @@ import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { measureRingAreaRai } from "@/lib/api";
+import { api, measureRingAreaRai } from "@/lib/api";
 import type { FieldMapHandle } from "@/components/field-map";
 import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultProductKindId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millReceiptDirectionLabel, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, productKindName, roleTitle, varietyName, type Farmer, type MillReceiptDirection, type Planting, type Plot, type ProductKind, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
@@ -1119,7 +1119,17 @@ function PlotTable({
                     </CanDelete>
                     <button
                       type="button"
-                      onClick={() => setMapPlot(plot)}
+                      onClick={() => {
+                        if (plot.polygon.length >= 4) {
+                          setMapPlot(plot);
+                          return;
+                        }
+                        if (!plot.hasBoundary) {
+                          setMapPlot(plot);
+                          return;
+                        }
+                        void api.getPlot(plot.id).then(setMapPlot);
+                      }}
                       className="cursor-pointer text-[13px] font-bold text-link underline"
                     >
                       รูปแปลง
@@ -2230,7 +2240,7 @@ export function PlotDialog({
       </Dialog>
       {drawing && (
         <DrawBoundary
-          plots={plots.filter((plot) => plot.farmerId === farmerId && plot.polygon.length >= 4)}
+          plots={plots.filter((plot) => plot.farmerId === farmerId && (plot.hasBoundary || plot.polygon.length >= 4))}
           draft={draft}
           onDraft={setDraft}
           place={{ provinceId, districtId, subdistrictId }}
@@ -2281,7 +2291,29 @@ export function DrawBoundary({
   const [measured, setMeasured] = useState<number | null>(null);
   const [measuring, setMeasuring] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [mapPlots, setMapPlots] = useState(() =>
+    plots
+      .filter((plot) => plot.polygon.length >= 4)
+      .map((plot) => ({ id: plot.id, name: plot.name, color: "#5098BA", muted: true, polygon: plot.polygon })),
+  );
   const focus = placeCenter(place);
+  const plotKey = plots.map((plot) => plot.id).join(",");
+
+  useEffect(() => {
+    let alive = true;
+    const allow = new Set(plots.map((plot) => plot.id));
+    void api.listPlotBoundaries().then((items) => {
+      if (!alive) return;
+      setMapPlots(
+        items
+          .filter((item) => allow.has(item.id))
+          .map((item) => ({ id: item.id, name: item.name, color: "#5098BA", muted: true, polygon: item.polygon })),
+      );
+    });
+    return () => {
+      alive = false;
+    };
+  }, [plotKey, plots]);
 
   useEffect(() => {
     if (!closed) {
@@ -2318,7 +2350,7 @@ export function DrawBoundary({
       <div className="h-[calc(100vh-20rem)]">
         <FieldMap
           ref={mapRef}
-          plots={plots.map((plot) => ({ id: plot.id, name: plot.name, color: "#5098BA", muted: true, polygon: plot.polygon }))}
+          plots={mapPlots}
           selectedId={null}
           onSelect={() => {}}
           draft={draft}

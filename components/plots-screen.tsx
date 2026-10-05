@@ -6,7 +6,7 @@ import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, X } from "lucide-
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlaceSelects, PlotDialog, DrawBoundary } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
-import { measureRingAreaRai } from "@/lib/api";
+import { api, measureRingAreaRai } from "@/lib/api";
 import { defaultVarietyId, farmerHandle, farmerName, formatCoord, centroid, type Plot } from "@/lib/mill";
 import { isCompletePlace, placeAt, placeLabel } from "@/lib/thai-place";
 import {
@@ -342,6 +342,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
   const [districtId, setDistrictId] = useState(plot.districtId);
   const [subdistrictId, setSubdistrictId] = useState(plot.subdistrictId);
   const [boundary, setBoundary] = useState(plot.polygon);
+  const [savedBoundary, setSavedBoundary] = useState(plot.polygon);
   const [preview, setPreview] = useState<Blob | null>(null);
   const [draft, setDraft] = useState<[number, number][]>([]);
   const [drawing, setDrawing] = useState(false);
@@ -353,7 +354,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
   const point = boundary.length >= 4 ? centroid(boundary) : null;
   const measured = boundary.length >= 4 ? Number(area) || null : null;
   const drawn = boundary.length >= 4;
-  const boundaryChanged = JSON.stringify(boundary) !== JSON.stringify(plot.polygon);
+  const boundaryChanged = JSON.stringify(boundary) !== JSON.stringify(savedBoundary);
   const dirty =
     name !== plot.name ||
     area !== String(plot.areaRai) ||
@@ -370,9 +371,24 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
     setDistrictId(plot.districtId);
     setSubdistrictId(plot.subdistrictId);
     setBoundary(plot.polygon);
+    setSavedBoundary(plot.polygon);
     setPreview(null);
     setDrawing(false);
   }, [plot.id, plot.name, plot.areaRai, plot.provinceId, plot.districtId, plot.subdistrictId, plot.polygon]);
+
+  // List payload is lean — pull the ring when opening detail.
+  useEffect(() => {
+    if (plot.polygon.length >= 4 || !plot.hasBoundary) return;
+    let alive = true;
+    void api.getPlot(plot.id).then((full) => {
+      if (!alive || full.polygon.length < 4) return;
+      setBoundary(full.polygon);
+      setSavedBoundary(full.polygon);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [plot.id, plot.polygon.length, plot.hasBoundary]);
 
   function undo() {
     setName(plot.name);
@@ -380,7 +396,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
     setProvinceId(plot.provinceId);
     setDistrictId(plot.districtId);
     setSubdistrictId(plot.subdistrictId);
-    setBoundary(plot.polygon);
+    setBoundary(savedBoundary);
     setPreview(null);
     if (!dirty) setEditing(false);
   }
@@ -423,7 +439,10 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
               const boundaryError = boundaryChanged
                 ? await saveBoundary(plot.id, boundary, areaRai, preview)
                 : null;
-              if (!boundaryError) setPreview(null);
+              if (!boundaryError) {
+                setPreview(null);
+                if (boundaryChanged) setSavedBoundary(boundary);
+              }
               setNotice(await reported(boundaryError, "บันทึกแปลงแล้ว", () => setEditing(false)));
             },
           });
@@ -520,7 +539,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
       {drawing && (
         <DrawBoundary
           title={drawn ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
-          plots={plots.filter((item) => item.id !== plot.id && item.polygon.length >= 4)}
+          plots={plots.filter((item) => item.id !== plot.id && (item.hasBoundary || item.polygon.length >= 4))}
           draft={draft}
           onDraft={setDraft}
           place={{ provinceId, districtId, subdistrictId }}

@@ -9,7 +9,7 @@ import { CanEdit } from "@/components/can";
 import type { FieldMapHandle } from "@/components/field-map";
 import { useMill } from "@/components/store";
 import { SuggestInput, matchesQuery } from "@/components/ui";
-import { measureRingAreaRai } from "@/lib/api";
+import { api, measureRingAreaRai } from "@/lib/api";
 import {
   centroid,
   closeRing,
@@ -26,6 +26,7 @@ import {
   type Farmer,
   type Planting,
   type Plot,
+  type PlotBoundary,
   type Variety,
 } from "@/lib/mill";
 
@@ -60,6 +61,9 @@ export function MapScreen() {
   const [areaText, setAreaText] = useState("");
   const [boundaryError, setBoundaryError] = useState("");
   const [suggestOpen, setSuggestOpen] = useState(false);
+  const [boundaries, setBoundaries] = useState<PlotBoundary[]>([]);
+  const [boundariesError, setBoundariesError] = useState("");
+  const [detail, setDetail] = useState<Plot | null>(null);
 
   useEffect(() => {
     setPlotId(requestedPlot);
@@ -68,6 +72,39 @@ export function MapScreen() {
   useEffect(() => {
     setDraft(null);
     setBoundaryError("");
+  }, [plotId]);
+
+  // Map loads name+ring only when this tab opens — not via mill snapshot.
+  useEffect(() => {
+    let alive = true;
+    setBoundariesError("");
+    void api
+      .listPlotBoundaries()
+      .then((items) => {
+        if (alive) setBoundaries(items);
+      })
+      .catch(() => {
+        if (alive) setBoundariesError("โหลดขอบเขตแปลงไม่สำเร็จ");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Detail panel fetches full plot on select.
+  useEffect(() => {
+    if (!plotId) {
+      setDetail(null);
+      return;
+    }
+    let alive = true;
+    setDetail(null);
+    void api.getPlot(plotId).then((plot) => {
+      if (alive) setDetail(plot);
+    });
+    return () => {
+      alive = false;
+    };
   }, [plotId]);
 
   useEffect(() => {
@@ -81,16 +118,28 @@ export function MapScreen() {
     };
   }, [draft]);
 
+  const boundaryById = useMemo(() => {
+    const map = new Map<string, [number, number][]>();
+    for (const item of boundaries) map.set(item.id, item.polygon);
+    return map;
+  }, [boundaries]);
+
   const rows = useMemo<Row[]>(() => {
     return plots.flatMap((plot) => {
       const farmer = farmers.find((item) => item.id === plot.farmerId);
       if (!farmer) return [];
+      const ring = boundaryById.get(plot.id) ?? plot.polygon;
+      const merged: Plot = {
+        ...plot,
+        polygon: ring,
+        hasBoundary: ring.length >= 4 || Boolean(plot.hasBoundary),
+      };
       const planting = currentPlanting(plantings, plot.id);
       const days = planting ? daysUntil(planting.harvestOn) : null;
       const kind: StatusKey = !planting ? "none" : days != null && days <= 7 ? "due" : "upcoming";
-      return [{ plot, farmer, planting, variety: planting?.varietyId ?? null, status: kind, days }];
+      return [{ plot: merged, farmer, planting, variety: planting?.varietyId ?? null, status: kind, days }];
     });
-  }, [plots, plantings, farmers]);
+  }, [plots, plantings, farmers, boundaryById]);
 
   const groupNames = useMemo(
     () => [...groups].map((group) => group.name).sort((a, b) => a.localeCompare(b, "th")),
@@ -118,7 +167,18 @@ export function MapScreen() {
   }, [plotId, scoped]);
 
   const listedIds = new Set(scoped.map((row) => row.plot.id));
-  const selected = rows.find((row) => row.plot.id === plotId) ?? null;
+  const selectedRow = rows.find((row) => row.plot.id === plotId) ?? null;
+  const selected = selectedRow
+    ? {
+        ...selectedRow,
+        plot: detail
+          ? {
+              ...detail,
+              polygon: detail.polygon.length >= 4 ? detail.polygon : selectedRow.plot.polygon,
+            }
+          : selectedRow.plot,
+      }
+    : null;
   const suggestions = useMemo(() => {
     if (!query.trim()) return [];
     return scoped.slice(0, 8);
@@ -164,10 +224,21 @@ export function MapScreen() {
       setBoundaryError(error);
       return;
     }
+    setBoundaries((current) => {
+      const next = current.filter((item) => item.id !== selected.plot.id);
+      next.push({
+        id: selected.plot.id,
+        farmerId: selected.plot.farmerId,
+        name: selected.plot.name,
+        polygon: draft,
+      });
+      return next;
+    });
+    setDetail((current) => (current ? { ...current, polygon: draft, hasBoundary: true, areaRai } : current));
     setDraft(null);
   }
 
-  const drawnCount = rows.filter((row) => row.plot.polygon.length >= 4).length;
+  const drawnCount = rows.filter((row) => row.plot.polygon.length >= 4 || row.plot.hasBoundary).length;
   const scopedDrawn = scoped.filter((row) => row.plot.polygon.length >= 4).length;
   const showingAll = !query.trim() && !groupText.trim();
   const mapPlots = rows
@@ -208,7 +279,11 @@ export function MapScreen() {
         <div className="absolute left-4 top-4 z-20 w-[300px] space-y-3 rounded-[8px] border border-frame bg-white p-3 shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[13px] text-ink/60">
-              {showingAll ? `ทั้งหมด ${drawnCount} แปลง` : `แสดง ${scopedDrawn} จาก ${drawnCount} แปลง`}
+              {boundariesError
+                ? boundariesError
+                : showingAll
+                  ? `ทั้งหมด ${drawnCount} แปลง`
+                  : `แสดง ${scopedDrawn} จาก ${drawnCount} แปลง`}
             </p>
             <button
               type="button"

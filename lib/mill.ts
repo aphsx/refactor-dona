@@ -76,6 +76,16 @@ export type Plot = {
   districtId: number;
   subdistrictId: number;
   previewUrl?: string | null;
+  /** True when a boundary exists server-side; list payloads omit the ring. */
+  hasBoundary?: boolean;
+  polygon: [number, number][];
+};
+
+/** Map payload from GET /plots/boundaries — name + ring only. */
+export type PlotBoundary = {
+  id: string;
+  farmerId: string;
+  name: string;
   polygon: [number, number][];
 };
 
