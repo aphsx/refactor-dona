@@ -17,6 +17,10 @@ import { daysUntil } from "@/lib/mill";
 const SHOW_PLAN_NAV = false;
 /** Flip on when rolling out แผนรับข้าว (/supply). */
 const SHOW_SUPPLY_NAV = false;
+/** Flip on when rolling out จัดการ (varieties / product kinds). */
+const SHOW_MANAGE_NAV = false;
+/** Flip on when rolling out จัดการสิทธิ์. */
+const SHOW_PERMISSIONS_NAV = false;
 const HOME_PATH = SHOW_PLAN_NAV ? "/plan" : "/farmers";
 
 const KNOWN_APP_PATHS = new Set([
@@ -29,12 +33,8 @@ const KNOWN_APP_PATHS = new Set([
   "/groups/manage",
   "/farmers",
   "/farmers/manage",
-  "/manage",
-  "/manage/varieties",
-  "/manage/product-kinds",
-  "/varieties/manage",
-  "/permissions",
-  "/permissions/people",
+  ...(SHOW_MANAGE_NAV ? ["/manage", "/manage/varieties", "/manage/product-kinds", "/varieties/manage"] : []),
+  ...(SHOW_PERMISSIONS_NAV ? ["/permissions", "/permissions/people"] : []),
   "/dashboard",
 ]);
 
@@ -84,22 +84,30 @@ const NAV: NavItem[] = [
       ]
     : []),
   ...(SHOW_SUPPLY_NAV ? [{ href: "/supply", label: "แผนรับข้าว", icon: CalendarDays }] : []),
-  {
-    label: "จัดการ",
-    icon: Settings2,
-    children: [
-      { href: "/manage/varieties", label: "พันธุ์ข้าว" },
-      { href: "/manage/product-kinds", label: "ชนิดสินค้า" },
-    ],
-  },
-  {
-    label: "จัดการสิทธิ์",
-    icon: Shield,
-    children: [
-      { href: "/permissions", label: "จัดการสิทธิ์" },
-      { href: "/permissions/people", label: "รายคน" },
-    ],
-  },
+  ...(SHOW_MANAGE_NAV
+    ? [
+        {
+          label: "จัดการ",
+          icon: Settings2,
+          children: [
+            { href: "/manage/varieties", label: "พันธุ์ข้าว" },
+            { href: "/manage/product-kinds", label: "ชนิดสินค้า" },
+          ],
+        },
+      ]
+    : []),
+  ...(SHOW_PERMISSIONS_NAV
+    ? [
+        {
+          label: "จัดการสิทธิ์",
+          icon: Shield,
+          children: [
+            { href: "/permissions", label: "จัดการสิทธิ์" },
+            { href: "/permissions/people", label: "รายคน" },
+          ],
+        },
+      ]
+    : []),
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
