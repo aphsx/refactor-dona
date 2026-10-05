@@ -78,10 +78,10 @@ export function MapScreen() {
   }, [plotId]);
 
   // Load rings from API; pass groupId so the server filters (response rows may omit groupId).
+  // Keep the previous rings until the next page arrives so the map does not flash empty / jump.
   useEffect(() => {
     let alive = true;
     setBoundariesError("");
-    setBoundaries([]);
     void api
       .listPlotBoundaries(groupId ? { groupId } : undefined)
       .then((items) => {
@@ -352,7 +352,6 @@ export function MapScreen() {
               value={groupId}
               onChange={(value) => {
                 setGroupId(value);
-                // Drop single-plot focus so the map frames the whole group.
                 setPlotId(null);
               }}
               options={groupOptions}

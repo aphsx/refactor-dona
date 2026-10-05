@@ -99,6 +99,8 @@ export const FieldMap = forwardRef<
 ) {
   const mapRef = useRef<MapRef>(null);
   const modeRef = useRef<"satellite" | "street">("satellite");
+  const prevSelectedRef = useRef<string | null>(null);
+  const prevPlotSetRef = useRef<string | null>(null);
   const [mode, setMode] = useState<"satellite" | "street">("satellite");
   const [pinsReady, setPinsReady] = useState(false);
   const mapStyle = useMemo(
@@ -113,7 +115,8 @@ export const FieldMap = forwardRef<
   const focusKey = focus ? `${focus.lng}:${focus.lat}:${focus.zoom ?? ""}` : "";
   // Use draw phase (off / fresh / active), not point count — placing a point must not recenter.
   const drawPhase = !drawing ? "off" : drawingActive ? "active" : "fresh";
-  const frameKey = `${selectedId ?? ""}|${mode}|${drawPhase}|${focusKey}|${drawn.map((plot) => `${plot.id}:${plot.muted ? 1 : 0}`).join(",")}`;
+  const plotSetKey = drawn.map((plot) => `${plot.id}:${plot.muted ? 1 : 0}`).join(",");
+  const frameKey = `${selectedId ?? ""}|${mode}|${drawPhase}|${focusKey}|${plotSetKey}`;
   const draftData = useMemo(() => {
     const ring = draft ?? [];
     const open = openRing(ring);
@@ -184,43 +187,9 @@ export const FieldMap = forwardRef<
     return true;
   }
 
-  function fitFrame() {
+  function fitBoundsTo(frame: MapPlot[]) {
     const map = mapRef.current;
-    if (!map) return;
-
-    // User is placing vertices — keep their pan/zoom.
-    if (drawingActive) return;
-
-    if (drawn.length === 0) {
-      flyToFocus();
-      return;
-    }
-
-    // Group/search with nothing picked → frame the whole filter set.
-    // Click a plot → zoom into that plot for detail (close panel to see group again).
-    // Fresh edit of an existing ring → stay on that polygon (do not jump to placeCenter).
-    // Fresh draw with no ring yet → fall through to place focus below.
-    const active = drawn.filter((plot) => !plot.muted);
-    const picked = selectedId ? drawn.filter((plot) => plot.id === selectedId) : [];
-    if (selectedId && picked.length === 0 && !drawing) {
-      flyToFocus();
-      return;
-    }
-
-    const subject = picked.length > 0 ? picked : drawing ? [] : active;
-    if (subject.length === 0) {
-      // New boundary (no ring yet): jump to the selected place once.
-      if (drawing && focus) {
-        flyToFocus();
-        return;
-      }
-    }
-
-    const frame = subject.length > 0 ? subject : active.length > 0 ? active : drawn;
-    if (frame.length === 0) {
-      flyToFocus();
-      return;
-    }
+    if (!map || frame.length === 0) return;
     const lngs = frame.flatMap((plot) => plot.polygon.map((point) => point[0]));
     const lats = frame.flatMap((plot) => plot.polygon.map((point) => point[1]));
     map.fitBounds(
@@ -232,9 +201,56 @@ export const FieldMap = forwardRef<
     );
   }
 
+  /**
+   * Zoom in when a plot is clicked or the visible plot set changes (group filter).
+   * Do not move the camera when starting/canceling boundary edit.
+   */
+  function fitFrame(opts: { force?: boolean; selectedChanged?: boolean; plotSetChanged?: boolean } = {}) {
+    const force = opts.force ?? false;
+    const selectedChanged = opts.selectedChanged ?? false;
+    const plotSetChanged = opts.plotSetChanged ?? false;
+    const map = mapRef.current;
+    if (!map) return;
+
+    // User is placing vertices — keep their pan/zoom.
+    if (drawingActive && !force) return;
+
+    const active = drawn.filter((plot) => !plot.muted);
+    const picked = selectedId ? drawn.filter((plot) => plot.id === selectedId) : [];
+
+    // Click a plot → zoom into that plot. Edit start/cancel keeps the same selection → stay put.
+    if (picked.length > 0) {
+      if (force || selectedChanged) {
+        fitBoundsTo(picked);
+      }
+      return;
+    }
+
+    // Fresh draw with no ring yet → jump to place focus once.
+    if (drawing && focus && (force || selectedChanged || drawPhase === "fresh")) {
+      flyToFocus();
+      return;
+    }
+
+    if (selectedId && !drawing && (force || selectedChanged)) {
+      flyToFocus();
+      return;
+    }
+
+    // Group / all filter changed (or first load / toolbar) → frame that set.
+    // Closing detail alone (same plot set) → keep camera; do not zoom out.
+    if (!force && !plotSetChanged) return;
+    if (drawn.length === 0) return;
+    fitBoundsTo(active.length > 0 ? active : drawn);
+  }
+
   useEffect(() => {
-    fitFrame();
-    // Recenter on selection / place / basemap / draw phase — not on each new vertex.
+    const selectedChanged = prevSelectedRef.current !== selectedId;
+    const plotSetChanged = prevPlotSetRef.current !== plotSetKey;
+    prevSelectedRef.current = selectedId;
+    prevPlotSetRef.current = plotSetKey;
+    fitFrame({ selectedChanged, plotSetChanged });
+    // Recenter on selection / plot-set / basemap — not on each new vertex or edit cancel.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameKey]);
 
@@ -353,7 +369,7 @@ export const FieldMap = forwardRef<
         {...({ preserveDrawingBuffer: true } as Record<string, unknown>)}
         onLoad={() => {
           bindPinImages();
-          fitFrame();
+          fitFrame({ force: true });
         }}
         interactiveLayerIds={["plot-fill"]}
         onClick={selectFromMap}
@@ -473,7 +489,7 @@ export const FieldMap = forwardRef<
         <button
           type="button"
           aria-label="จัดขอบเขตแปลง"
-          onClick={fitFrame}
+          onClick={() => fitFrame({ force: true })}
           className="inline-flex h-9 items-center gap-2 rounded-[6px] border-2 border-brand bg-white px-3 text-[14px] font-bold text-brand"
         >
           <LocateFixed size={16} strokeWidth={1.75} />
