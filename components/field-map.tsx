@@ -278,24 +278,35 @@ export const FieldMap = forwardRef<
       if (!map) return null;
       const target = ring && isClosedRing(ring) ? ring : draftClosed ? draft : null;
       const open = target && target.length >= 4 ? openRing(target) : [];
+
+      function waitIdle(timeoutMs = 1200) {
+        return new Promise<void>((resolve) => {
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            map.off("idle", finish);
+            resolve();
+          };
+          map.once("idle", finish);
+          window.setTimeout(finish, timeoutMs);
+        });
+      }
+
       if (open.length >= 3) {
         const lngs = open.map((point) => point[0]);
         const lats = open.map((point) => point[1]);
-        await new Promise<void>((resolve) => {
-          map.once("idle", () => resolve());
-          map.fitBounds(
-            [
-              [Math.min(...lngs), Math.min(...lats)],
-              [Math.max(...lngs), Math.max(...lats)],
-            ],
-            // Comfortable frame: plot fills most of the view without feeling cramped.
-            { padding: 28, duration: 0, maxZoom: 18 },
-          );
-        });
-        await new Promise<void>((resolve) => {
-          map.once("idle", () => resolve());
-          map.triggerRepaint();
-        });
+        map.fitBounds(
+          [
+            [Math.min(...lngs), Math.min(...lats)],
+            [Math.max(...lngs), Math.max(...lats)],
+          ],
+          // Comfortable frame: plot fills most of the view without feeling cramped.
+          { padding: 28, duration: 0, maxZoom: 18 },
+        );
+        await waitIdle();
+        map.triggerRepaint();
+        await waitIdle(400);
       }
       const source = map.getCanvas();
       if (!source.width || !source.height) return null;
@@ -338,7 +349,10 @@ export const FieldMap = forwardRef<
       }
 
       ctx.drawImage(source, sx, sy, side, side, 0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
-      return new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/webp", 0.72));
+      // WebP can return null on some browsers — fall back to JPEG.
+      const blob = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/webp", 0.72));
+      if (blob) return blob;
+      return new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/jpeg", 0.85));
     },
   }));
 

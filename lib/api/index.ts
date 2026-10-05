@@ -100,7 +100,8 @@ function asPlot(item: WirePlot): Plot {
   return {
     ...item,
     polygon,
-    hasBoundary: item.hasBoundary ?? polygon.length >= 4,
+    // API create used to omit/false hasBoundary even when the ring is present.
+    hasBoundary: Boolean(item.hasBoundary) || polygon.length >= 4,
   };
 }
 
@@ -285,7 +286,8 @@ export const api = {
     if (!token) throw new ApiError("ต้องเข้าสู่ระบบก่อน", 401);
     const form = new FormData();
     form.append("plotId", plotId);
-    form.append("file", file, "preview.webp");
+    const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/png" ? "png" : "webp";
+    form.append("file", file, `preview.${ext}`);
     let response: Response;
     try {
       response = await fetch("/api/plot-preview", {

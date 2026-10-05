@@ -160,17 +160,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  function uploadPreviewInBackground(plotId: string, preview: Blob) {
-    void api
-      .uploadPlotPreview(plotId, preview)
-      .then((updated) => {
-        patchPlots((plots) => plots.map((plot) => (plot.id === updated.id ? updated : plot)));
-      })
-      .catch(() => {
-        // Plot already saved; preview can be regenerated later.
-      });
-  }
-
   const store: Store = {
     ...data,
     ready,
@@ -250,12 +239,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               }
             : {}),
         };
-        // Fast path: create → patch UI → return. Preview/full reload must not block confirm.
+        // Fast path: create → patch UI → return. Keep ring flags even if API omits hasBoundary.
         const plot = await api.createPlot(body);
-        patchPlots((plots) => [...plots.filter((item) => item.id !== plot.id), plot]);
-        if (input.preview) uploadPreviewInBackground(plot.id, input.preview);
-        // Planting is created server-side with the plot — refresh lists in background.
-        if (input.plantedOn || input.harvestOn) void reload().catch(() => {});
+        const created = {
+          ...plot,
+          hasBoundary: plot.hasBoundary || (input.polygon?.length ?? 0) >= 4,
+          polygon: plot.polygon.length >= 4 ? plot.polygon : input.polygon ?? plot.polygon,
+        };
+        patchPlots((plots) => [...plots.filter((item) => item.id !== created.id), created]);
+        if (input.preview) {
+          try {
+            const updated = await api.uploadPlotPreview(created.id, input.preview);
+            patchPlots((plots) => plots.map((item) => (item.id === updated.id ? updated : item)));
+          } catch {
+            // Plot is already saved; still refresh lists so the ring shows.
+            setRevision((value) => value + 1);
+            return "บันทึกแปลงแล้ว แต่บันทึกรูปตัวอย่างไม่สำเร็จ";
+          }
+        }
+        // Refresh farmer/group plot tables (they listen to revision, not mill.plots).
+        setRevision((value) => value + 1);
         return null;
       } catch (error) {
         return apiMessage(error);
@@ -279,8 +282,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     saveBoundary: async (plotId, polygon, areaRai, preview) => {
       try {
         const plot = await api.saveBoundary(plotId, polygon, areaRai);
-        patchPlots((plots) => plots.map((item) => (item.id === plot.id ? plot : item)));
-        if (preview) uploadPreviewInBackground(plotId, preview);
+        patchPlots((plots) => plots.map((item) => (item.id === plot.id ? { ...plot, hasBoundary: true } : item)));
+        if (preview) {
+          try {
+            const updated = await api.uploadPlotPreview(plotId, preview);
+            patchPlots((plots) => plots.map((item) => (item.id === updated.id ? updated : item)));
+          } catch {
+            setRevision((value) => value + 1);
+            return "บันทึกขอบเขตแล้ว แต่บันทึกรูปตัวอย่างไม่สำเร็จ";
+          }
+        }
+        setRevision((value) => value + 1);
         return null;
       } catch (error) {
         return apiMessage(error);

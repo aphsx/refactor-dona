@@ -1166,11 +1166,11 @@ function PlotTable({
                           setMapPlot(plot);
                           return;
                         }
-                        if (!plot.hasBoundary) {
-                          setMapPlot(plot);
-                          return;
-                        }
-                        void api.getPlot(plot.id).then(setMapPlot);
+                        // List rows omit the ring — always fetch before concluding there is none.
+                        void api
+                          .getPlot(plot.id)
+                          .then(setMapPlot)
+                          .catch(() => setMapPlot(plot));
                       }}
                       className="cursor-pointer text-[13px] font-bold text-link underline"
                     >
