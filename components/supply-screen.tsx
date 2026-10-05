@@ -1,30 +1,52 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMill } from "@/components/store";
+import { api } from "@/lib/api";
 import { Kpi, PageHeader, Pagination, SearchSelect, SortableTh, StatusTab, TableScroll, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { daysUntil, farmerName, formatKg, formatThaiDate, varietyName, type Plot, type Variety } from "@/lib/mill";
+import { daysUntil, formatKg, formatThaiDate, varietyName, type Planting, type Plot, type Variety } from "@/lib/mill";
 
 type SupplyRow = Plot & { varietyId: Variety; plantingId: string; harvestOn: string; estKg: number };
 
 type WindowFilter = "ใกล้เก็บเกี่ยว" | "เดือนนี้" | "ยังไม่เข้า";
 
 export function SupplyScreen() {
-  const { plots, plantings, farmers, groups } = useMill();
+  const { groups, revision } = useMill();
   const [filter, setFilter] = useState<WindowFilter>("ใกล้เก็บเกี่ยว");
   const [groupId, setGroupId] = useState("all");
+  const [plantings, setPlantings] = useState<Planting[]>([]);
+
+  useEffect(() => {
+    const today = isoToday();
+    const harvestTo = filter === "ใกล้เก็บเกี่ยว" ? shiftIso(today, 7) : filter === "เดือนนี้" ? shiftIso(today, 31) : undefined;
+    let alive = true;
+    void api.listPlantings({ harvestTo, groupId }).then((items) => {
+      if (alive) setPlantings(items);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [filter, groupId, revision]);
 
   const owned = useMemo(() => {
-    return plantings.flatMap((planting) => {
-      const plot = plots.find((item) => item.id === planting.plotId);
-      if (!plot) return [];
-      const farmer = farmers.find((item) => item.id === plot.farmerId);
-      if (groupId === "none" && farmer?.groupId != null) return [];
-      if (groupId !== "all" && groupId !== "none" && farmer?.groupId !== groupId) return [];
-      return [{ ...plot, varietyId: planting.varietyId, plantingId: planting.id, harvestOn: planting.harvestOn, estKg: planting.estKg }];
-    });
-  }, [plantings, plots, farmers, groupId]);
+    return plantings.map((planting) => ({
+      id: planting.plotId,
+      farmerId: planting.farmerId ?? "",
+      name: planting.plotName ?? "",
+      areaRai: planting.areaRai ?? 0,
+      provinceId: 0,
+      districtId: 0,
+      subdistrictId: 0,
+      ownerName: planting.farmerName,
+      groupName: planting.groupName,
+      polygon: [] as [number, number][],
+      varietyId: planting.varietyId,
+      plantingId: planting.id,
+      harvestOn: planting.harvestOn,
+      estKg: planting.estKg,
+    }));
+  }, [plantings]);
 
   const due = owned.filter((plot) => daysUntil(plot.harvestOn) <= 0);
   const soon = owned.filter((plot) => daysUntil(plot.harvestOn) <= 7);
@@ -91,6 +113,22 @@ export function SupplyScreen() {
   );
 }
 
+function isoToday() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function shiftIso(iso: string, days: number) {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  const nextMonth = String(date.getMonth() + 1).padStart(2, "0");
+  const nextDay = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${nextMonth}-${nextDay}`;
+}
+
 function groupByHarvest(plots: SupplyRow[]) {
   const grouped = new Map<string, SupplyRow[]>();
   for (const plot of plots) {
@@ -110,14 +148,12 @@ function queueMark(plots: SupplyRow[]) {
 }
 
 function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
-  const { farmers, groups } = useMill();
   const listingSort = useTableSort(date);
   const ordered = orderBy(plots, listingSort.sort, (plot, key) => {
-    const farmer = farmers.find((item) => item.id === plot.farmerId);
     const left = daysUntil(plot.harvestOn);
     if (key === "name") return plot.name;
-    if (key === "farmer") return farmer ? farmerName(farmer) : "";
-    if (key === "group") return groups.find((group) => group.id === farmer?.groupId)?.name ?? "";
+    if (key === "farmer") return plot.ownerName ?? "";
+    if (key === "group") return plot.groupName ?? "";
     if (key === "variety") return varietyName(plot.varietyId);
     if (key === "area") return plot.areaRai;
     if (key === "kg") return plot.estKg;
@@ -152,21 +188,20 @@ function DateQueue({ date, plots }: { date: string; plots: SupplyRow[] }) {
         </thead>
         <tbody>
           {ordered.map((plot, index) => {
-            const farmer = farmers.find((item) => item.id === plot.farmerId);
             const left = daysUntil(plot.harvestOn);
             const status = left <= 0 ? "ถึงกำหนด" : left <= 7 ? "ใกล้เก็บเกี่ยว" : `อีก ${left} วัน`;
             return (
               <tr key={plot.plantingId} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
-                <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
-                <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
+                <td className="px-5 py-3">{plot.ownerName || "—"}</td>
+                <td className="px-5 py-3">{plot.groupName || "—"}</td>
                 <td className="px-5 py-3">{varietyName(plot.varietyId)}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
                 <td className="px-5 py-3">{formatKg(plot.estKg)}</td>
                 <td className={`px-5 py-3 font-bold ${left <= 7 ? "text-brand" : ""}`}>{status}</td>
                 <td className="px-5 py-3">
-                  {farmer && (
-                    <Link href={`/map?farmer=${farmer.id}`} className="font-bold text-link underline">
+                  {plot.farmerId && (
+                    <Link href={`/map?farmer=${plot.farmerId}`} className="font-bold text-link underline">
                       แผนที่
                     </Link>
                   )}

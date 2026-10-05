@@ -136,6 +136,11 @@ export async function apiLogin(username: string, password: string) {
   return session;
 }
 
+export async function apiPage<T>(path: string, page = 1, pageSize = 20): Promise<Page<T>> {
+  const sep = path.includes("?") ? "&" : "?";
+  return apiRequest<Page<T>>(`${path}${sep}page=${page}&pageSize=${pageSize}`);
+}
+
 export async function apiListAll<T>(path: string): Promise<T[]> {
   const items: T[] = [];
   let page = 1;

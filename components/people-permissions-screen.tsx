@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { RotateCcw, Search } from "lucide-react";
 import { useMill } from "@/components/store";
-import { ConfirmAlert, Glyph, PageHeader, Pagination, PrimaryButton, ResultAlert, SearchSelect, SecondaryButton, SortableTh, TableScroll, inputClass, matchesQuery, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
+import { useServerPage } from "@/components/server-page";
+import { api } from "@/lib/api";
+import { ConfirmAlert, Glyph, PageHeader, Pagination, PrimaryButton, ResultAlert, SearchSelect, SecondaryButton, SortableTh, TableScroll, inputClass, orderBy, tableClass, useTableSort } from "@/components/ui";
 import { farmerName, personRole, roleTitle, type Farmer, type PermissionRole } from "@/lib/mill";
 
 const ROLE_OPTIONS: { value: PermissionRole; label: string }[] = [
@@ -17,23 +19,21 @@ type Notice =
   | { tone: "success" | "error"; message: string };
 
 export function PeoplePermissionsScreen() {
-  const { farmers, groups, roleGrants } = useMill();
+  const { groups, roleGrants, revision } = useMill();
   const [draftName, setDraftName] = useState("");
   const [name, setName] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
-  const rows = useMemo(
-    () => farmers.filter((farmer) => matchesQuery(name, `${farmerName(farmer)} ${farmer.tel}`)),
-    [farmers, name],
-  );
   const listingSort = useTableSort(name);
-  const ordered = orderBy(rows, listingSort.sort, (farmer, key) => {
+  const page = useServerPage(`${name}:${revision}`, (pageNo, pageSize) =>
+    api.listFarmersPage({ q: name, page: pageNo, pageSize }),
+  );
+  const ordered = orderBy(page.rows, listingSort.sort, (farmer, key) => {
     if (key === "tel") return farmer.tel;
-    if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
+    if (key === "group") return farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "";
     if (key === "role") return roleTitle(personRole(roleGrants, groups, farmer.id));
     if (key === "scope") return scopeLabel(personRole(roleGrants, groups, farmer.id), groups, farmer.id);
     return farmerName(farmer);
   });
-  const page = usePagination(ordered, name);
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
@@ -81,7 +81,7 @@ export function PeoplePermissionsScreen() {
               </tr>
             </thead>
             <tbody>
-              {page.rows.map((farmer, index) => (
+              {ordered.map((farmer, index) => (
                 <PersonRow key={farmer.id} farmer={farmer} stripe={index % 2 === 1} onNotice={setNotice} />
               ))}
             </tbody>
@@ -146,7 +146,7 @@ function PersonRow({
     <tr className={stripe ? "bg-table" : "bg-white"}>
       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
       <td className="px-5 py-3">{farmer.tel}</td>
-      <td className="px-5 py-3">{group?.name ?? "—"}</td>
+      <td className="px-5 py-3">{farmer.groupName || group?.name || "—"}</td>
       <td className="px-5 py-3">{roleTitle(current)}</td>
       <td className="px-5 py-3">{scopeLabel(current, groups, farmer.id)}</td>
       <td className="px-5 py-3">

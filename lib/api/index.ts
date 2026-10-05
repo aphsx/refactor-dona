@@ -1,4 +1,4 @@
-import { apiListAll, apiRequest, getApiToken, ApiError } from "@/lib/api/client";
+import { apiListAll, apiPage, apiRequest, getApiToken, ApiError } from "@/lib/api/client";
 import {
   asMillReceiptDirection,
   closeRing,
@@ -126,19 +126,18 @@ function millGrants(people: WirePerson[]): RoleGrant[] {
 }
 
 export async function loadMillSnapshot(): Promise<MillSnapshot> {
-  const [groups, farmers, plots, plantings, activities, receipts, varieties, productKinds, permissions, people] =
-    await Promise.all([
+  const [groups, varieties, productKinds, permissions, people] = await Promise.all([
       apiListAll<SupplierGroup>("/groups"),
-      apiListAll<Farmer>("/farmers"),
-      apiListAll<WirePlot>("/plots"),
-      apiListAll<WirePlanting>("/plantings"),
-      apiListAll<WirePlotActivity>("/plot-activities"),
-      apiListAll<MillReceipt>("/mill-receipts"),
       apiRequest<{ items: VarietyItem[] }>("/varieties").then((data) => data.items ?? []),
       apiRequest<{ items: ProductKindItem[] }>("/product-kinds").then((data) => data.items ?? []),
       apiRequest<{ items: WirePermission[] }>("/permissions").then((data) => data.items ?? []),
       apiListAll<WirePerson>("/people"),
     ]);
+  const farmers: Farmer[] = [];
+  const plots: WirePlot[] = [];
+  const plantings: WirePlanting[] = [];
+  const activities: WirePlotActivity[] = [];
+  const receipts: MillReceipt[] = [];
 
   syncVarieties(varieties);
   syncProductKinds(productKinds);
@@ -193,6 +192,58 @@ export const api = {
     apiRequest<Farmer>(`/farmers/${id}/group`, { method: "PATCH", body: JSON.stringify({ groupId }) }),
 
   getPlot: (id: string) => apiRequest<WirePlot>(`/plots/${id}`).then(asPlot),
+
+  getFarmer: (id: string) => apiRequest<Farmer>(`/farmers/${id}`),
+
+  listFarmersPage: (query: { q?: string; groupId?: string; page?: number; pageSize?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (query.q) params.set("q", query.q);
+    if (query.groupId) params.set("groupId", query.groupId);
+    const qs = params.toString();
+    return apiPage<Farmer>(`/farmers${qs ? `?${qs}` : ""}`, query.page ?? 1, query.pageSize ?? 20);
+  },
+
+  listGroupsPage: (query: { q?: string; leaderId?: string; page?: number; pageSize?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (query.q) params.set("q", query.q);
+    if (query.leaderId) params.set("leaderId", query.leaderId);
+    const qs = params.toString();
+    return apiPage<SupplierGroup>(`/groups${qs ? `?${qs}` : ""}`, query.page ?? 1, query.pageSize ?? 20);
+  },
+
+  listPlotsPage: (query: { q?: string; farmerId?: string; groupId?: string; page?: number; pageSize?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (query.q) params.set("q", query.q);
+    if (query.farmerId) params.set("farmerId", query.farmerId);
+    if (query.groupId) params.set("groupId", query.groupId);
+    const qs = params.toString();
+    return apiPage<WirePlot>(`/plots${qs ? `?${qs}` : ""}`, query.page ?? 1, query.pageSize ?? 20).then((page) => ({
+      ...page,
+      items: (page.items ?? []).map(asPlot),
+    }));
+  },
+
+  listPlantings: (query: { plotId?: string; farmerId?: string; harvestFrom?: string; harvestTo?: string; groupId?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (query.plotId) params.set("plotId", query.plotId);
+    if (query.farmerId) params.set("farmerId", query.farmerId);
+    if (query.harvestFrom) params.set("harvestFrom", query.harvestFrom);
+    if (query.harvestTo) params.set("harvestTo", query.harvestTo);
+    if (query.groupId && query.groupId !== "all") params.set("groupId", query.groupId);
+    const qs = params.toString();
+    return apiListAll<WirePlanting>(`/plantings${qs ? `?${qs}` : ""}`).then((items) => items.map(asPlanting));
+  },
+
+  listActivities: (plantingId: string) =>
+    apiListAll<WirePlotActivity>(`/plot-activities?plantingId=${encodeURIComponent(plantingId)}`).then((items) =>
+      items.map(asPlotActivity),
+    ),
+
+  listReceipts: (farmerId: string) =>
+    apiListAll<MillReceipt>(`/mill-receipts?farmerId=${encodeURIComponent(farmerId)}`),
+
+  dueHarvests: () =>
+    apiRequest<{ items: { plotId: string; plotName: string; harvestOn: string }[] }>("/notices/harvests"),
 
   listPlotBoundaries: (query?: { groupId?: string; farmerId?: string; q?: string }) => {
     const params = new URLSearchParams();
@@ -312,6 +363,25 @@ export const api = {
 
   revokeRole: (farmerId: string) => apiRequest<void>(`/people/${farmerId}/role`, { method: "DELETE" }),
 };
+
+/** Walks API pages (cap 100) until the filtered set is loaded. */
+export async function collectPages<T>(
+  load: (page: number, pageSize: number) => Promise<{ items?: T[] | null; total: number }>,
+  pageSize = 100,
+) {
+  const items: T[] = [];
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+  while (items.length < total && page <= 50) {
+    const result = await load(page, pageSize);
+    total = result.total ?? 0;
+    const batch = result.items ?? [];
+    items.push(...batch);
+    if (batch.length === 0) break;
+    page += 1;
+  }
+  return items;
+}
 
 /** PostGIS geography (WGS84 spheroid). Falls back to local estimate if API fails. */
 export async function measureRingAreaRai(points: [number, number][]) {

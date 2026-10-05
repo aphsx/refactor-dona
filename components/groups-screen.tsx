@@ -9,9 +9,10 @@ import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
 import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { api, measureRingAreaRai } from "@/lib/api";
+import { api, collectPages, measureRingAreaRai } from "@/lib/api";
+import { useServerPage } from "@/components/server-page";
 import type { FieldMapHandle } from "@/components/field-map";
-import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultProductKindId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millReceiptDirectionLabel, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, productKindName, roleTitle, varietyName, type Farmer, type MillReceiptDirection, type Planting, type Plot, type ProductKind, type SupplierGroup, type Variety } from "@/lib/mill";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultProductKindId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millReceiptDirectionLabel, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, productKindName, roleTitle, varietyName, type Farmer, type MillReceipt, type MillReceiptDirection, type Planting, type Plot, type PlotActivity, type ProductKind, type SupplierGroup, type Variety } from "@/lib/mill";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -61,7 +62,7 @@ export function GroupsScreen() {
 }
 
 export function GroupManageScreen() {
-  const { groups, farmers, plots, plantings, createGroup } = useMill();
+  const { groups, createGroup } = useMill();
   const router = useRouter();
   const requestedId = useSearchParams().get("group");
   const requested = groups.some((group) => group.id === requestedId) ? requestedId : null;
@@ -83,14 +84,11 @@ export function GroupManageScreen() {
   }, [groups, name, leaderId]);
   const listingSort = useTableSort(`${name}:${leaderId}`);
   const ordered = orderBy(rows, listingSort.sort, (group, key) => {
-    const leader = farmers.find((farmer) => farmer.id === group.leaderId);
-    const people = farmers.filter((farmer) => farmer.groupId === group.id);
     if (key === "name") return group.name;
-    if (key === "leader") return leader ? farmerName(leader) : "";
-    if (key === "members") return people.length;
-    if (key === "received") return people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
-    const ids = new Set(people.map((farmer) => farmer.id));
-    return plantings.filter((planting) => ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
+    if (key === "leader") return group.leaderName ?? "";
+    if (key === "members") return group.memberCount ?? 0;
+    if (key === "received") return group.receivedKg ?? 0;
+    return group.expectedKg ?? 0;
   });
   const page = usePagination(ordered, `${name}:${leaderId}`);
 
@@ -138,18 +136,9 @@ export function GroupManageScreen() {
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               หัวหน้ากลุ่ม
-              <SearchSelect
-                label="หัวหน้ากลุ่ม"
-                className="mt-1"
-                value={draftLeader}
-                onChange={setDraftLeader}
-                options={[
-                  { value: "", label: "ทั้งหมด" },
-                  ...[...farmers]
-                    .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
-                    .map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) })),
-                ]}
-              />
+              <div className="mt-1">
+                <FarmerSelect allowAll value={draftLeader} onChange={setDraftLeader} />
+              </div>
             </label>
             <div className="flex flex-wrap gap-3 sm:col-span-2">
               <PrimaryButton type="submit">
@@ -182,7 +171,7 @@ export function GroupManageScreen() {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
               รายการกลุ่ม
-              <span className="text-[14px] font-normal">{groups.length} กลุ่ม</span>
+              <span className="text-[14px] font-normal">{page.total || groups.length} กลุ่ม</span>
             </div>
             <TableScroll>
             <table className={tableClass}>
@@ -203,22 +192,15 @@ export function GroupManageScreen() {
                     </td>
                   </tr>
                 )}
-                {page.rows.map((group, index) => {
-                  const leader = farmers.find((farmer) => farmer.id === group.leaderId);
-                  const people = farmers.filter((farmer) => farmer.groupId === group.id);
-                  const ids = new Set(people.map((farmer) => farmer.id));
-                  const expected = plantings.filter((planting) => ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
-                  const received = people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
-                  return (
+                {page.rows.map((group, index) => (
                     <tr key={group.id} onClick={(event) => openRow(event, () => openGroup(group.id))} className={rowTone(index)}>
                       <td className="px-5 py-3 font-bold">{group.name}</td>
-                      <td className="px-5 py-3">{leader ? farmerName(leader) : "—"}</td>
-                      <td className="px-5 py-3">{people.length}</td>
-                      <td className="px-5 py-3">{formatKg(expected)}</td>
-                      <td className="px-5 py-3">{formatKg(received)}</td>
+                      <td className="px-5 py-3">{group.leaderName || "—"}</td>
+                      <td className="px-5 py-3">{group.memberCount ?? 0}</td>
+                      <td className="px-5 py-3">{formatKg(group.expectedKg ?? 0)}</td>
+                      <td className="px-5 py-3">{formatKg(group.receivedKg ?? 0)}</td>
                     </tr>
-                  );
-                })}
+                  ))}
               </tbody>
             </table>
             </TableScroll>
@@ -240,10 +222,10 @@ export function GroupManageScreen() {
 }
 
 export function MemberManageScreen() {
-  const { groups, farmers, roleGrants, assignFarmer } = useMill();
+  const { groups, roleGrants, assignFarmer, revision } = useMill();
   const router = useRouter();
   const requestedId = useSearchParams().get("farmer");
-  const requested = farmers.some((farmer) => farmer.id === requestedId) ? requestedId : null;
+  const requested = requestedId;
   const [tab, setTab] = useState<"listing" | "detail" | "plots" | "plan">(requested ? "detail" : "listing");
   const [draftName, setDraftName] = useState("");
   const [draftGroup, setDraftGroup] = useState("");
@@ -254,25 +236,32 @@ export function MemberManageScreen() {
   const [moving, setMoving] = useState(false);
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const detail = farmers.find((farmer) => farmer.id === detailId) ?? null;
+  const [detailFarmer, setDetailFarmer] = useState<Farmer | null>(null);
+  const detail = detailFarmer;
   const assignGroupId = draftGroup && draftGroup !== "none" ? draftGroup : (groups[0]?.id ?? "");
-
-  const rows = useMemo(() => {
-    return farmers.filter((farmer) => {
-      if (groupId === "none" && farmer.groupId != null) return false;
-      if (groupId && groupId !== "none" && farmer.groupId !== groupId) return false;
-      return matchesQuery(name, `${farmerName(farmer)} ${farmer.tel}`);
-    });
-  }, [farmers, name, groupId]);
   const listingSort = useTableSort(`${name}:${groupId}`);
-  const ordered = orderBy(rows, listingSort.sort, (farmer, key) => {
-    if (key === "name") return farmerName(farmer);
-    if (key === "tel") return farmer.tel;
-    if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
-    if (key === "role") return roleTitle(personRole(roleGrants, groups, farmer.id));
-    return farmer.deliveredKg;
-  });
-  const page = usePagination(ordered, `${name}:${groupId}`);
+  const page = useServerPage(`${name}:${groupId}:${revision}`, (pageNo, pageSize) =>
+    api.listFarmersPage({
+      q: name,
+      groupId: groupId || undefined,
+      page: pageNo,
+      pageSize,
+    }),
+  );
+
+  useEffect(() => {
+    if (!detailId) {
+      setDetailFarmer(null);
+      return;
+    }
+    let alive = true;
+    void api.getFarmer(detailId).then((farmer) => {
+      if (alive) setDetailFarmer(farmer);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [detailId, revision]);
 
   function openMember(id: string) {
     setDetailId(id);
@@ -378,7 +367,7 @@ export function MemberManageScreen() {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
               รายการเกษตรกร
-              <span className="text-[14px] font-normal">{farmers.length} คน</span>
+              <span className="text-[14px] font-normal">{page.total} คน</span>
             </div>
             <TableScroll>
             <table className={tableClass}>
@@ -406,7 +395,7 @@ export function MemberManageScreen() {
                     <tr key={farmer.id} onClick={(event) => openRow(event, () => openMember(farmer.id))} className={rowTone(index)}>
                       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                       <td className="px-5 py-3">{farmer.tel}</td>
-                      <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}</td>
+                      <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "ไม่มีกลุ่ม"}</td>
                       <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
                       <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                       <td className="px-5 py-3 text-right">
@@ -466,18 +455,15 @@ export function MemberManageScreen() {
 
 function GroupDirectory() {
   const router = useRouter();
-  const { groups, farmers, plots, plantings, createGroup } = useMill();
+  const { groups, createGroup } = useMill();
   const [creatingGroup, setCreatingGroup] = useState(false);
   const listingSort = useTableSort("groups");
   const ordered = orderBy(groups, listingSort.sort, (group, key) => {
-    const leader = farmers.find((farmer) => farmer.id === group.leaderId);
-    const people = farmers.filter((farmer) => farmer.groupId === group.id);
     if (key === "name") return group.name;
-    if (key === "leader") return leader ? farmerName(leader) : "";
-    if (key === "members") return people.length;
-    if (key === "received") return people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
-    const ids = new Set(people.map((farmer) => farmer.id));
-    return plantings.filter((planting) => ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
+    if (key === "leader") return group.leaderName ?? "";
+    if (key === "members") return group.memberCount ?? 0;
+    if (key === "received") return group.receivedKg ?? 0;
+    return group.expectedKg ?? 0;
   });
   const page = usePagination(ordered);
 
@@ -506,26 +492,19 @@ function GroupDirectory() {
               </td>
             </tr>
           )}
-          {page.rows.map((group, index) => {
-            const leader = farmers.find((farmer) => farmer.id === group.leaderId);
-            const people = farmers.filter((farmer) => farmer.groupId === group.id);
-            const ids = new Set(people.map((farmer) => farmer.id));
-            const expected = plantings.filter((planting) => ids.has(plots.find((plot) => plot.id === planting.plotId)?.farmerId ?? "")).reduce((sum, planting) => sum + planting.estKg, 0);
-            const received = people.reduce((sum, farmer) => sum + farmer.deliveredKg, 0);
-            return (
+          {page.rows.map((group, index) => (
               <tr
                 key={group.id}
                 onClick={(event) => openRow(event, () => router.push(`/groups/manage?group=${group.id}`))}
                 className={rowTone(index)}
               >
                 <td className="px-5 py-3 font-bold">{group.name}</td>
-                <td className="px-5 py-3">{leader ? farmerName(leader) : "—"}</td>
-                <td className="px-5 py-3">{people.length}</td>
-                <td className="px-5 py-3">{formatKg(expected)}</td>
-                <td className="px-5 py-3">{formatKg(received)}</td>
+                <td className="px-5 py-3">{group.leaderName || "—"}</td>
+                <td className="px-5 py-3">{group.memberCount ?? 0}</td>
+                <td className="px-5 py-3">{formatKg(group.expectedKg ?? 0)}</td>
+                <td className="px-5 py-3">{formatKg(group.receivedKg ?? 0)}</td>
               </tr>
-            );
-          })}
+            ))}
         </tbody>
       </table>
 </TableScroll>
@@ -552,13 +531,30 @@ function GroupDirectory() {
 
 function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => void }) {
   const router = useRouter();
-  const { farmers, plots, plantings, updateGroup, assignFarmer } = useMill();
+  const { updateGroup, assignFarmer, revision } = useMill();
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(group.name);
   const [draftLeader, setDraftLeader] = useState(group.leaderId);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [moving, setMoving] = useState(false);
-  const members = farmers.filter((farmer) => farmer.groupId === group.id);
+  const [members, setMembers] = useState<Farmer[]>([]);
+  const [plots, setPlots] = useState<Plot[]>([]);
+  const [plantings, setPlantings] = useState<Planting[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void collectPages((page, pageSize) => api.listFarmersPage({ groupId: group.id, page, pageSize })).then((items) => {
+      if (alive) setMembers(items);
+    });
+    void collectPages((page, pageSize) => api.listPlotsPage({ groupId: group.id, page, pageSize })).then((items) => {
+      if (alive) setPlots(items);
+    });
+    void api.listPlantings({ groupId: group.id }).then((items) => {
+      if (alive) setPlantings(items);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [group.id, revision]);
   const listingSort = useTableSort(group.id);
   const ordered = orderBy(members, listingSort.sort, (farmer, key) => {
     if (key === "name") return farmerName(farmer);
@@ -727,7 +723,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
 }
 
 function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void }) {
-  const { groups, farmers, plots, plantings, updateFarmer } = useMill();
+  const { groups, updateFarmer } = useMill();
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState(farmer.firstName);
   const [lastName, setLastName] = useState(farmer.lastName);
@@ -738,11 +734,10 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
   const [provinceId, setProvinceId] = useState(farmer.provinceId);
   const [groupId, setGroupId] = useState(farmer.groupId ?? "");
   const [notice, setNotice] = useState<Notice | null>(null);
-  const fields = plots.filter((plot) => plot.farmerId === farmer.id);
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
   const leads = groups.find((item) => item.leaderId === farmer.id) ?? null;
   const selectedGroup = groups.find((item) => item.id === (groupId || null)) ?? null;
-  const leader = farmers.find((item) => item.id === selectedGroup?.leaderId) ?? null;
+  const leaderName = selectedGroup?.leaderName || "—";
 
   useEffect(() => {
     setEditing(false);
@@ -859,7 +854,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             หัวหน้ากลุ่ม
-            <input value={leader ? farmerName(leader) : "—"} disabled className={fieldClass} />
+            <input value={leaderName} disabled className={fieldClass} />
           </label>
           <div className="flex flex-wrap gap-3 sm:col-span-2">
             <CanEdit resource="farmers">
@@ -894,7 +889,17 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
   );
 }
 function MemberStanding({ farmer, leads }: { farmer: Farmer; leads: SupplierGroup | null }) {
-  const { groups, receipts } = useMill();
+  const { groups, revision } = useMill();
+  const [receipts, setReceipts] = useState<MillReceipt[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void api.listReceipts(farmer.id).then((items) => {
+      if (alive) setReceipts(items);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [farmer.id, revision]);
   const group = groups.find((item) => item.id === farmer.groupId) ?? null;
   const mine = receipts.filter((item) => item.farmerId === farmer.id);
   const boughtIn = mine.filter((item) => item.direction === "in").reduce((sum, item) => sum + item.kg, 0);
@@ -934,10 +939,25 @@ function MemberPlots({
   onOpenPlan?: (plotId: string) => void;
   onClose: () => void;
 }) {
-  const { varieties, plots, plantings, addPlot, removePlot } = useMill();
+  const { varieties, addPlot, removePlot, revision } = useMill();
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const fields = plots.filter((plot) => plot.farmerId === farmer.id);
+  const [fields, setFields] = useState<Plot[]>([]);
+  const [plantings, setPlantings] = useState<Planting[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void Promise.all([
+      collectPages((page, pageSize) => api.listPlotsPage({ farmerId: farmer.id, page, pageSize })),
+      api.listPlantings({ farmerId: farmer.id }),
+    ]).then(([plots, rounds]) => {
+      if (!alive) return;
+      setFields(plots);
+      setPlantings(rounds);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [farmer.id, revision]);
 
   return (
     <>
@@ -1171,7 +1191,17 @@ function PlotTable({
 }
 
 function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
-  const { varieties, productKinds, receipts, createMillReceipt, removeMillReceipt } = useMill();
+  const { varieties, productKinds, createMillReceipt, removeMillReceipt, revision } = useMill();
+  const [receipts, setReceipts] = useState<MillReceipt[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void api.listReceipts(farmer.id).then((items) => {
+      if (alive) setReceipts(items);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [farmer.id, revision]);
   const [adding, setAdding] = useState(false);
   const [direction, setDirection] = useState<MillReceiptDirection>("in");
   const [productKindId, setProductKindId] = useState<ProductKind>(() => defaultProductKindId("in", productKinds));
@@ -1391,8 +1421,26 @@ export function MemberPlan({
   initialPlotId?: string | null;
   onClose?: () => void;
 }) {
-  const { plots, plantings, activities } = useMill();
-  const owned = plots.filter((plot) => plot.farmerId === farmer.id);
+  const { revision } = useMill();
+  const [owned, setOwned] = useState<Plot[]>([]);
+  const [plantings, setPlantings] = useState<Planting[]>([]);
+  const [activities, setActivities] = useState<PlotActivity[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void Promise.all([
+      collectPages((page, pageSize) => api.listPlotsPage({ farmerId: farmer.id, page, pageSize })),
+      api.listPlantings({ farmerId: farmer.id }),
+    ]).then(async ([plots, rounds]) => {
+      if (!alive) return;
+      setOwned(plots);
+      setPlantings(rounds);
+      const lists = await Promise.all(rounds.map((round) => api.listActivities(round.id)));
+      if (alive) setActivities(lists.flat());
+    });
+    return () => {
+      alive = false;
+    };
+  }, [farmer.id, revision]);
   const rounds = owned.flatMap((plot) => {
     const round = openPlanting(plantings, plot.id);
     if (!round) return [];
@@ -1620,8 +1668,30 @@ function ChoosePlanPlot({
 }
 
 export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void }) {
-  const { varieties, farmers, groups, plantings, savePlot, removePlot, savePlanting, removePlanting } = useMill();
-  const current = openPlanting(plantings, plot.id);
+  const { varieties, savePlot, removePlot, savePlanting, removePlanting, revision } = useMill();
+  const [rounds, setRounds] = useState<Planting[]>([]);
+  const [ownerLabel, setOwnerLabel] = useState(plot.ownerName || "");
+  const [groupLabel, setGroupLabel] = useState(plot.groupName || "");
+  useEffect(() => {
+    let alive = true;
+    void api.listPlantings({ plotId: plot.id }).then((items) => {
+      if (alive) setRounds(items);
+    });
+    if (plot.ownerName) {
+      setOwnerLabel(plot.ownerName);
+      setGroupLabel(plot.groupName || "");
+    } else {
+      void api.getFarmer(plot.farmerId).then((farmer) => {
+        if (!alive) return;
+        setOwnerLabel(farmerName(farmer));
+        setGroupLabel(farmer.groupName || "");
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [plot.id, plot.farmerId, plot.ownerName, plot.groupName, revision]);
+  const current = openPlanting(rounds, plot.id);
   const mark = current ? plantingMark(current) : null;
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
@@ -1637,8 +1707,8 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
   const measured = plot.polygon.length >= 4 ? plot.areaRai : null;
   const point = plot.polygon.length >= 4 ? centroid(plot.polygon) : null;
-  const owner = farmers.find((farmer) => farmer.id === plot.farmerId) ?? null;
-  const group = groups.find((item) => item.id === owner?.groupId) ?? null;
+  const ownerLabelText = ownerLabel || "—";
+  const groupLabelText = groupLabel || "ไม่มีกลุ่ม";
   const savedKg = current ? String(current.estKg) : "";
   const dirty =
     name !== plot.name ||
@@ -1737,11 +1807,11 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
       >
         <label className="block text-[14px] font-bold leading-[1.4]">
           เจ้าของแปลง
-          <input value={owner ? farmerName(owner) : "—"} disabled className={fieldClass} />
+          <input value={ownerLabelText} disabled className={fieldClass} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           กลุ่ม
-          <input value={group?.name ?? "ไม่มีกลุ่ม"} disabled className={fieldClass} />
+          <input value={groupLabelText} disabled className={fieldClass} />
         </label>
         <PlaceSelects
           provinceId={provinceId}
@@ -2060,8 +2130,9 @@ export function PlotDialog({
     schedule: { plantedOn: string; harvestOn: string; estKg: number },
   ) => Promise<string | null>;
 }) {
-  const { varieties, farmers, groups, plots } = useMill();
-  const owner = farmers.find((farmer) => farmer.id === farmerId) ?? null;
+  const { varieties, groups } = useMill();
+  const [owner, setOwner] = useState<Farmer | null>(null);
+  const [neighborPlots, setNeighborPlots] = useState<Plot[]>([]);
   const group = groups.find((item) => item.id === owner?.groupId) ?? null;
   const [plotName, setPlotName] = useState(name);
   const [areaRai, setAreaRai] = useState(area);
@@ -2070,9 +2141,25 @@ export function PlotDialog({
   const [drawing, setDrawing] = useState(false);
   const [draft, setDraft] = useState<[number, number][]>([]);
   const savingRef = useRef(false);
-  const [subdistrictId, setSubdistrictId] = useState(owner?.subdistrictId ?? 0);
-  const [districtId, setDistrictId] = useState(owner?.districtId ?? 0);
-  const [provinceId, setProvinceId] = useState(owner?.provinceId ?? 0);
+  const [subdistrictId, setSubdistrictId] = useState(0);
+  const [districtId, setDistrictId] = useState(0);
+  const [provinceId, setProvinceId] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    void api.getFarmer(farmerId).then((farmer) => {
+      if (!alive) return;
+      setOwner(farmer);
+      setProvinceId((current) => current || farmer.provinceId);
+      setDistrictId((current) => current || farmer.districtId);
+      setSubdistrictId((current) => current || farmer.subdistrictId);
+    });
+    void collectPages((page, pageSize) => api.listPlotsPage({ farmerId, page, pageSize })).then((items) => {
+      if (alive) setNeighborPlots(items);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [farmerId]);
   const [variety, setVariety] = useState<Variety>(() => defaultVarietyId(varieties));
   const [plantedOn, setPlantedOn] = useState("");
   const [harvestOn, setHarvestOn] = useState("");
@@ -2149,7 +2236,7 @@ export function PlotDialog({
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             กลุ่ม
-            <input value={group?.name ?? "ไม่มีกลุ่ม"} disabled className={fieldClass} />
+            <input value={group?.name || owner?.groupName || "ไม่มีกลุ่ม"} disabled className={fieldClass} />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             ชื่อแปลง
@@ -2240,7 +2327,7 @@ export function PlotDialog({
       </Dialog>
       {drawing && (
         <DrawBoundary
-          plots={plots.filter((plot) => plot.farmerId === farmerId && (plot.hasBoundary || plot.polygon.length >= 4))}
+          plots={neighborPlots.filter((plot) => plot.hasBoundary || plot.polygon.length >= 4)}
           draft={draft}
           onDraft={setDraft}
           place={{ provinceId, districtId, subdistrictId }}
@@ -2277,6 +2364,7 @@ export function DrawBoundary({
   onClose,
   title = "วาดขอบเขต",
   place,
+  excludeId,
 }: {
   plots: Plot[];
   draft: [number, number][];
@@ -2285,6 +2373,7 @@ export function DrawBoundary({
   onClose: () => void;
   title?: string;
   place?: { provinceId: number; districtId: number; subdistrictId: number } | null;
+  excludeId?: string;
 }) {
   const mapRef = useRef<FieldMapHandle>(null);
   const closed = isClosedRing(draft);
@@ -2304,16 +2393,17 @@ export function DrawBoundary({
     const allow = new Set(plots.map((plot) => plot.id));
     void api.listPlotBoundaries().then((items) => {
       if (!alive) return;
+      const scoped = allow.size === 0 ? items : items.filter((item) => allow.has(item.id));
       setMapPlots(
-        items
-          .filter((item) => allow.has(item.id))
+        scoped
+          .filter((item) => item.id !== excludeId)
           .map((item) => ({ id: item.id, name: item.name, color: "#5098BA", muted: true, polygon: item.polygon })),
       );
     });
     return () => {
       alive = false;
     };
-  }, [plotKey, plots]);
+  }, [plotKey, plots, excludeId]);
 
   useEffect(() => {
     if (!closed) {
@@ -2497,10 +2587,9 @@ function MoveFarmer({
   onClose: () => void;
   onAssign: (farmerId: string, groupId: string) => Promise<string | null>;
 }) {
-  const { farmers, groups } = useMill();
+  const { groups } = useMill();
   const [farmerId, setFarmerId] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
-  const person = farmers.find((farmer) => farmer.id === farmerId);
   const groupName = groups.find((group) => group.id === groupId)?.name ?? "กลุ่ม";
   return (
     <>
@@ -2509,14 +2598,16 @@ function MoveFarmer({
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!person) {
+            if (!farmerId) {
               setNotice({ tone: "error", message: "เลือกเกษตรกร" });
               return;
             }
-            setNotice({
-              tone: "confirm",
-              message: `ยืนยันจัด ${farmerName(person)} เข้า${groupName}`,
-              accept: async () => setNotice(await reported(onAssign(person.id, groupId), "จัดเข้ากลุ่มแล้ว", onClose)),
+            void api.getFarmer(farmerId).then((person) => {
+              setNotice({
+                tone: "confirm",
+                message: `ยืนยันจัด ${farmerName(person)} เข้า${groupName}`,
+                accept: async () => setNotice(await reported(onAssign(person.id, groupId), "จัดเข้ากลุ่มแล้ว", onClose)),
+              });
             });
           }}
         >

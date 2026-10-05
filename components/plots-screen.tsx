@@ -7,11 +7,13 @@ import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlaceSelects, PlotDialog, DrawBoundary } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
 import { api, measureRingAreaRai } from "@/lib/api";
-import { defaultVarietyId, farmerHandle, farmerName, formatCoord, centroid, type Plot } from "@/lib/mill";
+import { useServerPage } from "@/components/server-page";
+import { defaultVarietyId, formatCoord, centroid, type Plot } from "@/lib/mill";
 import { isCompletePlace, placeAt, placeLabel } from "@/lib/thai-place";
 import {
   ConfirmAlert,
   Dialog,
+  FarmerSelect,
   Glyph,
   PageHeader,
   Pagination,
@@ -21,10 +23,8 @@ import {
   SecondaryButton,
   SortableTh,
   StatusTab,
-  SuggestInput,
   TableScroll,
   inputClass,
-  matchesQuery,
   openRow,
   orderBy,
   rowTone,
@@ -70,10 +70,10 @@ function parseAmount(value: string) {
 }
 
 export function PlotManageScreen() {
-  const { varieties, plots, farmers, groups, addPlot } = useMill();
+  const { varieties, groups, addPlot, revision } = useMill();
   const router = useRouter();
   const requestedId = useSearchParams().get("plot");
-  const requested = plots.some((plot) => plot.id === requestedId) ? requestedId : null;
+  const requested = requestedId;
   const [tab, setTab] = useState<"listing" | "detail">(requested ? "detail" : "listing");
   const [draftName, setDraftName] = useState("");
   const [draftFarmer, setDraftFarmer] = useState("");
@@ -85,28 +85,32 @@ export function PlotManageScreen() {
   const [adding, setAdding] = useState(false);
   const [pickedOwner, setPickedOwner] = useState("");
   const [ownerId, setOwnerId] = useState("");
-  const selected = plots.find((plot) => plot.id === selectedId) ?? null;
-
-  const rows = useMemo(() => {
-    return plots.filter((plot) => {
-      const owner = farmers.find((farmer) => farmer.id === plot.farmerId);
-      if (farmerId && plot.farmerId !== farmerId) return false;
-      if (groupId === "none" && owner?.groupId != null) return false;
-      if (groupId && groupId !== "none" && owner?.groupId !== groupId) return false;
-      const place = placeLabel(plot);
-      return matchesQuery(name, `${plot.name} ${owner ? farmerName(owner) : ""} ${place}`);
-    });
-  }, [plots, farmers, name, farmerId, groupId]);
+  const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null);
+  const selected = selectedPlot;
   const listingSort = useTableSort(`${name}:${farmerId}:${groupId}`);
-  const ordered = orderBy(rows, listingSort.sort, (plot, key) => {
-    const owner = farmers.find((farmer) => farmer.id === plot.farmerId);
-    if (key === "name") return plot.name;
-    if (key === "owner") return owner ? farmerName(owner) : "";
-    if (key === "group") return groups.find((group) => group.id === owner?.groupId)?.name ?? "";
-    if (key === "area") return plot.areaRai;
-    return placeLabel(plot);
-  });
-  const page = usePagination(ordered, `${name}:${farmerId}:${groupId}`);
+  const page = useServerPage(`${name}:${farmerId}:${groupId}:${revision}`, (pageNo, pageSize) =>
+    api.listPlotsPage({
+      q: name,
+      farmerId: farmerId || undefined,
+      groupId: groupId || undefined,
+      page: pageNo,
+      pageSize,
+    }),
+  );
+
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedPlot(null);
+      return;
+    }
+    let alive = true;
+    void api.getPlot(selectedId).then((plot) => {
+      if (alive) setSelectedPlot(plot);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [selectedId, revision]);
 
   function openPlot(id: string) {
     setSelectedId(id);
@@ -147,28 +151,13 @@ export function PlotManageScreen() {
           >
             <label className="block text-[14px] font-bold leading-[1.4]">
               ชื่อแปลง
-              <SuggestInput
-                label="ชื่อแปลง"
-                className="mt-1"
-                value={draftName}
-                onChange={setDraftName}
-                suggestions={[...plots].sort((a, b) => a.name.localeCompare(b.name, "th")).map((plot) => plot.name)}
-              />
+              <input value={draftName} onChange={(event) => setDraftName(event.target.value)} className={`${inputClass} mt-1`} />
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               เจ้าของแปลง
-              <SearchSelect
-                label="เจ้าของแปลง"
-                className="mt-1"
-                value={draftFarmer}
-                onChange={setDraftFarmer}
-                options={[
-                  { value: "", label: "ทั้งหมด" },
-                  ...[...farmers]
-                    .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
-                    .map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) })),
-                ]}
-              />
+              <div className="mt-1">
+                <FarmerSelect allowAll value={draftFarmer} onChange={setDraftFarmer} />
+              </div>
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               กลุ่ม
@@ -211,7 +200,7 @@ export function PlotManageScreen() {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
               รายการแปลง
-              <span className="text-[14px] font-normal">{plots.length} แปลง</span>
+              <span className="text-[14px] font-normal">{page.total} แปลง</span>
             </div>
             <TableScroll>
               <table className={tableClass}>
@@ -233,13 +222,11 @@ export function PlotManageScreen() {
                     </tr>
                   )}
                   {page.rows.map((plot, index) => {
-                    const owner = farmers.find((farmer) => farmer.id === plot.farmerId);
-                    const group = groups.find((item) => item.id === owner?.groupId);
                     return (
                       <tr key={plot.id} onClick={(event) => openRow(event, () => openPlot(plot.id))} className={rowTone(index)}>
                         <td className="px-5 py-3 font-bold">{plot.name}</td>
-                        <td className="px-5 py-3">{owner ? farmerName(owner) : "—"}</td>
-                        <td className="px-5 py-3">{group?.name ?? "ไม่มีกลุ่ม"}</td>
+                        <td className="px-5 py-3">{plot.ownerName || "—"}</td>
+                        <td className="px-5 py-3">{plot.groupName || "ไม่มีกลุ่ม"}</td>
                         <td className="px-5 py-3">{plot.areaRai} ไร่</td>
                         <td className="px-5 py-3">{placeLabel(plot)}</td>
                       </tr>
@@ -281,16 +268,9 @@ export function PlotManageScreen() {
             <label className="block text-[14px] font-bold leading-[1.4]">
               เจ้าของแปลง
               <RequiredMark />
-              <SearchSelect
-                label="เจ้าของแปลง"
-                className="mt-1"
-                placeholder="เลือกเกษตรกร"
-                value={pickedOwner}
-                onChange={setPickedOwner}
-                options={[...farmers]
-                  .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
-                  .map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) }))}
-              />
+              <div className="mt-1">
+                <FarmerSelect value={pickedOwner} onChange={setPickedOwner} />
+              </div>
             </label>
             <div className="flex justify-end gap-3">
               <SecondaryButton onClick={closeAdd}>
@@ -335,7 +315,7 @@ export function PlotManageScreen() {
 }
 
 function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
-  const { farmers, groups, plots, savePlot, saveBoundary, removePlot } = useMill();
+  const { savePlot, saveBoundary, removePlot } = useMill();
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
   const [provinceId, setProvinceId] = useState(plot.provinceId);
@@ -349,8 +329,8 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const fieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
-  const owner = farmers.find((farmer) => farmer.id === plot.farmerId) ?? null;
-  const group = groups.find((item) => item.id === owner?.groupId) ?? null;
+  const ownerName = plot.ownerName || "—";
+  const groupName = plot.groupName || "ไม่มีกลุ่ม";
   const point = boundary.length >= 4 ? centroid(boundary) : null;
   const measured = boundary.length >= 4 ? Number(area) || null : null;
   const drawn = boundary.length >= 4;
@@ -472,11 +452,11 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           เจ้าของแปลง
-          <input value={owner ? farmerName(owner) : "—"} disabled className={fieldClass} />
+          <input value={ownerName} disabled className={fieldClass} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           กลุ่ม
-          <input value={group?.name ?? "ไม่มีกลุ่ม"} disabled className={fieldClass} />
+          <input value={groupName} disabled className={fieldClass} />
         </label>
         <PlaceSelects
           provinceId={provinceId}
@@ -539,7 +519,8 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
       {drawing && (
         <DrawBoundary
           title={drawn ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
-          plots={plots.filter((item) => item.id !== plot.id && (item.hasBoundary || item.polygon.length >= 4))}
+          plots={[]}
+          excludeId={plot.id}
           draft={draft}
           onDraft={setDraft}
           place={{ provinceId, districtId, subdistrictId }}

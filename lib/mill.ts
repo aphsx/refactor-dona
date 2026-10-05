@@ -57,6 +57,8 @@ export type Farmer = {
   districtId: number;
   subdistrictId: number;
   groupId: string | null;
+  groupName?: string;
+  plotCount?: number;
   deliveredKg: number;
   avatarUrl?: string | null;
 };
@@ -65,6 +67,10 @@ export type SupplierGroup = {
   id: string;
   name: string;
   leaderId: string;
+  leaderName?: string;
+  memberCount?: number;
+  receivedKg?: number;
+  expectedKg?: number;
 };
 
 export type Plot = {
@@ -78,6 +84,8 @@ export type Plot = {
   previewUrl?: string | null;
   /** True when a boundary exists server-side; list payloads omit the ring. */
   hasBoundary?: boolean;
+  ownerName?: string;
+  groupName?: string;
   polygon: [number, number][];
 };
 
@@ -86,6 +94,9 @@ export type PlotBoundary = {
   id: string;
   farmerId: string;
   name: string;
+  ownerName?: string;
+  groupId?: string | null;
+  groupName?: string;
   polygon: [number, number][];
 };
 
@@ -96,6 +107,16 @@ export type Planting = {
   plantedOn: string;
   harvestOn: string;
   estKg: number;
+  /** Present on list responses so a date window can render without loading every plot. */
+  plotName?: string;
+  areaRai?: number;
+  farmerId?: string;
+  farmerName?: string;
+  farmerTel?: string;
+  groupId?: string | null;
+  groupName?: string;
+  plantedAreaRai?: number;
+  stage?: string;
 };
 
 /**

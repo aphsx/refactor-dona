@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MemberPlan } from "@/components/groups-screen";
+import { api } from "@/lib/api";
+import { useServerPage } from "@/components/server-page";
 import { PlantingActivityPanel } from "@/components/activities-screen";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
@@ -78,18 +80,30 @@ const emptyMemberQuery: MemberQuery = {
 const SOON_DAYS = 14;
 
 export function PlanScreen() {
-  const { plots, plantings, farmers, groups, activities, varieties } = useMill();
-  const openDates = useMemo(
-    () =>
-      plantings
-        .filter((planting) => plots.some((plot) => plot.id === planting.plotId))
-        .map((planting) => planting.harvestOn),
-    [plantings, plots],
-  );
+  const { groups, varieties, revision } = useMill();
   const today = isoToday();
-  const [draft, setDraft] = useState<HarvestQuery>(() => ({ ...openingRange(openDates, today), groupId: "all", variety: "all" }));
+  const [draft, setDraft] = useState<HarvestQuery>({ from: today, to: shiftIso(today, SOON_DAYS), groupId: "all", variety: "all" });
   const [applied, setApplied] = useState(draft);
   const [plotId, setPlotId] = useState<string | null>(null);
+  const [plantings, setPlantings] = useState<Planting[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void api
+      .listPlantings({
+        harvestFrom: applied.from || undefined,
+        harvestTo: applied.to || undefined,
+        groupId: applied.groupId,
+      })
+      .then((items) => {
+        if (alive) setPlantings(items);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [applied.from, applied.to, applied.groupId, revision]);
+  const plots = useMemo(() => plotsFromPlantings(plantings), [plantings]);
+  const farmers = useMemo(() => farmersFromPlantings(plantings), [plantings]);
+  const activities: PlotActivity[] = [];
 
   const pool = useMemo(() => {
     return plantings
@@ -217,11 +231,11 @@ export function PlanScreen() {
 
 /** ค้นหาเกษตรกรเพื่อเปิดแผนรอบปลูก — ไม่จัดการแปลง/บัญชี */
 export function MemberSeasonScreen() {
-  const { farmers, groups, plots, plantings, varieties } = useMill();
+  const { groups, varieties, revision } = useMill();
   const [draft, setDraft] = useState<MemberQuery>(emptyMemberQuery);
   const [applied, setApplied] = useState<MemberQuery>(emptyMemberQuery);
   const [searched, setSearched] = useState(false);
-  const [farmerId, setFarmerId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Farmer | null>(null);
 
   const groupOptions = [
     { value: "all", label: "ทุกกลุ่ม" },
@@ -230,52 +244,58 @@ export function MemberSeasonScreen() {
   ];
 
   const planFilter = applied.variety !== "all" || applied.harvestFrom !== "" || applied.harvestTo !== "";
-
-  const matchingPlanFarmerIds = useMemo(() => {
-    if (!planFilter) return null;
-    const ids = new Set<string>();
-    for (const planting of plantings) {
-      const plot = plots.find((item) => item.id === planting.plotId);
-      if (!plot) continue;
-      if (applied.variety !== "all" && planting.varietyId !== Number(applied.variety)) continue;
-      if (!inRange(planting.harvestOn, applied.harvestFrom, applied.harvestTo)) continue;
-      ids.add(plot.farmerId);
+  const server = useServerPage(`${searched}:${planFilter}:${applied.name}:${applied.tel}:${applied.groupId}:${revision}`, (pageNo, pageSize) => {
+    if (!searched || planFilter) return Promise.resolve({ items: [] as Farmer[], total: 0 });
+    const q = [applied.name, applied.tel].filter((part) => part.trim()).join(" ");
+    return api.listFarmersPage({
+      q,
+      groupId: applied.groupId === "all" ? undefined : applied.groupId,
+      page: pageNo,
+      pageSize,
+    });
+  });
+  const [scoped, setScoped] = useState<Farmer[]>([]);
+  useEffect(() => {
+    if (!searched || !planFilter) {
+      setScoped([]);
+      return;
     }
-    return ids;
-  }, [plantings, plots, applied, planFilter]);
-
-  const people = useMemo(() => {
-    if (!searched) return [];
-    return farmers
-      .filter((farmer) => {
-        if (applied.groupId === "none" && farmer.groupId != null) return false;
-        if (applied.groupId !== "all" && applied.groupId !== "none" && farmer.groupId !== applied.groupId) return false;
-        if (!isWildcard(applied.name) && !matchesQuery(applied.name, farmerName(farmer))) return false;
-        if (!isWildcard(applied.tel) && !farmer.tel.replace(/\D/g, "").includes(applied.tel.replace(/\D/g, ""))) return false;
-        if (matchingPlanFarmerIds && !matchingPlanFarmerIds.has(farmer.id)) return false;
-        return true;
+    let alive = true;
+    void api
+      .listPlantings({
+        harvestFrom: applied.harvestFrom || undefined,
+        harvestTo: applied.harvestTo || undefined,
+        groupId: applied.groupId,
       })
-      .slice()
-      .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"));
-  }, [farmers, applied, searched, matchingPlanFarmerIds]);
+      .then((items) => {
+        if (!alive) return;
+        const matched = items.filter((item) => applied.variety === "all" || item.varietyId === Number(applied.variety));
+        setScoped(
+          farmersFromPlantings(matched).filter((farmer) => {
+            if (!isWildcard(applied.name) && !matchesQuery(applied.name, farmerName(farmer))) return false;
+            if (!isWildcard(applied.tel) && !farmer.tel.replace(/\D/g, "").includes(applied.tel.replace(/\D/g, ""))) return false;
+            return true;
+          }),
+        );
+      });
+    return () => {
+      alive = false;
+    };
+  }, [searched, planFilter, applied, revision]);
 
   const listingSort = useTableSort(searched ? JSON.stringify(applied) : "idle");
-  const ordered = orderBy(people, listingSort.sort, (farmer, key) => {
-    if (key === "name") return farmerName(farmer);
-    if (key === "tel") return farmer.tel;
-    if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
-    if (key === "plans") return openPlanCount(farmer.id, plots, plantings);
-    return plots.filter((plot) => plot.farmerId === farmer.id).length;
-  });
-  const page = usePagination(ordered, searched ? JSON.stringify(applied) : "idle");
-  const selected = farmers.find((farmer) => farmer.id === farmerId) ?? null;
+  const orderedScoped = orderBy(scoped, listingSort.sort, (farmer, key) => memberSortValue(farmer, key, groups));
+  const client = usePagination(planFilter ? orderedScoped : [], searched ? JSON.stringify(applied) : "idle");
+  const orderedServer = orderBy(server.rows, listingSort.sort, (farmer, key) => memberSortValue(farmer, key, groups));
+  const rows = planFilter ? client.rows : orderedServer;
+  const pager = planFilter ? client : server;
 
   if (selected) {
     return (
       <div className="h-full overflow-y-auto px-7 py-6">
         <PageHeader current="แผนรายเกษตรกร" />
         <div className="overflow-hidden rounded-[8px] border border-frame">
-          <MemberPlan key={selected.id} farmer={selected} onClose={() => setFarmerId(null)} />
+          <MemberPlan key={selected.id} farmer={selected} onClose={() => setSelected(null)} />
         </div>
       </div>
     );
@@ -292,7 +312,7 @@ export function MemberSeasonScreen() {
             event.preventDefault();
             setApplied(draft);
             setSearched(true);
-            setFarmerId(null);
+            setSelected(null);
           }}
         >
           <label className="block text-[14px] font-bold leading-[1.4]">
@@ -360,7 +380,7 @@ export function MemberSeasonScreen() {
                 setDraft(emptyMemberQuery);
                 setApplied(emptyMemberQuery);
                 setSearched(false);
-                setFarmerId(null);
+                setSelected(null);
               }}
             >
               <Glyph icon={RotateCcw} />
@@ -384,40 +404,36 @@ export function MemberSeasonScreen() {
                 </tr>
               </thead>
               <tbody>
-                {ordered.length === 0 && (
+                {rows.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-5 py-6 text-ink/60">
                       ไม่พบเกษตรกร
                     </td>
                   </tr>
                 )}
-                {page.rows.map((farmer, index) => {
-                  const planCount = openPlanCount(farmer.id, plots, plantings);
-                  const plotCount = plots.filter((plot) => plot.farmerId === farmer.id).length;
-                  return (
+                {rows.map((farmer, index) => (
                     <tr
                       key={farmer.id}
-                      onClick={(event) => openRow(event, () => setFarmerId(farmer.id))}
+                      onClick={(event) => openRow(event, () => setSelected(farmer))}
                       className={rowTone(index)}
                     >
                       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                       <td className="px-5 py-3">{farmer.tel}</td>
-                      <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>
-                      <td className="px-5 py-3 font-bold">{planCount}</td>
-                      <td className="px-5 py-3">{plotCount}</td>
+                      <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "—"}</td>
+                      <td className="px-5 py-3 font-bold">{planFilter ? (farmer.plotCount ?? 0) : "—"}</td>
+                      <td className="px-5 py-3">{farmer.plotCount ?? "—"}</td>
                     </tr>
-                  );
-                })}
+                  ))}
               </tbody>
             </table>
           </TableScroll>
           <Pagination
-            page={page.page}
-            pageCount={page.pageCount}
-            pageSize={page.pageSize}
-            total={page.total}
-            onPageChange={page.setPage}
-            onPageSizeChange={page.setPageSize}
+            page={pager.page}
+            pageCount={pager.pageCount}
+            pageSize={pager.pageSize}
+            total={pager.total}
+            onPageChange={pager.setPage}
+            onPageSizeChange={pager.setPageSize}
           />
         </div>
       )}
@@ -425,8 +441,11 @@ export function MemberSeasonScreen() {
   );
 }
 
-function openPlanCount(farmerId: string, plots: Plot[], plantings: Planting[]) {
-  return plots.filter((plot) => plot.farmerId === farmerId && openPlanting(plantings, plot.id)).length;
+function memberSortValue(farmer: Farmer, key: string, groups: { id: string; name: string }[]) {
+  if (key === "tel") return farmer.tel;
+  if (key === "group") return farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "";
+  if (key === "plans" || key === "plots") return farmer.plotCount ?? 0;
+  return farmerName(farmer);
 }
 
 function harvestMark(harvestOn: string) {
@@ -477,7 +496,9 @@ function inRange(iso: string, from: string, to: string) {
 }
 
 function toSeasonRow(plot: Plot, planting: Planting, activities: PlotActivity[]): SeasonRow {
-  const area = plantingAreaSummary(plot.areaRai, activities, planting.id);
+  const summary = plantingAreaSummary(plot.areaRai, activities, planting.id);
+  const planted = planting.stage ? (planting.plantedAreaRai ?? 0) : summary.plantedAreaRai;
+  const unplanted = Math.max(0, Math.round((plot.areaRai - planted) * 100) / 100);
   return {
     ...plot,
     varietyId: planting.varietyId,
@@ -485,10 +506,58 @@ function toSeasonRow(plot: Plot, planting: Planting, activities: PlotActivity[])
     plantedOn: planting.plantedOn,
     harvestOn: planting.harvestOn,
     estKg: planting.estKg,
-    plantedAreaRai: area.plantedAreaRai,
-    unplantedAreaRai: area.unplantedAreaRai,
-    stage: currentActivityStage(activities, planting.id),
+    plantedAreaRai: planted,
+    unplantedAreaRai: unplanted,
+    stage: planting.stage || currentActivityStage(activities, planting.id),
   };
+}
+
+function plotsFromPlantings(items: Planting[]): Plot[] {
+  const seen = new Map<string, Plot>();
+  for (const item of items) {
+    if (seen.has(item.plotId)) continue;
+    seen.set(item.plotId, {
+      id: item.plotId,
+      farmerId: item.farmerId ?? "",
+      name: item.plotName ?? "",
+      areaRai: item.areaRai ?? 0,
+      provinceId: 0,
+      districtId: 0,
+      subdistrictId: 0,
+      ownerName: item.farmerName,
+      groupName: item.groupName,
+      polygon: [],
+    });
+  }
+  return [...seen.values()];
+}
+
+function farmersFromPlantings(items: Planting[]): Farmer[] {
+  const seen = new Map<string, Farmer>();
+  for (const item of items) {
+    if (!item.farmerId) continue;
+    const existing = seen.get(item.farmerId);
+    if (existing) {
+      existing.plotCount = (existing.plotCount ?? 1) + 1;
+      continue;
+    }
+    const [firstName, ...rest] = (item.farmerName ?? "").split(" ");
+    seen.set(item.farmerId, {
+      id: item.farmerId,
+      firstName: firstName ?? "",
+      lastName: rest.join(" "),
+      tel: item.farmerTel ?? "",
+      address: "",
+      provinceId: 0,
+      districtId: 0,
+      subdistrictId: 0,
+      groupId: item.groupId ?? null,
+      groupName: item.groupName,
+      plotCount: 1,
+      deliveredKg: 0,
+    });
+  }
+  return [...seen.values()];
 }
 
 function byHarvest(a: SeasonRow, b: SeasonRow) {
@@ -500,8 +569,8 @@ function planSortValue(row: SeasonRow, key: string, farmers: Farmer[], groups: {
   if (key === "harvest") return row.harvestOn;
   if (key === "status") return daysUntil(row.harvestOn);
   if (key === "plot") return row.name;
-  if (key === "farmer") return farmer ? farmerName(farmer) : "";
-  if (key === "group") return groups.find((group) => group.id === farmer?.groupId)?.name ?? "";
+  if (key === "farmer") return row.ownerName || (farmer ? farmerName(farmer) : "");
+  if (key === "group") return row.groupName || groups.find((group) => group.id === farmer?.groupId)?.name || "";
   if (key === "variety") return varietyName(row.varietyId);
   if (key === "actual") return row.plantedAreaRai;
   if (key === "left") return row.unplantedAreaRai;
@@ -539,7 +608,6 @@ function PlotRoundTable({
   onSort: (key: string) => void;
   emptyLabel?: string;
 }) {
-  const { farmers, groups } = useMill();
   return (
     <TableScroll>
       <table className={tableClass}>
@@ -566,7 +634,6 @@ function PlotRoundTable({
             </tr>
           )}
           {rows.map((plot, index) => {
-            const farmer = farmers.find((item) => item.id === plot.farmerId);
             const mark = harvestMark(plot.harvestOn);
             const picked = plot.id === selectedId;
             return (
@@ -578,8 +645,8 @@ function PlotRoundTable({
                 <td className="px-5 py-3 font-bold">{formatThaiDate(plot.harvestOn)}</td>
                 <td className={`px-5 py-3 font-bold ${mark.className}`}>{mark.label}</td>
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
-                <td className="px-5 py-3">{farmer ? farmerName(farmer) : "—"}</td>
-                <td className="px-5 py-3">{groups.find((group) => group.id === farmer?.groupId)?.name ?? "—"}</td>
+                <td className="px-5 py-3">{plot.ownerName || "—"}</td>
+                <td className="px-5 py-3">{plot.groupName || "—"}</td>
                 <td className="px-5 py-3">{varietyName(plot.varietyId)}</td>
                 <td className="px-5 py-3">{formatRai(plot.plantedAreaRai)}</td>
                 <td className="px-5 py-3">{formatRai(plot.unplantedAreaRai)}</td>

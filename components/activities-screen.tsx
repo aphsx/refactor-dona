@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { CanAdd, CanDelete, CanEdit, CanRead } from "@/components/can";
 import { useMill } from "@/components/store";
+import { api } from "@/lib/api";
 import {
   ConfirmAlert,
   DateField,
@@ -81,9 +82,24 @@ export function PlantingActivityPanel({
   /** From แผนรอบ — auto-creates ปลูกจริง on the timeline when missing. */
   plantedOn?: string;
 }) {
-  const { activities, saveActivity, removeActivity } = useMill();
+  const { saveActivity, removeActivity, revision } = useMill();
+  const [activities, setActivities] = useState<PlotActivity[]>([]);
   const rows = activitiesOf(activities, plantingId);
   const page = usePagination(rows, plantingId);
+
+  useEffect(() => {
+    if (!plantingId) {
+      setActivities([]);
+      return;
+    }
+    let alive = true;
+    void api.listActivities(plantingId).then((items) => {
+      if (alive) setActivities(items);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [plantingId, revision]);
   const [editor, setEditor] = useState<null | { mode: "create" | "edit"; activity?: PlotActivity; type?: PlotActivityType }>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const syncingPlant = useRef(false);

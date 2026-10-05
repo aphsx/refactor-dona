@@ -52,7 +52,7 @@ type Row = {
 export function MapScreen() {
   const params = useSearchParams();
   const requestedPlot = params.get("plot");
-  const { plots, plantings, farmers, groups, saveBoundary } = useMill();
+  const { groups, saveBoundary } = useMill();
   const mapRef = useRef<FieldMapHandle>(null);
   const [query, setQuery] = useState("");
   const [groupText, setGroupText] = useState("");
@@ -64,6 +64,7 @@ export function MapScreen() {
   const [boundaries, setBoundaries] = useState<PlotBoundary[]>([]);
   const [boundariesError, setBoundariesError] = useState("");
   const [detail, setDetail] = useState<Plot | null>(null);
+  const [detailPlanting, setDetailPlanting] = useState<Planting | null>(null);
 
   useEffect(() => {
     setPlotId(requestedPlot);
@@ -95,12 +96,16 @@ export function MapScreen() {
   useEffect(() => {
     if (!plotId) {
       setDetail(null);
+      setDetailPlanting(null);
       return;
     }
     let alive = true;
     setDetail(null);
-    void api.getPlot(plotId).then((plot) => {
-      if (alive) setDetail(plot);
+    setDetailPlanting(null);
+    void Promise.all([api.getPlot(plotId), api.listPlantings({ plotId })]).then(([plot, plantingsForPlot]) => {
+      if (!alive) return;
+      setDetail(plot);
+      setDetailPlanting(currentPlanting(plantingsForPlot, plotId));
     });
     return () => {
       alive = false;
@@ -125,21 +130,37 @@ export function MapScreen() {
   }, [boundaries]);
 
   const rows = useMemo<Row[]>(() => {
-    return plots.flatMap((plot) => {
-      const farmer = farmers.find((item) => item.id === plot.farmerId);
-      if (!farmer) return [];
-      const ring = boundaryById.get(plot.id) ?? plot.polygon;
-      const merged: Plot = {
-        ...plot,
-        polygon: ring,
-        hasBoundary: ring.length >= 4 || Boolean(plot.hasBoundary),
+    const source = boundaries.length > 0 ? boundaries : [];
+    return source.map((item) => {
+      const farmer: Farmer = {
+        id: item.farmerId,
+        firstName: item.ownerName ?? "",
+        lastName: "",
+        tel: "",
+        address: "",
+        provinceId: 0,
+        districtId: 0,
+        subdistrictId: 0,
+        groupId: item.groupId ?? null,
+        groupName: item.groupName ?? "",
+        deliveredKg: 0,
       };
-      const planting = currentPlanting(plantings, plot.id);
-      const days = planting ? daysUntil(planting.harvestOn) : null;
-      const kind: StatusKey = !planting ? "none" : days != null && days <= 7 ? "due" : "upcoming";
-      return [{ plot: merged, farmer, planting, variety: planting?.varietyId ?? null, status: kind, days }];
+      const plot: Plot = {
+        id: item.id,
+        farmerId: item.farmerId,
+        name: item.name,
+        areaRai: 0,
+        provinceId: 0,
+        districtId: 0,
+        subdistrictId: 0,
+        polygon: item.polygon,
+        hasBoundary: true,
+        ownerName: item.ownerName,
+        groupName: item.groupName,
+      };
+      return { plot, farmer, planting: null, variety: null, status: "none", days: null };
     });
-  }, [plots, plantings, farmers, boundaryById]);
+  }, [boundaries]);
 
   const groupNames = useMemo(
     () => [...groups].map((group) => group.name).sort((a, b) => a.localeCompare(b, "th")),
@@ -148,7 +169,7 @@ export function MapScreen() {
 
   const scoped = useMemo(() => {
     return rows.filter((row) => {
-      const groupName = groups.find((group) => group.id === row.farmer.groupId)?.name ?? "";
+      const groupName = row.farmer.groupName || groups.find((group) => group.id === row.farmer.groupId)?.name || "";
       if (groupText.trim()) {
         if (groupText.trim() === "ไม่มีกลุ่ม") {
           if (row.farmer.groupId != null) return false;
@@ -171,12 +192,26 @@ export function MapScreen() {
   const selected = selectedRow
     ? {
         ...selectedRow,
+        planting: detailPlanting,
+        variety: detailPlanting?.varietyId ?? null,
+        status: !detailPlanting
+          ? ("none" as const)
+          : daysUntil(detailPlanting.harvestOn) <= 7
+            ? ("due" as const)
+            : ("upcoming" as const),
+        days: detailPlanting ? daysUntil(detailPlanting.harvestOn) : null,
         plot: detail
           ? {
               ...detail,
               polygon: detail.polygon.length >= 4 ? detail.polygon : selectedRow.plot.polygon,
             }
           : selectedRow.plot,
+        farmer: detail
+          ? {
+              ...selectedRow.farmer,
+              id: detail.farmerId,
+            }
+          : selectedRow.farmer,
       }
     : null;
   const suggestions = useMemo(() => {
@@ -400,7 +435,7 @@ export function MapScreen() {
                     <label className={detailLabel}>
                       กลุ่ม
                       <input
-                        value={groups.find((group) => group.id === selected.farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}
+                        value={selected.farmer.groupName || groups.find((group) => group.id === selected.farmer.groupId)?.name || "ไม่มีกลุ่ม"}
                         disabled
                         className={detailField}
                       />

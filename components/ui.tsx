@@ -3,8 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleX, Search, X, type LucideIcon } from "lucide-react";
-import { useMill } from "@/components/store";
-import { farmerHandle, farmerName, formatThaiDate, formatThaiMonth } from "@/lib/mill";
+import { api } from "@/lib/api";
+import { farmerHandle, formatThaiDate, formatThaiMonth } from "@/lib/mill";
 
 export const inputClass =
   "h-10 w-full rounded-[4px] border border-line bg-white px-3 text-[14px] text-ink placeholder:text-ink/20";
@@ -409,6 +409,7 @@ export function Select({
   className = "",
   search = false,
   compact = false,
+  onQuery,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -420,6 +421,8 @@ export function Select({
   className?: string;
   search?: boolean;
   compact?: boolean;
+  /** When set, the parent supplies options for the current query (no client filter). */
+  onQuery?: (query: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -429,7 +432,7 @@ export function Select({
   const searchRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const selected = options.find((option) => option.value === value);
-  const shown = options.filter((option) => matchesQuery(query, option.label));
+  const shown = onQuery ? options : options.filter((option) => matchesQuery(query, option.label));
 
   function place() {
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -477,6 +480,7 @@ export function Select({
         aria-controls={listId}
         onClick={() => {
           setQuery("");
+          onQuery?.("");
           place();
           setOpen((current) => !current);
         }}
@@ -504,7 +508,10 @@ export function Select({
                   <input
                     ref={searchRef}
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      onQuery?.(event.target.value);
+                    }}
                     placeholder="ค้นหา"
                     aria-label={`ค้นหา${label}`}
                     className="h-9 w-full rounded-[4px] border border-line bg-white pl-8 pr-2 text-[14px] placeholder:text-ink/20"
@@ -822,14 +829,48 @@ export function DateField({
 export function FarmerSelect({
   value,
   onChange,
+  allowAll = false,
 }: {
   value: string;
   onChange: (id: string) => void;
+  allowAll?: boolean;
 }) {
-  const { farmers } = useMill();
-  const options = farmers
-    .slice()
-    .sort((a, b) => farmerName(a).localeCompare(farmerName(b), "th"))
-    .map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) }));
-  return <SearchSelect label="เกษตรกร" value={value} onChange={onChange} placeholder="เลือกเกษตรกร" options={[{ value: "", label: "เลือกเกษตรกร" }, ...options]} />;
+  const [found, setFound] = useState<{ value: string; label: string }[]>([]);
+  const [picked, setPicked] = useState<{ value: string; label: string } | null>(null);
+  const timer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!value) {
+      setPicked(null);
+      return;
+    }
+    let alive = true;
+    void api.getFarmer(value).then((farmer) => {
+      if (alive) setPicked({ value: farmer.id, label: farmerHandle(farmer) });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [value]);
+
+  function search(query: string) {
+    if (timer.current != null) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      void api.listFarmersPage({ q: query.trim(), page: 1, pageSize: 20 }).then((page) => {
+        setFound((page.items ?? []).map((farmer) => ({ value: farmer.id, label: farmerHandle(farmer) })));
+      });
+    }, 200);
+  }
+
+  const extra = picked && !found.some((item) => item.value === picked.value) ? [picked] : [];
+  return (
+    <SearchSelect
+      label="เกษตรกร"
+      value={value}
+      onChange={onChange}
+      placeholder={allowAll ? "ทั้งหมด" : "เลือกเกษตรกร"}
+      onQuery={search}
+      options={[{ value: "", label: allowAll ? "ทั้งหมด" : "เลือกเกษตรกร" }, ...extra, ...found]}
+    />
+  );
 }

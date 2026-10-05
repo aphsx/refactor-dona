@@ -3,53 +3,87 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, RotateCcw, Search } from "lucide-react";
 import { CanAdd } from "@/components/can";
 import { AddFarmer } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
-import { Glyph, PageHeader, Pagination, SecondaryButton, SortableTh, TableScroll, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
+import { useServerPage } from "@/components/server-page";
+import { Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, TableScroll, openRow, rowTone, tableClass } from "@/components/ui";
+import { api } from "@/lib/api";
 import { farmerName, formatKg, personRole, roleTitle } from "@/lib/mill";
 
 export function FarmersScreen() {
   const router = useRouter();
-  const { farmers, plots, groups, roleGrants } = useMill();
+  const { groups, roleGrants, revision } = useMill();
   const [adding, setAdding] = useState(false);
-  const listingSort = useTableSort();
-  const ordered = orderBy(farmers, listingSort.sort, (farmer, key) => {
-    if (key === "name") return farmerName(farmer);
-    if (key === "tel") return farmer.tel;
-    if (key === "group") return groups.find((group) => group.id === farmer.groupId)?.name ?? "";
-    if (key === "role") return roleTitle(personRole(roleGrants, groups, farmer.id));
-    if (key === "plots") return plots.filter((plot) => plot.farmerId === farmer.id).length;
-    return farmer.deliveredKg;
-  });
-  const page = usePagination(ordered);
+  const [draft, setDraft] = useState("");
+  const [query, setQuery] = useState("");
+  const page = useServerPage(`${query}:${revision}`, (pageNo, pageSize) =>
+    api.listFarmersPage({ q: query, page: pageNo, pageSize }),
+  );
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
       <PageHeader current="เกษตรกร" />
+      <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
+        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาเกษตรกร</div>
+        <form
+          className="flex flex-wrap items-end gap-3 px-6 py-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setQuery(draft.trim());
+          }}
+        >
+          <label className="block min-w-[240px] flex-1 text-[14px] font-bold">
+            ชื่อหรือเบอร์
+            <input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              className="mt-1 h-10 w-full rounded-[4px] border border-line px-3 font-normal"
+            />
+          </label>
+          <PrimaryButton type="submit">
+            <Glyph icon={Search} />
+            ค้นหา
+          </PrimaryButton>
+          <SecondaryButton
+            onClick={() => {
+              setDraft("");
+              setQuery("");
+            }}
+          >
+            <Glyph icon={RotateCcw} />
+            ล้าง
+          </SecondaryButton>
+        </form>
+      </div>
       <div className="overflow-hidden rounded-[8px] border border-frame">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
           บัญชีรับซื้อ
-          <span className="text-[14px] font-normal">{farmers.length} คน</span>
+          <span className="text-[14px] font-normal">{page.total} คน</span>
         </div>
         <TableScroll>
-<table className={tableClass}>
-          <thead className="bg-table">
-          <tr>
-              <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="ตำแหน่ง" column="role" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="รับเข้าโรงสี" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="แปลง" column="plots" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            </tr>
-          </thead>
-          <tbody>
-            {page.rows.map((farmer, index) => {
-              const fieldCount = plots.filter((plot) => plot.farmerId === farmer.id).length;
-              return (
+          <table className={tableClass}>
+            <thead className="bg-table">
+              <tr>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">เกษตรกร</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">เบอร์โทร</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">กลุ่ม</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">ตำแหน่ง</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">รับเข้าโรงสี</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">แปลง</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {page.rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-6 text-ink/60">
+                    ไม่พบเกษตรกร
+                  </td>
+                </tr>
+              )}
+              {page.rows.map((farmer, index) => (
                 <tr
                   key={farmer.id}
                   onClick={(event) => openRow(event, () => router.push(`/farmers/manage?farmer=${farmer.id}`))}
@@ -57,21 +91,20 @@ export function FarmersScreen() {
                 >
                   <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
                   <td className="px-5 py-3">{farmer.tel}</td>
-                  <td className="px-5 py-3">{groups.find((group) => group.id === farmer.groupId)?.name ?? "—"}</td>
+                  <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "—"}</td>
                   <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
                   <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
-                  <td className="px-5 py-3">{fieldCount}</td>
+                  <td className="px-5 py-3">{farmer.plotCount ?? 0}</td>
                   <td className="px-5 py-3">
                     <Link href={`/map?farmer=${farmer.id}`} className="font-bold text-link underline">
                       ดูแปลง
                     </Link>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-</TableScroll>
+              ))}
+            </tbody>
+          </table>
+        </TableScroll>
         <Pagination
           page={page.page}
           pageCount={page.pageCount}

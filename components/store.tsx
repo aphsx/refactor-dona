@@ -17,6 +17,7 @@ import type {
 type Store = MillSnapshot & {
   ready: boolean;
   loadError: string;
+  revision: number;
   actingRole: PermissionRole;
   reload: () => Promise<void>;
   createGroup: (name: string, leaderId: string) => Promise<string | null>;
@@ -98,6 +99,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<MillSnapshot>(empty);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [revision, setRevision] = useState(0);
   const [actingRole] = useState<PermissionRole>("mill");
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -113,6 +115,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const next = await loadMillSnapshot();
       dataRef.current = next;
       setData(next);
+      setRevision((value) => value + 1);
       setLoadError("");
     } catch (error) {
       setLoadError(apiMessage(error));
@@ -170,6 +173,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     ...data,
     ready,
     loadError,
+    revision,
     actingRole,
     reload,
     createGroup: (name, leaderId) => mutate(() => api.createGroup(name.trim(), leaderId)),

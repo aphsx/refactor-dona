@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Save, Trash2, Undo2, X } from "lucide-react";
 import { CanDelete, CanEdit } from "@/components/can";
 import { useMill } from "@/components/store";
+import { api } from "@/lib/api";
 import { ConfirmAlert, DateField, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
 import {
   currentActivityStage,
@@ -13,6 +14,7 @@ import {
   plantingAreaSummary,
   varietyName,
   type PlantActualPayload,
+  type PlotActivity,
   type SeedReceivePayload,
   type Variety,
 } from "@/lib/mill";
@@ -46,9 +48,25 @@ export function PlanEditor({
   /** When true, parent already shows title / back — skip the duplicate bar. */
   embedded?: boolean;
 }) {
-  const { varieties, plantings, activities, savePlot, savePlanting, saveActivity, removePlot, removePlanting } = useMill();
+  const { varieties, savePlot, savePlanting, saveActivity, removePlot, removePlanting, revision } = useMill();
+  const [activities, setActivities] = useState<PlotActivity[]>([]);
   const measured = plot.areaRai;
-  const current = plantings.find((item) => item.id === plot.plantingId) ?? null;
+  const current = plot.plantingId
+    ? { id: plot.plantingId, plantedOn: plot.plantedOn, harvestOn: plot.harvestOn, estKg: plot.estKg }
+    : null;
+  useEffect(() => {
+    if (!plot.plantingId) {
+      setActivities([]);
+      return;
+    }
+    let alive = true;
+    void api.listActivities(plot.plantingId).then((items) => {
+      if (alive) setActivities(items);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [plot.plantingId, revision]);
   const plantingId = current?.id ?? (plot.plantingId || "");
   const fresh = !plot.plantingId;
   const seedActivity = plantingId ? latestActivityOfType(activities, plantingId, "seed_receive") : null;

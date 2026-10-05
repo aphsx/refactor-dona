@@ -7,6 +7,7 @@ import { Bell, CalendarDays, ChevronDown, Layers, Map, Menu, Settings2, Shield, 
 import { LoginScreen } from "@/components/login-screen";
 import { StoreProvider, useMill } from "@/components/store";
 import {
+  api,
   clearAuthSession,
   restoreAuthSession,
   type AuthSession,
@@ -165,6 +166,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function dueLabel(iso: string) {
+  const left = daysUntil(iso);
+  if (left < 0) return `เลย ${-left} วัน`;
+  if (left === 0) return "ถึงกำหนด";
+  return `อีก ${left} วัน`;
+}
+
 function ShellFrame({
   children,
   session,
@@ -175,7 +183,8 @@ function ShellFrame({
   onLogout: () => void;
 }) {
   const pathname = usePathname();
-  const { plots, plantings, ready, loadError, reload } = useMill();
+  const { ready, loadError, reload, revision } = useMill();
+  const [duePlots, setDuePlots] = useState<{ id: string; name: string; harvestOn: string }[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
@@ -189,12 +198,21 @@ function ShellFrame({
     if (parent) setOpenMenu(parent.label);
   }, [pathname]);
 
-  const duePlots = plantings
-    .filter((planting) => daysUntil(planting.harvestOn) <= 7)
-    .flatMap((planting) => {
-      const plot = plots.find((item) => item.id === planting.plotId);
-      return plot ? [{ ...planting, name: plot.name }] : [];
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    void api.dueHarvests().then((data) => {
+      if (!alive) return;
+      setDuePlots(
+        (data.items ?? [])
+          .filter((item) => daysUntil(item.harvestOn) <= 7)
+          .map((item) => ({ id: item.plotId, name: item.plotName, harvestOn: item.harvestOn })),
+      );
     });
+    return () => {
+      alive = false;
+    };
+  }, [ready, revision]);
   const notices = duePlots.length;
 
   if (!ready) {
@@ -263,7 +281,7 @@ function ShellFrame({
                           className="block px-5 py-3 hover:bg-sub"
                         >
                           <div className="text-[14px] font-bold">{plot.name} ใกล้เข้าโรงสี</div>
-                          <div className="mt-1 text-[12px] text-ink/70">อีก {daysUntil(plot.harvestOn)} วัน</div>
+                          <div className="mt-1 text-[12px] text-ink/70">{dueLabel(plot.harvestOn)}</div>
                         </Link>
                       </li>
                     ))}
