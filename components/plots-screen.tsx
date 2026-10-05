@@ -70,7 +70,7 @@ function parseAmount(value: string) {
 }
 
 export function PlotManageScreen() {
-  const { varieties, groups, addPlot, revision } = useMill();
+  const { varieties, groups, addPlot, revision, plotPage } = useMill();
   const router = useRouter();
   const requestedId = useSearchParams().get("plot");
   const requested = requestedId;
@@ -88,14 +88,17 @@ export function PlotManageScreen() {
   const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null);
   const selected = selectedPlot;
   const listingSort = useTableSort(`${name}:${farmerId}:${groupId}`);
-  const page = useServerPage(`${name}:${farmerId}:${groupId}:${revision}`, (pageNo, pageSize) =>
-    api.listPlotsPage({
-      q: name,
-      farmerId: farmerId || undefined,
-      groupId: groupId || undefined,
-      page: pageNo,
-      pageSize,
-    }),
+  const page = useServerPage(
+    `${name}:${farmerId}:${groupId}:${revision}`,
+    (pageNo, pageSize) =>
+      api.listPlotsPage({
+        q: name,
+        farmerId: farmerId || undefined,
+        groupId: groupId || undefined,
+        page: pageNo,
+        pageSize,
+      }),
+    name === "" && farmerId === "" && groupId === "" ? plotPage : null,
   );
 
   useEffect(() => {

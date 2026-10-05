@@ -126,13 +126,14 @@ function millGrants(people: WirePerson[]): RoleGrant[] {
 }
 
 export async function loadMillSnapshot(): Promise<MillSnapshot> {
-  const [groups, varieties, productKinds, permissions, people, farmerPage] = await Promise.all([
+  const [groups, varieties, productKinds, permissions, people, farmerPage, plotPage] = await Promise.all([
       apiListAll<SupplierGroup>("/groups"),
       apiRequest<{ items: VarietyItem[] }>("/varieties").then((data) => data.items ?? []),
       apiRequest<{ items: ProductKindItem[] }>("/product-kinds").then((data) => data.items ?? []),
       apiRequest<{ items: WirePermission[] }>("/permissions").then((data) => data.items ?? []),
       apiListAll<WirePerson>("/people"),
       api.listFarmersPage({ page: 1, pageSize: 20 }),
+      api.listPlotsPage({ page: 1, pageSize: 20 }),
     ]);
   const farmers: Farmer[] = [];
   const plots: WirePlot[] = [];
@@ -148,6 +149,7 @@ export async function loadMillSnapshot(): Promise<MillSnapshot> {
     farmers,
     farmerPage: { items: farmerPage.items ?? [], total: farmerPage.total ?? 0 },
     plots: plots.map(asPlot),
+    plotPage: { items: plotPage.items ?? [], total: plotPage.total ?? 0 },
     plantings: plantings.map(asPlanting),
     activities: activities.map(asPlotActivity),
     receipts: receipts.map((item) => ({

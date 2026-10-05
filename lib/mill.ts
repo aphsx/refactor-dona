@@ -287,12 +287,19 @@ export type FarmerPage = {
   total: number;
 };
 
+export type PlotPage = {
+  items: Plot[];
+  total: number;
+};
+
 export type MillSnapshot = {
   farmers: Farmer[];
   /** First page of the member list, loaded with login so the default 20 can paint immediately. */
   farmerPage: FarmerPage;
   groups: SupplierGroup[];
   plots: Plot[];
+  /** First page of จัดการแปลง, loaded with login so the default 20 can paint immediately. */
+  plotPage: PlotPage;
   plantings: Planting[];
   activities: PlotActivity[];
   receipts: MillReceipt[];

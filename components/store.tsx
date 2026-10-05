@@ -85,6 +85,7 @@ const empty: MillSnapshot = {
   farmerPage: { items: [], total: 0 },
   groups: [],
   plots: [],
+  plotPage: { items: [], total: 0 },
   plantings: [],
   activities: [],
   receipts: [],
