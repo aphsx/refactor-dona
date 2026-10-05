@@ -466,7 +466,8 @@ export function MemberManageScreen() {
 
 function GroupDirectory() {
   const router = useRouter();
-  const { groups, farmers, plots, plantings } = useMill();
+  const { groups, farmers, plots, plantings, createGroup } = useMill();
+  const [creatingGroup, setCreatingGroup] = useState(false);
   const listingSort = useTableSort("groups");
   const ordered = orderBy(groups, listingSort.sort, (group, key) => {
     const leader = farmers.find((farmer) => farmer.id === group.leaderId);
@@ -536,6 +537,15 @@ function GroupDirectory() {
         onPageChange={page.setPage}
         onPageSizeChange={page.setPageSize}
       />
+      <div className="flex flex-wrap gap-5 px-6 py-4">
+        <CanAdd resource="groups">
+          <SecondaryButton className="h-9" onClick={() => setCreatingGroup(true)}>
+            <Glyph icon={Plus} />
+            เพิ่มกลุ่ม
+          </SecondaryButton>
+        </CanAdd>
+      </div>
+      {creatingGroup && <CreateGroup onClose={() => setCreatingGroup(false)} onCreate={createGroup} />}
     </>
   );
 }
