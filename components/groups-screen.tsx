@@ -16,8 +16,10 @@ import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, pro
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
-/** Flip on when rolling out plot/planting-plan tabs under farmer manage. */
-const SHOW_MEMBER_PLOT_PLAN_TABS = false;
+/** Flip on when rolling out plot tabs under farmer manage. */
+const SHOW_MEMBER_PLOT_TABS = true;
+/** Flip on when rolling out planting-plan tabs under farmer manage. */
+const SHOW_MEMBER_PLAN_TABS = false;
 /** Flip on when rolling out receipt standing + mill ledger under farmer detail. */
 const SHOW_MEMBER_RECEIPT_SECTIONS = false;
 
@@ -298,11 +300,11 @@ export function MemberManageScreen() {
         {detail && (
           <>
             <StatusTab label="รายละเอียดเกษตรกร" active={tab === "detail"} onClick={() => setTab("detail")} />
-            {SHOW_MEMBER_PLOT_PLAN_TABS && (
-              <>
-                <StatusTab label="แปลงของเกษตรกร" active={tab === "plots"} onClick={() => setTab("plots")} />
-                <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
-              </>
+            {SHOW_MEMBER_PLOT_TABS && (
+              <StatusTab label="แปลงของเกษตรกร" active={tab === "plots"} onClick={() => setTab("plots")} />
+            )}
+            {SHOW_MEMBER_PLAN_TABS && (
+              <StatusTab label="แผนการปลูก" active={tab === "plan"} onClick={() => openPlan(null)} />
             )}
           </>
         )}
@@ -436,15 +438,15 @@ export function MemberManageScreen() {
           </>
         )}
         {tab === "detail" && detail && <MemberDetail farmer={detail} onClose={closeDetail} />}
-        {SHOW_MEMBER_PLOT_PLAN_TABS && tab === "plots" && detail && (
+        {SHOW_MEMBER_PLOT_TABS && tab === "plots" && detail && (
           <MemberPlots
             farmer={detail}
-            onAddRound={(plotId) => openPlan(plotId)}
-            onOpenPlan={(plotId) => openPlan(plotId)}
+            onAddRound={SHOW_MEMBER_PLAN_TABS ? (plotId) => openPlan(plotId) : undefined}
+            onOpenPlan={SHOW_MEMBER_PLAN_TABS ? (plotId) => openPlan(plotId) : undefined}
             onClose={closeDetail}
           />
         )}
-        {SHOW_MEMBER_PLOT_PLAN_TABS && tab === "plan" && detail && (
+        {SHOW_MEMBER_PLAN_TABS && tab === "plan" && detail && (
           <MemberPlan key={`${detail.id}:${planPlotId ?? "list"}`} farmer={detail} initialPlotId={planPlotId} onClose={closeDetail} />
         )}
       </div>
@@ -910,8 +912,8 @@ function MemberPlots({
   onClose,
 }: {
   farmer: Farmer;
-  onAddRound: (plotId: string) => void;
-  onOpenPlan: (plotId: string) => void;
+  onAddRound?: (plotId: string) => void;
+  onOpenPlan?: (plotId: string) => void;
   onClose: () => void;
 }) {
   const { varieties, plots, plantings, addPlot, removePlot } = useMill();
@@ -998,11 +1000,12 @@ function PlotTable({
   plots: Plot[];
   plantings: Planting[];
   farmerId: string;
-  onAddRound: (plotId: string) => void;
-  onOpenPlan: (plotId: string) => void;
+  onAddRound?: (plotId: string) => void;
+  onOpenPlan?: (plotId: string) => void;
   onRemove: (plot: Plot) => void;
 }) {
   const [mapPlot, setMapPlot] = useState<Plot | null>(null);
+  const showPlan = onOpenPlan != null || onAddRound != null;
   const listingSort = useTableSort(farmerId);
   const ordered = orderBy(plots, listingSort.sort, (plot, key) => {
     const round = currentPlanting(plantings, plot.id);
@@ -1017,6 +1020,7 @@ function PlotTable({
   });
   const page = usePagination(ordered, farmerId);
   const shaped = mapPlot != null && mapPlot.polygon.length >= 4;
+  const emptyCols = showPlan ? 8 : 4;
   return (
     <>
     <TableScroll>
@@ -1025,18 +1029,25 @@ function PlotTable({
           <tr>
             <SortableTh label="แปลง" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="พื้นที่" column="area" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="วันปลูก" column="planted" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="กำหนดเก็บ" column="harvest" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="ที่คาด" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="สถานะ" column="status" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            {showPlan && (
+              <>
+                <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <SortableTh label="วันปลูก" column="planted" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <SortableTh label="กำหนดเก็บ" column="harvest" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <SortableTh label="ที่คาด" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <SortableTh label="สถานะ" column="status" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+              </>
+            )}
+            {!showPlan && (
+              <SortableTh label="ที่ตั้ง" column="place" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            )}
             <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
           {plots.length === 0 && (
             <tr>
-              <td colSpan={8} className="px-5 py-6 text-ink/60">
+              <td colSpan={emptyCols} className="px-5 py-6 text-ink/60">
                 ยังไม่มีแปลง
               </td>
             </tr>
@@ -1047,30 +1058,41 @@ function PlotTable({
             return (
               <tr
                 key={plot.id}
-                onClick={(event) => openRow(event, () => onOpenPlan(plot.id))}
+                onClick={onOpenPlan ? (event) => openRow(event, () => onOpenPlan(plot.id)) : undefined}
                 className={rowTone(index)}
               >
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
-                <td className="px-5 py-3">{round ? varietyName(round.varietyId) : "—"}</td>
-                <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
-                <td className="px-5 py-3">{round ? formatThaiDate(round.harvestOn) : "—"}</td>
-                <td className="px-5 py-3">{round ? formatKg(round.estKg) : "—"}</td>
-                <td className={`px-5 py-3 font-bold ${harvest.className}`}>{harvest.label}</td>
+                {showPlan ? (
+                  <>
+                    <td className="px-5 py-3">{round ? varietyName(round.varietyId) : "—"}</td>
+                    <td className="px-5 py-3">{round ? formatThaiDate(round.plantedOn) : "—"}</td>
+                    <td className="px-5 py-3">{round ? formatThaiDate(round.harvestOn) : "—"}</td>
+                    <td className="px-5 py-3">{round ? formatKg(round.estKg) : "—"}</td>
+                    <td className={`px-5 py-3 font-bold ${harvest.className}`}>{harvest.label}</td>
+                  </>
+                ) : (
+                  <td className="px-5 py-3">{placeLabel(plot) || "—"}</td>
+                )}
                 <td className="px-5 py-3 text-right">
                   <div className="flex items-center justify-end gap-3">
-                    {round ? (
-                      <SecondaryButton className="h-9" onClick={() => onOpenPlan(plot.id)}>
-                        แผนการปลูก
-                      </SecondaryButton>
-                    ) : (
-                      <CanAdd resource="plantings">
-                        <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
-                          <Glyph icon={Plus} />
-                          เพิ่มรอบ
-                        </SecondaryButton>
-                      </CanAdd>
-                    )}
+                    {showPlan &&
+                      (round ? (
+                        onOpenPlan && (
+                          <SecondaryButton className="h-9" onClick={() => onOpenPlan(plot.id)}>
+                            แผนการปลูก
+                          </SecondaryButton>
+                        )
+                      ) : (
+                        onAddRound && (
+                          <CanAdd resource="plantings">
+                            <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
+                              <Glyph icon={Plus} />
+                              เพิ่มรอบ
+                            </SecondaryButton>
+                          </CanAdd>
+                        )
+                      ))}
                     <CanDelete resource="plots">
                       <SecondaryButton className="h-9" onClick={() => onRemove(plot)}>
                         <Glyph icon={Trash2} />

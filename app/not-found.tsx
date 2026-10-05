@@ -8,7 +8,7 @@ export default function NotFound() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/plan");
+    router.replace("/farmers");
   }, [router]);
 
   return (

@@ -13,13 +13,16 @@ import {
 } from "@/lib/api";
 import { daysUntil } from "@/lib/mill";
 
-const HOME_PATH = "/plan";
+/** Flip on when rolling out แผนรอบปลูก (/plan, /plan/members). */
+const SHOW_PLAN_NAV = false;
+/** Flip on when rolling out แผนรับข้าว (/supply). */
+const SHOW_SUPPLY_NAV = false;
+const HOME_PATH = SHOW_PLAN_NAV ? "/plan" : "/farmers";
 
 const KNOWN_APP_PATHS = new Set([
   "/",
-  "/plan",
-  "/plan/members",
-  "/supply",
+  ...(SHOW_PLAN_NAV ? ["/plan", "/plan/members"] : []),
+  ...(SHOW_SUPPLY_NAV ? ["/supply"] : []),
   "/map",
   "/map/manage",
   "/groups",
@@ -42,22 +45,14 @@ function isKnownAppPath(pathname: string) {
 type NavChild = { href: string; label: string };
 type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavChild[] };
 
+/** Daily work first → seasonal ops → settings last. */
 const NAV: NavItem[] = [
   {
-    label: "แผนรอบปลูก",
-    icon: Sprout,
+    label: "เกษตรกร",
+    icon: Users,
     children: [
-      { href: "/plan", label: "แผนรวม" },
-      { href: "/plan/members", label: "แผนรายเกษตรกร" },
-    ],
-  },
-  { href: "/supply", label: "แผนรับข้าว", icon: CalendarDays },
-  {
-    label: "แผนที่แปลง",
-    icon: Map,
-    children: [
-      { href: "/map", label: "แผนที่แปลง" },
-      { href: "/map/manage", label: "จัดการแปลง" },
+      { href: "/farmers", label: "เกษตรกร" },
+      { href: "/farmers/manage", label: "จัดการเกษตรกร" },
     ],
   },
   {
@@ -69,13 +64,26 @@ const NAV: NavItem[] = [
     ],
   },
   {
-    label: "เกษตรกร",
-    icon: Users,
+    label: "แผนที่แปลง",
+    icon: Map,
     children: [
-      { href: "/farmers", label: "เกษตรกร" },
-      { href: "/farmers/manage", label: "จัดการเกษตรกร" },
+      { href: "/map", label: "แผนที่แปลง" },
+      { href: "/map/manage", label: "จัดการแปลง" },
     ],
   },
+  ...(SHOW_PLAN_NAV
+    ? [
+        {
+          label: "แผนรอบปลูก",
+          icon: Sprout,
+          children: [
+            { href: "/plan", label: "แผนรวม" },
+            { href: "/plan/members", label: "แผนรายเกษตรกร" },
+          ],
+        },
+      ]
+    : []),
+  ...(SHOW_SUPPLY_NAV ? [{ href: "/supply", label: "แผนรับข้าว", icon: CalendarDays }] : []),
   {
     label: "จัดการ",
     icon: Settings2,
@@ -241,7 +249,11 @@ function ShellFrame({
                   <ul>
                     {duePlots.map((plot) => (
                       <li key={plot.id} className="border-b border-table last:border-b-0">
-                        <Link href="/supply" onClick={() => setBellOpen(false)} className="block px-5 py-3 hover:bg-sub">
+                        <Link
+                          href={SHOW_SUPPLY_NAV ? "/supply" : HOME_PATH}
+                          onClick={() => setBellOpen(false)}
+                          className="block px-5 py-3 hover:bg-sub"
+                        >
                           <div className="text-[14px] font-bold">{plot.name} ใกล้เข้าโรงสี</div>
                           <div className="mt-1 text-[12px] text-ink/70">อีก {daysUntil(plot.harvestOn)} วัน</div>
                         </Link>
