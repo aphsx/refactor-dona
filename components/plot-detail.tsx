@@ -168,7 +168,7 @@ export function PlotDetail({
         </div>
       )}
       <form
-        className={`grid min-w-0 gap-4 px-6 py-5 sm:grid-cols-2 ${embedded ? "whitespace-normal [&>*]:min-w-0 [&_input]:block [&_input]:max-w-full" : ""}`}
+        className={`grid min-w-0 gap-4 sm:grid-cols-2 ${embedded ? "whitespace-normal [&>*]:min-w-0 [&_input]:block [&_input]:max-w-full" : "px-6 py-5"}`}
         onSubmit={(event) => {
           event.preventDefault();
           if (!showEditor) return;

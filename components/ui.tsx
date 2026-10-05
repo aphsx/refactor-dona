@@ -152,27 +152,29 @@ export function Dialog({
   onClose,
   children,
   wide = false,
+  soft = false,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   wide?: boolean;
+  soft?: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className={`w-full overflow-hidden rounded-[8px] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] ${wide ? "max-w-[960px]" : "max-w-[560px]"}`}>
-        <div className="flex items-center justify-between bg-bar px-6 py-4 text-[16px] font-bold text-white">
+      <div className={`w-full overflow-hidden rounded-[8px] shadow-[0_8px_24px_rgba(0,0,0,0.18)] ${soft ? "bg-sub" : "bg-white"} ${wide ? "max-w-[960px]" : "max-w-[560px]"}`}>
+        <div className={`flex items-center justify-between px-6 py-4 text-[16px] font-bold text-white ${soft ? "bg-brand" : "bg-bar"}`}>
           {title}
           <button
             type="button"
             aria-label="ปิด"
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-bar"
+            className={`flex h-7 w-7 items-center justify-center rounded-full bg-white ${soft ? "text-brand" : "text-bar"}`}
           >
             <X size={16} strokeWidth={2} />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className={`p-6 ${soft ? "max-h-[calc(100vh-8rem)] overflow-y-auto" : ""}`}>{children}</div>
       </div>
     </div>
   );

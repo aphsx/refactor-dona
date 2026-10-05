@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pencil, Plus, RotateCcw, Save, Search, Trash2, UserMinus, UserPlus, X } from "lucide-react";
 import { PlantingActivityPanel } from "@/components/activities-screen";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
@@ -954,6 +954,7 @@ function MemberPlots({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [plantings, setPlantings] = useState<Planting[]>([]);
+  const editingPlot = plots.find((item) => item.id === editingId) ?? null;
   const showPlan = onOpenPlan != null || onAddRound != null;
   useEffect(() => {
     if (!showPlan) return;
@@ -978,11 +979,9 @@ function MemberPlots({
         plots={plots}
         plantings={plantings}
         farmerId={farmer.id}
-        editingId={editingId}
         onAddRound={onAddRound}
         onOpenPlan={onOpenPlan}
         onEdit={(plot) => setEditingId(plot.id)}
-        onCloseEdit={() => setEditingId(null)}
         onRemove={(plot) =>
           setNotice({
             tone: "confirm",
@@ -1024,6 +1023,11 @@ function MemberPlots({
           }
         />
       )}
+      {editingPlot && (
+        <Dialog title={`แก้ไขแปลง · ${editingPlot.name}`} wide soft onClose={() => setEditingId(null)}>
+          <PlotDetail embedded initialEditing plot={editingPlot} onClose={() => setEditingId(null)} />
+        </Dialog>
+      )}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
@@ -1041,21 +1045,17 @@ function PlotTable({
   plots,
   plantings,
   farmerId,
-  editingId,
   onAddRound,
   onOpenPlan,
   onEdit,
-  onCloseEdit,
   onRemove,
 }: {
   plots: Plot[];
   plantings: Planting[];
   farmerId: string;
-  editingId: string | null;
   onAddRound?: (plotId: string) => void;
   onOpenPlan?: (plotId: string) => void;
   onEdit: (plot: Plot) => void;
-  onCloseEdit: () => void;
   onRemove: (plot: Plot) => void;
 }) {
   const [mapPlot, setMapPlot] = useState<Plot | null>(null);
@@ -1077,7 +1077,6 @@ function PlotTable({
   const emptyCols = showPlan ? 8 : 4;
   return (
     <>
-    <div className="@container">
     <TableScroll>
 <table className={tableClass}>
         <thead className="bg-table">
@@ -1110,12 +1109,11 @@ function PlotTable({
           {page.rows.map((plot, index) => {
             const round = currentPlanting(plantings, plot.id);
             const harvest = plotHarvest(round);
-            const open = editingId === plot.id;
             return (
-              <Fragment key={plot.id}>
               <tr
+                key={plot.id}
                 onClick={onOpenPlan ? (event) => openRow(event, () => onOpenPlan(plot.id)) : undefined}
-                className={open ? "bg-sub" : rowTone(index)}
+                className={rowTone(index)}
               >
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
@@ -1181,22 +1179,11 @@ function PlotTable({
                   </div>
                 </td>
               </tr>
-              {open && (
-                <tr>
-                  <td colSpan={emptyCols} className="border-t border-frame bg-sub p-0">
-                    <div className="sticky left-0 w-[100cqw] max-w-full whitespace-normal bg-sub">
-                      <PlotDetail embedded initialEditing plot={plot} onClose={onCloseEdit} />
-                    </div>
-                  </td>
-                </tr>
-              )}
-              </Fragment>
             );
           })}
         </tbody>
       </table>
     </TableScroll>
-    </div>
     <Pagination
       page={page.page}
       pageCount={page.pageCount}
