@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { placeCenter, placeLabel } from "@/lib/thai-place";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { CanEdit } from "@/components/can";
 import type { FieldMapHandle } from "@/components/field-map";
 import { useMill } from "@/components/store";
@@ -203,6 +203,7 @@ export function MapScreen() {
           draft={draft}
           onDraftClick={draft != null && !isClosedRing(draft) ? placePoint : undefined}
           focus={selected ? placeCenter(selected.plot) : null}
+          bottomInset={selected ? 180 : undefined}
         />
         <div className="absolute left-4 top-4 z-20 w-[300px] space-y-3 rounded-[8px] border border-frame bg-white p-3 shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center justify-between gap-2">
@@ -278,78 +279,130 @@ export function MapScreen() {
         </div>
           {selected && (
             <div className="absolute inset-x-4 bottom-4 z-20 overflow-hidden rounded-[8px] border border-frame bg-white shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-              <div className="flex">
-                <div className="w-1.5 shrink-0 bg-brand" />
-                <div className="min-w-0 flex-1 px-5 py-4">
-                  {draft == null ? (
-                    <>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-[16px] font-bold">{selected.plot.name}</h2>
-                            <span className="text-[12px] font-bold" style={{ color: STATUS[selected.status].color }}>
-                              {timing(selected)}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-[14px]">
-                            {farmerName(selected.farmer)}
-                            <span className="text-ink/40"> · </span>
-                            {groups.find((group) => group.id === selected.farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}
-                          </p>
-                          <p className="mt-1 text-[14px]">
-                            {placeLabel(selected.plot) === "—" ? "ยังไม่ระบุที่ตั้ง" : placeLabel(selected.plot)}
-                          </p>
-                          <p className="mt-1 text-[14px]">
-                            {selected.plot.polygon.length >= 4 ? `พิกัด ${formatCoord(centroid(selected.plot.polygon))}` : "ยังไม่มีรูป"}
-                          </p>
-                          <p className="mt-1 text-[14px]">
-                            {formatRai(selected.plot.areaRai)}
-                            <span className="text-ink/40"> · </span>
-                            {selected.variety ? varietyName(selected.variety) : "ยังไม่ปลูก"}
-                            {selected.planting && (
-                              <>
-                                <span className="text-ink/40"> · </span>
-                                เก็บ {formatThaiDate(selected.planting.harvestOn)}
-                                <span className="text-ink/40"> · </span>
-                                {selected.planting.estKg > 0 ? `คาด ${formatKg(selected.planting.estKg)}` : "ยังไม่คาด"}
-                              </>
-                            )}
-                          </p>
-                        </div>
+              {draft == null ? (
+                <>
+                  <div className="flex items-center justify-between gap-3 bg-bar px-5 py-2.5 text-[15px] font-bold text-white">
+                    รายละเอียดแปลง
+                    <div className="flex shrink-0 items-center gap-2">
+                      <CanEdit resource="plots">
                         <button
                           type="button"
-                          aria-label="ปิดรายละเอียดแปลง"
-                          onClick={() => setPlotId(null)}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-ink"
+                          onClick={() => {
+                            setDraft([]);
+                            setBoundaryError("");
+                          }}
+                          className="rounded-full bg-white/15 px-2.5 py-1 text-[12px] font-bold text-white hover:bg-white/25"
                         >
-                          <X size={16} strokeWidth={1.75} />
+                          {selected.plot.polygon.length >= 4 ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
                         </button>
-                      </div>
-                      <CanEdit resource="plots">
-                        <div className="mt-3">
-                          <button type="button" onClick={() => { setDraft([]); setBoundaryError(""); }} className={mapButton}>
-                            {selected.plot.polygon.length >= 4 ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
-                          </button>
-                        </div>
                       </CanEdit>
-                    </>
-                  ) : (
-                    <DrawStep
-                      name={selected.plot.name}
-                      replacing={selected.plot.polygon.length >= 4}
-                      draft={draft}
-                      areaText={areaText}
-                      error={boundaryError}
-                      onArea={setAreaText}
-                      onUndo={undoPoint}
-                      onCloseShape={finishShape}
-                      onRedraw={() => { setDraft([]); setAreaText(""); setBoundaryError(""); }}
-                      onCancel={() => setDraft(null)}
-                      onSave={saveShape}
-                    />
-                  )}
+                      <button
+                        type="button"
+                        onClick={() => setPlotId(null)}
+                        className="rounded-full bg-white px-2.5 py-1 text-[12px] text-bar"
+                      >
+                        ปิด
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-5 py-3 sm:grid-cols-4 lg:grid-cols-5">
+                    <label className={detailLabel}>
+                      ชื่อแปลง
+                      <input value={selected.plot.name} disabled className={detailField} />
+                    </label>
+                    <label className={detailLabel}>
+                      สถานะ
+                      <input value={timing(selected)} disabled className={detailField} />
+                    </label>
+                    <label className={detailLabel}>
+                      พื้นที่ (ไร่)
+                      <input value={String(selected.plot.areaRai)} disabled className={detailField} />
+                    </label>
+                    <label className={detailLabel}>
+                      เจ้าของแปลง
+                      <input value={farmerName(selected.farmer)} disabled className={detailField} />
+                    </label>
+                    <label className={detailLabel}>
+                      กลุ่ม
+                      <input
+                        value={groups.find((group) => group.id === selected.farmer.groupId)?.name ?? "ไม่มีกลุ่ม"}
+                        disabled
+                        className={detailField}
+                      />
+                    </label>
+                    <label className={`${detailLabel} col-span-2 sm:col-span-2 lg:col-span-2`}>
+                      ที่ตั้ง
+                      <input
+                        value={placeLabel(selected.plot) === "—" ? "ยังไม่ระบุที่ตั้ง" : placeLabel(selected.plot)}
+                        disabled
+                        className={detailField}
+                      />
+                    </label>
+                    <label className={detailLabel}>
+                      พิกัด
+                      <input
+                        value={
+                          selected.plot.polygon.length >= 4
+                            ? formatCoord(centroid(selected.plot.polygon))
+                            : "ยังไม่มีรูป"
+                        }
+                        disabled
+                        className={detailField}
+                      />
+                    </label>
+                    <label className={detailLabel}>
+                      พันธุ์
+                      <input
+                        value={selected.variety ? varietyName(selected.variety) : "ยังไม่ปลูก"}
+                        disabled
+                        className={detailField}
+                      />
+                    </label>
+                    <label className={detailLabel}>
+                      วันเก็บเกี่ยว
+                      <input
+                        value={selected.planting ? formatThaiDate(selected.planting.harvestOn) : "—"}
+                        disabled
+                        className={detailField}
+                      />
+                    </label>
+                    <label className={detailLabel}>
+                      คาดการณ์
+                      <input
+                        value={
+                          selected.planting
+                            ? selected.planting.estKg > 0
+                              ? formatKg(selected.planting.estKg)
+                              : "ยังไม่คาด"
+                            : "—"
+                        }
+                        disabled
+                        className={detailField}
+                      />
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <div className="px-5 py-3">
+                  <DrawStep
+                    name={selected.plot.name}
+                    replacing={selected.plot.polygon.length >= 4}
+                    draft={draft}
+                    areaText={areaText}
+                    error={boundaryError}
+                    onArea={setAreaText}
+                    onUndo={undoPoint}
+                    onCloseShape={finishShape}
+                    onRedraw={() => {
+                      setDraft([]);
+                      setAreaText("");
+                      setBoundaryError("");
+                    }}
+                    onCancel={() => setDraft(null)}
+                    onSave={saveShape}
+                  />
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -446,6 +499,8 @@ function nearPoint(a: [number, number], b: [number, number]) {
 }
 
 const mapButton = "inline-flex h-9 items-center rounded-[6px] border-2 border-brand bg-white px-3 text-[14px] font-bold text-brand disabled:border-[#D0D0D0] disabled:text-[#B0B0B0]";
+const detailLabel = "block min-w-0 text-[12px] font-bold leading-[1.3]";
+const detailField = "mt-1 h-8 w-full rounded-[4px] border border-line bg-white px-2.5 text-[13px] text-ink disabled:bg-[#E7E7E7]";
 
 function timing(row: Row) {
   if (row.status === "none") return "ยังไม่มีแผน";
