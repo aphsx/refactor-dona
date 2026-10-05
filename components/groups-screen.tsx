@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Pencil, Plus, RotateCcw, Save, Search, Trash2, UserMinus, UserPlus, X } from "lucide-react";
 import { PlantingActivityPanel } from "@/components/activities-screen";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
@@ -16,6 +16,7 @@ import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, 
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
+const PlotDetail = dynamic(() => import("@/components/plot-detail").then((mod) => mod.PlotDetail), { ssr: false });
 
 /** Flip on when rolling out plot tabs under farmer manage. */
 const SHOW_MEMBER_PLOT_TABS = true;
@@ -950,6 +951,7 @@ function MemberPlots({
 }) {
   const { varieties, addPlot, removePlot, revision } = useMill();
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [plantings, setPlantings] = useState<Planting[]>([]);
   const showPlan = onOpenPlan != null || onAddRound != null;
@@ -976,13 +978,16 @@ function MemberPlots({
         plots={plots}
         plantings={plantings}
         farmerId={farmer.id}
+        editingId={editingId}
         onAddRound={onAddRound}
         onOpenPlan={onOpenPlan}
+        onEdit={(plot) => setEditingId(plot.id)}
+        onCloseEdit={() => setEditingId(null)}
         onRemove={(plot) =>
           setNotice({
             tone: "confirm",
             message: `ยืนยันลบแปลง ${plot.name}`,
-            accept: async () => setNotice(await reported(removePlot(plot.id), "ลบแปลงแล้ว")),
+            accept: async () => setNotice(await reported(removePlot(plot.id), "ลบแปลงแล้ว", () => setEditingId(null))),
           })
         }
       />
@@ -1036,15 +1041,21 @@ function PlotTable({
   plots,
   plantings,
   farmerId,
+  editingId,
   onAddRound,
   onOpenPlan,
+  onEdit,
+  onCloseEdit,
   onRemove,
 }: {
   plots: Plot[];
   plantings: Planting[];
   farmerId: string;
+  editingId: string | null;
   onAddRound?: (plotId: string) => void;
   onOpenPlan?: (plotId: string) => void;
+  onEdit: (plot: Plot) => void;
+  onCloseEdit: () => void;
   onRemove: (plot: Plot) => void;
 }) {
   const [mapPlot, setMapPlot] = useState<Plot | null>(null);
@@ -1066,6 +1077,7 @@ function PlotTable({
   const emptyCols = showPlan ? 8 : 4;
   return (
     <>
+    <div className="@container">
     <TableScroll>
 <table className={tableClass}>
         <thead className="bg-table">
@@ -1098,11 +1110,12 @@ function PlotTable({
           {page.rows.map((plot, index) => {
             const round = currentPlanting(plantings, plot.id);
             const harvest = plotHarvest(round);
+            const open = editingId === plot.id;
             return (
+              <Fragment key={plot.id}>
               <tr
-                key={plot.id}
                 onClick={onOpenPlan ? (event) => openRow(event, () => onOpenPlan(plot.id)) : undefined}
-                className={rowTone(index)}
+                className={open ? "bg-sub" : rowTone(index)}
               >
                 <td className="px-5 py-3 font-bold">{plot.name}</td>
                 <td className="px-5 py-3">{plot.areaRai} ไร่</td>
@@ -1117,8 +1130,8 @@ function PlotTable({
                 ) : (
                   <td className="px-5 py-3">{placeLabel(plot) || "—"}</td>
                 )}
-                <td className="px-5 py-3 text-right">
-                  <div className="flex items-center justify-end gap-3">
+                <td className="whitespace-normal px-5 py-3 text-right">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     {showPlan &&
                       (round ? (
                         onOpenPlan && (
@@ -1136,6 +1149,12 @@ function PlotTable({
                           </CanAdd>
                         )
                       ))}
+                    <CanEdit resource="plots">
+                      <SecondaryButton className="h-9" onClick={() => onEdit(plot)}>
+                        <Glyph icon={Pencil} />
+                        แก้ไข
+                      </SecondaryButton>
+                    </CanEdit>
                     <CanDelete resource="plots">
                       <SecondaryButton className="h-9" onClick={() => onRemove(plot)}>
                         <Glyph icon={Trash2} />
@@ -1162,11 +1181,22 @@ function PlotTable({
                   </div>
                 </td>
               </tr>
+              {open && (
+                <tr>
+                  <td colSpan={emptyCols} className="border-t border-frame bg-sub p-0">
+                    <div className="sticky left-0 w-[100cqw] max-w-full whitespace-normal bg-sub">
+                      <PlotDetail embedded initialEditing plot={plot} onClose={onCloseEdit} />
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>
       </table>
-</TableScroll>
+    </TableScroll>
+    </div>
     <Pagination
       page={page.page}
       pageCount={page.pageCount}
