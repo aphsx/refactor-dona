@@ -238,6 +238,7 @@ export function MemberManageScreen() {
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [detailFarmer, setDetailFarmer] = useState<Farmer | null>(null);
+  const [detailPlots, setDetailPlots] = useState<Plot[]>([]);
   const detail = detailFarmer;
   const assignGroupId = draftGroup && draftGroup !== "none" ? draftGroup : (groups[0]?.id ?? "");
   const listingSort = useTableSort(`${name}:${groupId}`);
@@ -256,11 +257,17 @@ export function MemberManageScreen() {
   useEffect(() => {
     if (!detailId) {
       setDetailFarmer(null);
+      setDetailPlots([]);
       return;
     }
     let alive = true;
-    void api.getFarmer(detailId).then((farmer) => {
-      if (alive) setDetailFarmer(farmer);
+    void Promise.all([
+      api.getFarmer(detailId),
+      collectPages((page, pageSize) => api.listPlotsPage({ farmerId: detailId, page, pageSize })),
+    ]).then(([farmer, plots]) => {
+      if (!alive) return;
+      setDetailFarmer(farmer);
+      setDetailPlots(plots);
     });
     return () => {
       alive = false;
@@ -442,6 +449,7 @@ export function MemberManageScreen() {
         {SHOW_MEMBER_PLOT_TABS && tab === "plots" && detail && (
           <MemberPlots
             farmer={detail}
+            plots={detailPlots}
             onAddRound={SHOW_MEMBER_PLAN_TABS ? (plotId) => openPlan(plotId) : undefined}
             onOpenPlan={SHOW_MEMBER_PLAN_TABS ? (plotId) => openPlan(plotId) : undefined}
             onClose={closeDetail}
@@ -929,11 +937,13 @@ function MemberStanding({ farmer, leads }: { farmer: Farmer; leads: SupplierGrou
 
 function MemberPlots({
   farmer,
+  plots,
   onAddRound,
   onOpenPlan,
   onClose,
 }: {
   farmer: Farmer;
+  plots: Plot[];
   onAddRound?: (plotId: string) => void;
   onOpenPlan?: (plotId: string) => void;
   onClose: () => void;
@@ -941,22 +951,18 @@ function MemberPlots({
   const { varieties, addPlot, removePlot, revision } = useMill();
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [fields, setFields] = useState<Plot[]>([]);
   const [plantings, setPlantings] = useState<Planting[]>([]);
+  const showPlan = onOpenPlan != null || onAddRound != null;
   useEffect(() => {
+    if (!showPlan) return;
     let alive = true;
-    void Promise.all([
-      collectPages((page, pageSize) => api.listPlotsPage({ farmerId: farmer.id, page, pageSize })),
-      api.listPlantings({ farmerId: farmer.id }),
-    ]).then(([plots, rounds]) => {
-      if (!alive) return;
-      setFields(plots);
-      setPlantings(rounds);
+    void api.listPlantings({ farmerId: farmer.id }).then((rounds) => {
+      if (alive) setPlantings(rounds);
     });
     return () => {
       alive = false;
     };
-  }, [farmer.id, revision]);
+  }, [farmer.id, revision, showPlan]);
 
   return (
     <>
@@ -967,7 +973,7 @@ function MemberPlots({
         </button>
       </div>
       <PlotTable
-        plots={fields}
+        plots={plots}
         plantings={plantings}
         farmerId={farmer.id}
         onAddRound={onAddRound}
