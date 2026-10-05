@@ -6,7 +6,7 @@ import Map, { Layer, Marker, NavigationControl, Source, type MapLayerMouseEvent,
 
 setWorkerUrl("/maplibre/maplibre-gl-worker.js");
 import { LocateFixed, Map as MapIcon, Satellite } from "lucide-react";
-import { centroid, isClosedRing, openRing } from "@/lib/mill";
+import { isClosedRing, openRing } from "@/lib/mill";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 type MapPlot = {
@@ -37,6 +37,16 @@ const satelliteStyle = {
 export type FieldMapHandle = {
   capturePreview: (ring?: [number, number][] | null) => Promise<Blob | null>;
 };
+
+/** Tip of the pin sits on the north edge of the plot. */
+function labelOutside(polygon: [number, number][]) {
+  const lngs = polygon.map((point) => point[0]);
+  const lats = polygon.map((point) => point[1]);
+  return {
+    lng: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+    lat: Math.max(...lats),
+  };
+}
 
 export const FieldMap = forwardRef<
   FieldMapHandle,
@@ -300,16 +310,24 @@ export const FieldMap = forwardRef<
           </Marker>
         ))}
         {labeled.map((plot) => {
-          const point = centroid(plot.polygon);
+          const point = labelOutside(plot.polygon);
           const active = plot.id === selectedId;
           return (
             <Marker key={plot.id} longitude={point.lng} latitude={point.lat} anchor="bottom">
-              <div
-                className={`mb-1 rounded-[6px] px-2 py-1 text-[12px] font-bold shadow-[0_2px_8px_rgba(0,0,0,0.16)] ${
-                  active ? "bg-[#F4A800] text-white" : "bg-white text-ink"
-                }`}
-              >
-                {plot.name}
+              <div className="flex flex-col items-center">
+                <div
+                  className={`rounded-[6px] px-2 py-0.5 text-[12px] font-bold shadow-[0_2px_8px_rgba(0,0,0,0.16)] ${
+                    active ? "bg-[#F4A800] text-white" : "bg-white text-ink"
+                  }`}
+                >
+                  {plot.name}
+                </div>
+                <span
+                  className={`-mt-px h-0 w-0 border-x-[5px] border-x-transparent border-t-[6px] ${
+                    active ? "border-t-[#F4A800]" : "border-t-white"
+                  }`}
+                  style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.12))" }}
+                />
               </div>
             </Marker>
           );
