@@ -19,8 +19,12 @@ type MapPlot = {
 
 const PREVIEW_SIZE = 256;
 
+const FONT_STACK = ["Noto Sans Bold"] as const;
+const GLYPHS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
+
 const satelliteStyle = {
   version: 8 as const,
+  glyphs: GLYPHS,
   sources: {
     esri: {
       type: "raster" as const,
@@ -38,14 +42,44 @@ export type FieldMapHandle = {
   capturePreview: (ring?: [number, number][] | null) => Promise<Blob | null>;
 };
 
-/** Tip of the pin sits on the north edge of the plot. */
+/** Tip just above the northernmost vertex — a tiny gap outside the fill. */
 function labelOutside(polygon: [number, number][]) {
-  const lngs = polygon.map((point) => point[0]);
-  const lats = polygon.map((point) => point[1]);
-  return {
-    lng: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-    lat: Math.max(...lats),
-  };
+  let best = polygon[0];
+  for (const point of polygon) {
+    if (point[1] > best[1]) best = point;
+  }
+  // ~1–2 m north of the edge (not glued, not floating).
+  return { lng: best[0], lat: best[1] + 0.000012 };
+}
+
+/** Small downward caret for MapLibre symbol icons (no DOM markers). */
+function createPinImage(fill: string): { width: number; height: number; data: Uint8Array } {
+  const width = 24;
+  const height = 14;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return { width, height, data: new Uint8Array(width * height * 4) };
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.moveTo(2, 1);
+  ctx.lineTo(width - 2, 1);
+  ctx.lineTo(width / 2, height - 1);
+  ctx.closePath();
+  ctx.fill();
+  // Soft edge so it reads on imagery.
+  ctx.strokeStyle = "rgba(0,0,0,0.18)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  const pixels = ctx.getImageData(0, 0, width, height).data;
+  return { width, height, data: new Uint8Array(pixels) };
+}
+
+function ensurePinImages(map: { hasImage: (id: string) => boolean; addImage: (id: string, image: { width: number; height: number; data: Uint8Array }, options?: { pixelRatio?: number }) => void }) {
+  if (!map.hasImage("plot-pin")) map.addImage("plot-pin", createPinImage("#ffffff"), { pixelRatio: 2 });
+  if (!map.hasImage("plot-pin-active")) map.addImage("plot-pin-active", createPinImage("#F4A800"), { pixelRatio: 2 });
 }
 
 export const FieldMap = forwardRef<
@@ -64,14 +98,14 @@ export const FieldMap = forwardRef<
   ref,
 ) {
   const mapRef = useRef<MapRef>(null);
+  const modeRef = useRef<"satellite" | "street">("satellite");
   const [mode, setMode] = useState<"satellite" | "street">("satellite");
+  const [pinsReady, setPinsReady] = useState(false);
   const mapStyle = useMemo(
     () => (mode === "satellite" ? structuredClone(satelliteStyle) : "https://tiles.openfreemap.org/styles/positron"),
     [mode],
   );
   const drawn = useMemo(() => plots.filter((plot) => plot.polygon.length >= 4), [plots]);
-  // Name every unmuted plot (all by default; group/search narrows the set).
-  const labeled = useMemo(() => drawn.filter((plot) => !plot.muted), [drawn]);
   const draftOpen = openRing(draft ?? []);
   const draftClosed = draft != null && isClosedRing(draft);
   const drawing = draft != null;
@@ -109,6 +143,35 @@ export const FieldMap = forwardRef<
     }),
     [drawn],
   );
+
+  // GPU labels (symbol layer) — unmuted plots only; collision hides clutter when zoomed out.
+  const labelData = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: drawn
+        .filter((plot) => !plot.muted)
+        .map((plot) => {
+          const point = labelOutside(plot.polygon);
+          return {
+            type: "Feature" as const,
+            properties: {
+              id: plot.id,
+              name: plot.name,
+              selected: plot.id === selectedId ? 1 : 0,
+            },
+            geometry: { type: "Point" as const, coordinates: [point.lng, point.lat] },
+          };
+        }),
+    }),
+    [drawn, selectedId],
+  );
+
+  function bindPinImages() {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    ensurePinImages(map);
+    setPinsReady(true);
+  }
 
   function flyToFocus() {
     const map = mapRef.current;
@@ -166,6 +229,24 @@ export const FieldMap = forwardRef<
     // Recenter on selection / place / basemap / draw phase — not on each new vertex.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameKey]);
+
+  // Style swap (satellite ↔ street) drops custom images — re-register pins.
+  useEffect(() => {
+    if (modeRef.current !== mode) {
+      modeRef.current = mode;
+      setPinsReady(false);
+    }
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const onStyle = () => {
+      ensurePinImages(map);
+      setPinsReady(true);
+    };
+    map.on("style.load", onStyle);
+    return () => {
+      map.off("style.load", onStyle);
+    };
+  }, [mode]);
 
   useImperativeHandle(ref, () => ({
     async capturePreview(ring) {
@@ -262,7 +343,10 @@ export const FieldMap = forwardRef<
         mapStyle={mapStyle}
         // Required so getCanvas() can export a preview after drawing.
         {...({ preserveDrawingBuffer: true } as Record<string, unknown>)}
-        onLoad={fitFrame}
+        onLoad={() => {
+          bindPinImages();
+          fitFrame();
+        }}
         interactiveLayerIds={["plot-fill"]}
         onClick={selectFromMap}
         cursor={onDraftClick ? "crosshair" : "pointer"}
@@ -287,6 +371,60 @@ export const FieldMap = forwardRef<
             }}
           />
         </Source>
+        {pinsReady && (
+          <Source id="plot-labels" type="geojson" data={labelData}>
+            <Layer
+              id="plot-labels"
+              type="symbol"
+              filter={["!=", ["get", "selected"], 1]}
+              layout={{
+                "icon-image": "plot-pin",
+                "icon-anchor": "bottom",
+                "icon-size": 0.9,
+                "icon-allow-overlap": false,
+                "text-field": ["get", "name"],
+                "text-font": [...FONT_STACK],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 11, 10, 15, 12, 18, 13],
+                "text-anchor": "bottom",
+                "text-offset": [0, -0.85],
+                "text-allow-overlap": false,
+                "text-optional": true,
+              }}
+              paint={{
+                "text-color": "#1C2430",
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.6,
+                "text-halo-blur": 0.2,
+                "icon-opacity": 0.95,
+              }}
+            />
+            <Layer
+              id="plot-label-selected"
+              type="symbol"
+              filter={["==", ["get", "selected"], 1]}
+              layout={{
+                "icon-image": "plot-pin-active",
+                "icon-anchor": "bottom",
+                "icon-size": 0.95,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "text-field": ["get", "name"],
+                "text-font": [...FONT_STACK],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 11, 11, 15, 13, 18, 14],
+                "text-anchor": "bottom",
+                "text-offset": [0, -0.9],
+                "text-allow-overlap": true,
+                "text-ignore-placement": true,
+              }}
+              paint={{
+                "text-color": "#ffffff",
+                "text-halo-color": "#F4A800",
+                "text-halo-width": 2,
+                "text-halo-blur": 0.2,
+              }}
+            />
+          </Source>
+        )}
         {draftData && (
           <Source id="draft" type="geojson" data={draftData}>
             {draftClosed ? (
@@ -302,29 +440,6 @@ export const FieldMap = forwardRef<
             <span className="block h-3 w-3 rounded-full border-2 border-white bg-[#F4A800]" />
           </Marker>
         ))}
-        {labeled.map((plot) => {
-          const point = labelOutside(plot.polygon);
-          const active = plot.id === selectedId;
-          return (
-            <Marker key={plot.id} longitude={point.lng} latitude={point.lat} anchor="bottom">
-              <div className="flex flex-col items-center">
-                <div
-                  className={`rounded-[6px] px-2 py-0.5 text-[12px] font-bold shadow-[0_2px_8px_rgba(0,0,0,0.16)] ${
-                    active ? "bg-[#F4A800] text-white" : "bg-white text-ink"
-                  }`}
-                >
-                  {plot.name}
-                </div>
-                <span
-                  className={`-mt-px h-0 w-0 border-x-[5px] border-x-transparent border-t-[6px] ${
-                    active ? "border-t-[#F4A800]" : "border-t-white"
-                  }`}
-                  style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.12))" }}
-                />
-              </div>
-            </Marker>
-          );
-        })}
       </Map>
       <div className="absolute right-14 top-4 z-10 flex gap-2">
         <button
