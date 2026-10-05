@@ -8,7 +8,7 @@ import { Search } from "lucide-react";
 import { CanEdit } from "@/components/can";
 import type { FieldMapHandle } from "@/components/field-map";
 import { useMill } from "@/components/store";
-import { SuggestInput, matchesQuery } from "@/components/ui";
+import { SearchSelect, matchesQuery } from "@/components/ui";
 import { api, measureRingAreaRai } from "@/lib/api";
 import {
   centroid,
@@ -55,13 +55,15 @@ export function MapScreen() {
   const { groups, saveBoundary } = useMill();
   const mapRef = useRef<FieldMapHandle>(null);
   const [query, setQuery] = useState("");
-  const [groupText, setGroupText] = useState("");
+  /** "" = all groups, "none" = ungrouped, else group uuid */
+  const [groupId, setGroupId] = useState("");
   const [plotId, setPlotId] = useState<string | null>(requestedPlot);
   const [draft, setDraft] = useState<[number, number][] | null>(null);
   const [areaText, setAreaText] = useState("");
   const [boundaryError, setBoundaryError] = useState("");
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [boundaries, setBoundaries] = useState<PlotBoundary[]>([]);
+  const [allDrawnCount, setAllDrawnCount] = useState(0);
   const [boundariesError, setBoundariesError] = useState("");
   const [detail, setDetail] = useState<Plot | null>(null);
   const [detailPlanting, setDetailPlanting] = useState<Planting | null>(null);
@@ -75,14 +77,17 @@ export function MapScreen() {
     setBoundaryError("");
   }, [plotId]);
 
-  // Map loads name+ring only when this tab opens — not via mill snapshot.
+  // Load rings from API; pass groupId so the server filters (response rows may omit groupId).
   useEffect(() => {
     let alive = true;
     setBoundariesError("");
+    setBoundaries([]);
     void api
-      .listPlotBoundaries()
+      .listPlotBoundaries(groupId ? { groupId } : undefined)
       .then((items) => {
-        if (alive) setBoundaries(items);
+        if (!alive) return;
+        setBoundaries(items);
+        if (!groupId) setAllDrawnCount(items.length);
       })
       .catch(() => {
         if (alive) setBoundariesError("โหลดขอบเขตแปลงไม่สำเร็จ");
@@ -90,7 +95,7 @@ export function MapScreen() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [groupId]);
 
   // Detail panel fetches full plot on select.
   useEffect(() => {
@@ -162,24 +167,21 @@ export function MapScreen() {
     });
   }, [boundaries]);
 
-  const groupNames = useMemo(
-    () => [...groups].map((group) => group.name).sort((a, b) => a.localeCompare(b, "th")),
+  const groupOptions = useMemo(
+    () => [
+      { value: "", label: "ทุกกลุ่ม" },
+      { value: "none", label: "ไม่มีกลุ่ม" },
+      ...[...groups]
+        .sort((a, b) => a.name.localeCompare(b.name, "th"))
+        .map((group) => ({ value: group.id, label: group.name })),
+    ],
     [groups],
   );
 
   const scoped = useMemo(() => {
-    return rows.filter((row) => {
-      const groupName = row.farmer.groupName || groups.find((group) => group.id === row.farmer.groupId)?.name || "";
-      if (groupText.trim()) {
-        if (groupText.trim() === "ไม่มีกลุ่ม") {
-          if (row.farmer.groupId != null) return false;
-        } else if (!matchesQuery(groupText, groupName)) {
-          return false;
-        }
-      }
-      return matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.tel}`);
-    });
-  }, [rows, groups, groupText, query]);
+    // Group is already applied by GET /plots/boundaries?groupId=…
+    return rows.filter((row) => matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.tel}`));
+  }, [rows, query]);
 
   useEffect(() => {
     if (plotId && !scoped.some((row) => row.plot.id === plotId)) {
@@ -260,11 +262,15 @@ export function MapScreen() {
       return;
     }
     setBoundaries((current) => {
+      const prev = current.find((item) => item.id === selected.plot.id);
       const next = current.filter((item) => item.id !== selected.plot.id);
       next.push({
         id: selected.plot.id,
         farmerId: selected.plot.farmerId,
         name: selected.plot.name,
+        ownerName: prev?.ownerName ?? selected.farmer.firstName,
+        groupId: prev?.groupId ?? selected.farmer.groupId,
+        groupName: prev?.groupName ?? selected.farmer.groupName,
         polygon: draft,
       });
       return next;
@@ -273,9 +279,9 @@ export function MapScreen() {
     setDraft(null);
   }
 
-  const drawnCount = rows.filter((row) => row.plot.polygon.length >= 4 || row.plot.hasBoundary).length;
   const scopedDrawn = scoped.filter((row) => row.plot.polygon.length >= 4).length;
-  const showingAll = !query.trim() && !groupText.trim();
+  const drawnCount = allDrawnCount || scopedDrawn;
+  const showingAll = !query.trim() && !groupId;
   const mapPlots = rows
     .filter((row) => row.plot.polygon.length >= 4)
     .map((row) => ({
@@ -285,10 +291,15 @@ export function MapScreen() {
       muted: !listedIds.has(row.plot.id),
       polygon: row.plot.polygon,
     }));
+  const mapFocus = selected
+    ? selected.plot.polygon.length >= 4
+      ? { ...centroid(selected.plot.polygon), zoom: 16 }
+      : placeCenter(selected.plot)
+    : null;
 
   function showAll() {
     setQuery("");
-    setGroupText("");
+    setGroupId("");
     setPlotId(null);
     setSuggestOpen(false);
   }
@@ -308,7 +319,7 @@ export function MapScreen() {
           onSelect={choosePlot}
           draft={draft}
           onDraftClick={draft != null && !isClosedRing(draft) ? placePoint : undefined}
-          focus={selected ? placeCenter(selected.plot) : null}
+          focus={mapFocus}
           bottomInset={selected ? 180 : undefined}
         />
         <div className="absolute left-4 top-4 z-20 w-[300px] space-y-3 rounded-[8px] border border-frame bg-white p-3 shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
@@ -333,6 +344,21 @@ export function MapScreen() {
               ทั้งหมด
             </button>
           </div>
+          <label className="block text-[13px] font-bold">
+            กลุ่ม
+            <SearchSelect
+              label="กลุ่ม"
+              className="mt-1"
+              value={groupId}
+              onChange={(value) => {
+                setGroupId(value);
+                // Drop single-plot focus so the map frames the whole group.
+                setPlotId(null);
+              }}
+              options={groupOptions}
+              placeholder="เลือกกลุ่ม"
+            />
+          </label>
           <div className="relative">
             <Search size={16} strokeWidth={1.75} className="absolute left-3 top-3 text-ink/40" />
             <input
@@ -372,20 +398,6 @@ export function MapScreen() {
               <div className="mt-1 rounded-[4px] border border-line px-3 py-2 text-[13px] text-ink/60">ไม่พบรายการ</div>
             )}
           </div>
-          <label className="block text-[13px] font-bold">
-            กลุ่ม
-            <SuggestInput
-              label="กลุ่ม"
-              className="mt-1"
-              value={groupText}
-              onChange={(value) => {
-                setGroupText(value);
-                // Drop single-plot focus so the map frames the whole group.
-                setPlotId(null);
-              }}
-              suggestions={["ไม่มีกลุ่ม", ...groupNames]}
-            />
-          </label>
         </div>
           {selected && (
             <div className="absolute inset-x-4 bottom-4 z-20 overflow-hidden rounded-[8px] border border-frame bg-white shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
@@ -435,7 +447,12 @@ export function MapScreen() {
                     <label className={detailLabel}>
                       กลุ่ม
                       <input
-                        value={selected.farmer.groupName || groups.find((group) => group.id === selected.farmer.groupId)?.name || "ไม่มีกลุ่ม"}
+                        value={
+                          selected.farmer.groupName ||
+                          groups.find((group) => group.id === selected.farmer.groupId)?.name ||
+                          (groupId && groupId !== "none" ? groups.find((group) => group.id === groupId)?.name : null) ||
+                          "ไม่มีกลุ่ม"
+                        }
                         disabled
                         className={detailField}
                       />

@@ -191,12 +191,6 @@ export const FieldMap = forwardRef<
     // User is placing vertices — keep their pan/zoom.
     if (drawingActive) return;
 
-    // Fresh draw: jump to the selected place once, not to other plots.
-    if (drawing && focus) {
-      flyToFocus();
-      return;
-    }
-
     if (drawn.length === 0) {
       flyToFocus();
       return;
@@ -204,15 +198,29 @@ export const FieldMap = forwardRef<
 
     // Group/search with nothing picked → frame the whole filter set.
     // Click a plot → zoom into that plot for detail (close panel to see group again).
+    // Fresh edit of an existing ring → stay on that polygon (do not jump to placeCenter).
+    // Fresh draw with no ring yet → fall through to place focus below.
     const active = drawn.filter((plot) => !plot.muted);
     const picked = selectedId ? drawn.filter((plot) => plot.id === selectedId) : [];
-    if (selectedId && picked.length === 0) {
+    if (selectedId && picked.length === 0 && !drawing) {
       flyToFocus();
       return;
     }
 
-    const subject = picked.length > 0 ? picked : active;
-    const frame = subject.length > 0 ? subject : drawn;
+    const subject = picked.length > 0 ? picked : drawing ? [] : active;
+    if (subject.length === 0) {
+      // New boundary (no ring yet): jump to the selected place once.
+      if (drawing && focus) {
+        flyToFocus();
+        return;
+      }
+    }
+
+    const frame = subject.length > 0 ? subject : active.length > 0 ? active : drawn;
+    if (frame.length === 0) {
+      flyToFocus();
+      return;
+    }
     const lngs = frame.flatMap((plot) => plot.polygon.map((point) => point[0]));
     const lats = frame.flatMap((plot) => plot.polygon.map((point) => point[1]));
     map.fitBounds(

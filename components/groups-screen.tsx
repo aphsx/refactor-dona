@@ -2456,7 +2456,7 @@ export function DrawBoundary({
   return (
     <Dialog title={title} wide onClose={onClose}>
       <p className="mb-3 text-[14px]">คลิกบนแผนที่เพื่อวางจุด แล้วคลิกจุดแรกหรือกดปิดรูป ที่อยู่จะถูกใส่จากตำแหน่งรูป</p>
-      <div className="h-[calc(100vh-20rem)]">
+      <div className="h-[calc(100vh-12rem)]">
         <FieldMap
           ref={mapRef}
           plots={mapPlots}
