@@ -222,7 +222,7 @@ export function GroupManageScreen() {
 }
 
 export function MemberManageScreen() {
-  const { groups, roleGrants, assignFarmer, revision } = useMill();
+  const { groups, roleGrants, assignFarmer, revision, farmerPage } = useMill();
   const router = useRouter();
   const requestedId = useSearchParams().get("farmer");
   const requested = requestedId;
@@ -240,13 +240,16 @@ export function MemberManageScreen() {
   const detail = detailFarmer;
   const assignGroupId = draftGroup && draftGroup !== "none" ? draftGroup : (groups[0]?.id ?? "");
   const listingSort = useTableSort(`${name}:${groupId}`);
-  const page = useServerPage(`${name}:${groupId}:${revision}`, (pageNo, pageSize) =>
-    api.listFarmersPage({
-      q: name,
-      groupId: groupId || undefined,
-      page: pageNo,
-      pageSize,
-    }),
+  const page = useServerPage(
+    `${name}:${groupId}:${revision}`,
+    (pageNo, pageSize) =>
+      api.listFarmersPage({
+        q: name,
+        groupId: groupId || undefined,
+        page: pageNo,
+        pageSize,
+      }),
+    name === "" && groupId === "" ? farmerPage : null,
   );
 
   useEffect(() => {

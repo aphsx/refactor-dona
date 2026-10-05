@@ -282,8 +282,15 @@ export type RoleGrant = {
   role: "mill";
 };
 
+export type FarmerPage = {
+  items: Farmer[];
+  total: number;
+};
+
 export type MillSnapshot = {
   farmers: Farmer[];
+  /** First page of the member list, loaded with login so the default 20 can paint immediately. */
+  farmerPage: FarmerPage;
   groups: SupplierGroup[];
   plots: Plot[];
   plantings: Planting[];

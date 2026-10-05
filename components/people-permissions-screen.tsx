@@ -19,13 +19,15 @@ type Notice =
   | { tone: "success" | "error"; message: string };
 
 export function PeoplePermissionsScreen() {
-  const { groups, roleGrants, revision } = useMill();
+  const { groups, roleGrants, revision, farmerPage } = useMill();
   const [draftName, setDraftName] = useState("");
   const [name, setName] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
   const listingSort = useTableSort(name);
-  const page = useServerPage(`${name}:${revision}`, (pageNo, pageSize) =>
-    api.listFarmersPage({ q: name, page: pageNo, pageSize }),
+  const page = useServerPage(
+    `${name}:${revision}`,
+    (pageNo, pageSize) => api.listFarmersPage({ q: name, page: pageNo, pageSize }),
+    name === "" ? farmerPage : null,
   );
   const ordered = orderBy(page.rows, listingSort.sort, (farmer, key) => {
     if (key === "tel") return farmer.tel;

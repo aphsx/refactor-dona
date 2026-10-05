@@ -14,12 +14,14 @@ import { farmerName, formatKg, personRole, roleTitle } from "@/lib/mill";
 
 export function FarmersScreen() {
   const router = useRouter();
-  const { groups, roleGrants, revision } = useMill();
+  const { groups, roleGrants, revision, farmerPage } = useMill();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
-  const page = useServerPage(`${query}:${revision}`, (pageNo, pageSize) =>
-    api.listFarmersPage({ q: query, page: pageNo, pageSize }),
+  const page = useServerPage(
+    `${query}:${revision}`,
+    (pageNo, pageSize) => api.listFarmersPage({ q: query, page: pageNo, pageSize }),
+    query === "" ? farmerPage : null,
   );
 
   return (

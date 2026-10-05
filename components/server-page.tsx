@@ -5,11 +5,12 @@ import { useEffect, useState } from "react";
 export function useServerPage<T>(
   resetKey: string,
   load: (page: number, pageSize: number) => Promise<{ items?: T[] | null; total: number }>,
+  initial?: { items?: T[] | null; total: number } | null,
 ) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [rows, setRows] = useState<T[]>([]);
-  const [total, setTotal] = useState(0);
+  const [rows, setRows] = useState<T[]>(() => initial?.items ?? []);
+  const [total, setTotal] = useState(() => initial?.total ?? 0);
 
   useEffect(() => {
     setPage(1);

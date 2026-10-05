@@ -82,6 +82,7 @@ type Store = MillSnapshot & {
 
 const empty: MillSnapshot = {
   farmers: [],
+  farmerPage: { items: [], total: 0 },
   groups: [],
   plots: [],
   plantings: [],
