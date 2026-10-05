@@ -374,7 +374,7 @@ export function MemberSeasonScreen() {
               <Glyph icon={Search} />
               ค้นหา
             </PrimaryButton>
-            <SecondaryButton
+            <PrimaryButton
               type="button"
               onClick={() => {
                 setDraft(emptyMemberQuery);
@@ -385,7 +385,7 @@ export function MemberSeasonScreen() {
             >
               <Glyph icon={RotateCcw} />
               ล้าง
-            </SecondaryButton>
+            </PrimaryButton>
           </div>
         </form>
       </div>

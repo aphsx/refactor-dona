@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, Save, Trash2, Undo2, X } from "lucide-react";
+import { Pencil, Save, Trash2, X } from "lucide-react";
 import { CanDelete, CanEdit } from "@/components/can";
 import { useMill } from "@/components/store";
 import { api } from "@/lib/api";
-import { ConfirmAlert, DateField, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
+import { ConfirmAlert, DateField, DirtyUndoButton, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
 import {
   currentActivityStage,
   formatRai,
@@ -351,10 +351,7 @@ export function PlanEditor({
           <CanEdit resource="plantings">
             {editing ? (
               <>
-                <SecondaryButton type="button" onClick={undo}>
-                  <Glyph icon={Undo2} />
-                  {dirty ? "เลิกทำ" : "ยกเลิก"}
-                </SecondaryButton>
+                <DirtyUndoButton onClick={undo} dirty={dirty} />
                 <PrimaryButton type="submit">
                   <Glyph icon={Save} />
                   บันทึกแผน

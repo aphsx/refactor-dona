@@ -48,7 +48,8 @@ export function FarmersScreen() {
             <Glyph icon={Search} />
             ค้นหา
           </PrimaryButton>
-          <SecondaryButton
+          <PrimaryButton
+            type="button"
             onClick={() => {
               setDraft("");
               setQuery("");
@@ -56,7 +57,7 @@ export function FarmersScreen() {
           >
             <Glyph icon={RotateCcw} />
             ล้าง
-          </SecondaryButton>
+          </PrimaryButton>
         </form>
       </div>
       <div className="overflow-hidden rounded-[8px] border border-frame">

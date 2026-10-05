@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, X } from "lucide-react";
+import { Pencil, Plus, RotateCcw, Save, Search, Trash2, X } from "lucide-react";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { useMill } from "@/components/store";
 import {
   ConfirmAlert,
   Dialog,
+  DirtyUndoButton,
   Glyph,
   PageHeader,
   Pagination,
@@ -106,7 +107,8 @@ export function VarietiesManageScreen() {
               <Glyph icon={Search} />
               ค้นหา
             </PrimaryButton>
-            <SecondaryButton
+            <PrimaryButton
+              type="button"
               onClick={() => {
                 setDraftName("");
                 setName("");
@@ -114,7 +116,7 @@ export function VarietiesManageScreen() {
             >
               <Glyph icon={RotateCcw} />
               ล้าง
-            </SecondaryButton>
+            </PrimaryButton>
             <CanAdd resource="varieties">
               <SecondaryButton onClick={() => setCreating(true)}>
                 <Glyph icon={Plus} />
@@ -169,13 +171,17 @@ export function VarietiesManageScreen() {
                         <CanEdit resource="varieties">
                           {editing ? (
                             <>
-                              <SecondaryButton type="button" className="h-9" onClick={cancelEdit}>
-                                <Glyph icon={Undo2} />
-                                ยกเลิก
-                              </SecondaryButton>
+                              <DirtyUndoButton
+                                compact
+                                dirty={editName !== item.name}
+                                onClick={() => {
+                                  if (editName !== item.name) setEditName(item.name);
+                                  else cancelEdit();
+                                }}
+                              />
                               <PrimaryButton
                                 type="button"
-                                className="h-9"
+                                compact
                                 onClick={() => {
                                   if (!editName.trim()) {
                                     setNotice({ tone: "error", message: "กรอกชื่อพันธุ์" });
@@ -350,7 +356,8 @@ export function ProductKindsManageScreen() {
               <Glyph icon={Search} />
               ค้นหา
             </PrimaryButton>
-            <SecondaryButton
+            <PrimaryButton
+              type="button"
               onClick={() => {
                 setDraftName("");
                 setName("");
@@ -358,7 +365,7 @@ export function ProductKindsManageScreen() {
             >
               <Glyph icon={RotateCcw} />
               ล้าง
-            </SecondaryButton>
+            </PrimaryButton>
             <CanAdd resource="productKinds">
               <SecondaryButton onClick={() => setCreating(true)}>
                 <Glyph icon={Plus} />
@@ -413,13 +420,17 @@ export function ProductKindsManageScreen() {
                         <CanEdit resource="productKinds">
                           {editing ? (
                             <>
-                              <SecondaryButton type="button" className="h-9" onClick={cancelEdit}>
-                                <Glyph icon={Undo2} />
-                                ยกเลิก
-                              </SecondaryButton>
+                              <DirtyUndoButton
+                                compact
+                                dirty={editName !== item.name}
+                                onClick={() => {
+                                  if (editName !== item.name) setEditName(item.name);
+                                  else cancelEdit();
+                                }}
+                              />
                               <PrimaryButton
                                 type="button"
-                                className="h-9"
+                                compact
                                 onClick={() => {
                                   if (!editName.trim()) {
                                     setNotice({ tone: "error", message: "กรอกชื่อชนิดสินค้า" });

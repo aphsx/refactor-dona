@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleX, Search, X, type LucideIcon } from "lucide-react";
+import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleX, RotateCcw, Search, X, type LucideIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import { farmerHandle, formatThaiDate, formatThaiMonth } from "@/lib/mill";
 
@@ -103,16 +103,31 @@ export function matchesQuery(query: string, text: string) {
 export function PrimaryButton({
   children,
   className = "",
+  compact = false,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { compact?: boolean }) {
   return (
     <button
       type="button"
       {...props}
-      className={`inline-flex h-10 cursor-pointer select-none items-center justify-center gap-2 rounded-[6px] bg-brand px-4 text-[14px] font-bold text-white transition-colors hover:bg-brand-hover active:bg-sidebar disabled:pointer-events-none disabled:bg-[#D0D0D0] ${className}`}
+      className={`inline-flex cursor-pointer select-none items-center justify-center rounded-[6px] bg-brand text-[14px] font-bold text-white transition-colors hover:bg-brand-hover active:bg-sidebar disabled:pointer-events-none disabled:bg-[#D0D0D0] ${compact ? "h-8 gap-2 px-3" : "h-10 gap-4 px-5"} ${className}`}
     >
       {children}
     </button>
+  );
+}
+
+export function DirtyUndoButton({
+  dirty,
+  compact = false,
+  className = "",
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { dirty: boolean; compact?: boolean }) {
+  return (
+    <PrimaryButton compact={compact} className={className} {...props}>
+      <Glyph icon={dirty ? RotateCcw : CircleX} />
+      {dirty ? "เลิกทำ" : "ยกเลิก"}
+    </PrimaryButton>
   );
 }
 

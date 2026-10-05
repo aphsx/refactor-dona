@@ -3,12 +3,12 @@
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, UserMinus, UserPlus, X } from "lucide-react";
+import { Pencil, Plus, RotateCcw, Save, Search, Trash2, UserMinus, UserPlus, X } from "lucide-react";
 import { PlantingActivityPanel } from "@/components/activities-screen";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
 import { useMill } from "@/components/store";
-import { DateField, Dialog, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
+import { DateField, Dialog, DirtyUndoButton, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { api, collectPages, measureRingAreaRai } from "@/lib/api";
 import { useServerPage } from "@/components/server-page";
 import type { FieldMapHandle } from "@/components/field-map";
@@ -145,7 +145,8 @@ export function GroupManageScreen() {
                 <Glyph icon={Search} />
                 ค้นหา
               </PrimaryButton>
-              <SecondaryButton
+              <PrimaryButton
+                type="button"
                 onClick={() => {
                   setDraftName("");
                   setDraftLeader("");
@@ -155,7 +156,7 @@ export function GroupManageScreen() {
               >
                 <Glyph icon={RotateCcw} />
                 ล้าง
-              </SecondaryButton>
+              </PrimaryButton>
               <CanAdd resource="groups">
                 <SecondaryButton onClick={() => setCreatingGroup(true)}>
                   <Glyph icon={Plus} />
@@ -338,7 +339,8 @@ export function MemberManageScreen() {
                 <Glyph icon={Search} />
                 ค้นหา
               </PrimaryButton>
-              <SecondaryButton
+              <PrimaryButton
+                type="button"
                 onClick={() => {
                   setDraftName("");
                   setDraftGroup("");
@@ -348,7 +350,7 @@ export function MemberManageScreen() {
               >
                 <Glyph icon={RotateCcw} />
                 ล้าง
-              </SecondaryButton>
+              </PrimaryButton>
               <CanEdit resource="farmers">
                 <SecondaryButton onClick={() => setMoving(true)}>
                   <Glyph icon={UserPlus} />
@@ -626,10 +628,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
           <CanEdit resource="groups">
             {editing ? (
               <>
-                <SecondaryButton type="button" onClick={undo}>
-                  <Glyph icon={Undo2} />
-                  {dirty ? "เลิกทำ" : "ยกเลิก"}
-                </SecondaryButton>
+                <DirtyUndoButton onClick={undo} dirty={dirty} />
                 <PrimaryButton type="submit">
                   <Glyph icon={Save} />
                   บันทึก
@@ -863,10 +862,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             <CanEdit resource="farmers">
               {editing ? (
                 <>
-                  <SecondaryButton type="button" onClick={undo}>
-                    <Glyph icon={Undo2} />
-                    {dirty ? "เลิกทำ" : "ยกเลิก"}
-                  </SecondaryButton>
+                  <DirtyUndoButton onClick={undo} dirty={dirty} />
                   <PrimaryButton type="submit">
                     <Glyph icon={Save} />
                     บันทึก
@@ -1880,10 +1876,7 @@ export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void
           <CanEdit resource="plantings">
             {editing ? (
               <>
-                <SecondaryButton type="button" onClick={undo}>
-                  <Glyph icon={Undo2} />
-                  {dirty ? "เลิกทำ" : "ยกเลิก"}
-                </SecondaryButton>
+                <DirtyUndoButton onClick={undo} dirty={dirty} />
                 <PrimaryButton type="submit">
                   <Glyph icon={Save} />
                   บันทึก

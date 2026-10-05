@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, RotateCcw, Save, Search, Trash2, Undo2, X } from "lucide-react";
+import { Pencil, Plus, RotateCcw, Save, Search, Trash2, X } from "lucide-react";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlaceSelects, PlotDialog, DrawBoundary } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
@@ -17,6 +17,7 @@ import {
   Glyph,
   PageHeader,
   Pagination,
+  DirtyUndoButton,
   PrimaryButton,
   ResultAlert,
   SearchSelect,
@@ -181,7 +182,8 @@ export function PlotManageScreen() {
                 <Glyph icon={Search} />
                 ค้นหา
               </PrimaryButton>
-              <SecondaryButton
+              <PrimaryButton
+                type="button"
                 onClick={() => {
                   setDraftName("");
                   setDraftFarmer("");
@@ -193,7 +195,7 @@ export function PlotManageScreen() {
               >
                 <Glyph icon={RotateCcw} />
                 ล้าง
-              </SecondaryButton>
+              </PrimaryButton>
             </div>
           </form>
         </div>
@@ -485,10 +487,7 @@ function PlotDetail({ plot, onClose }: { plot: Plot; onClose: () => void }) {
           <CanEdit resource="plots">
             {editing ? (
               <>
-                <SecondaryButton type="button" onClick={undo}>
-                  <Glyph icon={Undo2} />
-                  {dirty ? "เลิกทำ" : "ยกเลิก"}
-                </SecondaryButton>
+                <DirtyUndoButton onClick={undo} dirty={dirty} />
                 <PrimaryButton type="submit">
                   <Glyph icon={Save} />
                   บันทึก
