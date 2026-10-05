@@ -1024,7 +1024,7 @@ function MemberPlots({
         />
       )}
       {editingPlot && (
-        <Dialog title={`แก้ไขแปลง · ${editingPlot.name}`} wide soft onClose={() => setEditingId(null)}>
+        <Dialog title={`แก้ไขแปลง · ${editingPlot.name}`} wide onClose={() => setEditingId(null)}>
           <PlotDetail embedded initialEditing plot={editingPlot} onClose={() => setEditingId(null)} />
         </Dialog>
       )}
@@ -1073,7 +1073,6 @@ function PlotTable({
     return plotHarvest(round).label;
   });
   const page = usePagination(ordered, farmerId);
-  const shaped = mapPlot != null && mapPlot.polygon.length >= 4;
   const emptyCols = showPlan ? 8 : 4;
   return (
     <>
@@ -1166,7 +1165,6 @@ function PlotTable({
                           setMapPlot(plot);
                           return;
                         }
-                        // List rows omit the ring — always fetch before concluding there is none.
                         void api
                           .getPlot(plot.id)
                           .then(setMapPlot)
@@ -1193,20 +1191,13 @@ function PlotTable({
       onPageSizeChange={page.setPageSize}
     />
     {mapPlot && (
-      <Dialog title={`แผนที่ · ${mapPlot.name}`} wide onClose={() => setMapPlot(null)}>
-        {shaped ? (
-          <div className="h-[calc(100vh-12rem)]">
-            <FieldMap
-              plots={[{ id: mapPlot.id, name: mapPlot.name, color: "#5098BA", muted: false, polygon: mapPlot.polygon }]}
-              selectedId={mapPlot.id}
-              onSelect={() => {}}
-              bottomInset={64}
-            />
-          </div>
-        ) : (
-          <p className="text-[14px] text-ink/60">ยังไม่มีรูปแปลง</p>
-        )}
-      </Dialog>
+      <PlotMapDialog
+        plot={mapPlot}
+        neighborPlots={plots}
+        persist
+        onClose={() => setMapPlot(null)}
+        onPlotUpdated={setMapPlot}
+      />
     )}
     </>
   );
@@ -2347,6 +2338,11 @@ export function PlotDialog({
       {drawing && (
         <DrawBoundary
           plots={neighborPlots.filter((plot) => plot.hasBoundary || plot.polygon.length >= 4)}
+          subject={
+            boundary.length >= 4
+              ? { id: "__draft__", name: plotName.trim() || "แปลงใหม่", polygon: boundary }
+              : null
+          }
           draft={draft}
           onDraft={setDraft}
           place={{ provinceId, districtId, subdistrictId }}
@@ -2375,6 +2371,159 @@ export function PlotDialog({
   );
 }
 
+export function PlotMapDialog({
+  plot,
+  neighborPlots = [],
+  startEditing = false,
+  persist = false,
+  onClose,
+  onApplied,
+  onPlotUpdated,
+}: {
+  plot: Plot;
+  neighborPlots?: Plot[];
+  /** Open already in draw/edit mode (same map as รูปแปลง). */
+  startEditing?: boolean;
+  /** Save boundary to the API when confirming the shape. */
+  persist?: boolean;
+  onClose: () => void;
+  /** Form draft path — apply ring locally without saving yet. */
+  onApplied?: (ring: [number, number][], preview: Blob | null, areaRai: number) => void | Promise<void>;
+  onPlotUpdated?: (plot: Plot) => void;
+}) {
+  const { saveBoundary } = useMill();
+  const [full, setFull] = useState(plot);
+  const [editing, setEditing] = useState(startEditing);
+  const [draft, setDraft] = useState<[number, number][]>([]);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const shaped = full.polygon.length >= 4;
+
+  useEffect(() => {
+    setFull(plot);
+  }, [plot]);
+
+  useEffect(() => {
+    if (plot.polygon.length >= 4) return;
+    let alive = true;
+    void api.getPlot(plot.id).then((item) => {
+      if (alive) setFull(item);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [plot.id, plot.polygon.length]);
+
+  function beginEdit() {
+    setDraft([]);
+    setEditing(true);
+  }
+
+  if (editing) {
+    return (
+      <>
+        <DrawBoundary
+          title={shaped ? `แก้ไขขอบเขต · ${full.name}` : `วาดขอบเขต · ${full.name}`}
+          plots={neighborPlots.filter((item) => item.id !== full.id && (item.hasBoundary || item.polygon.length >= 4))}
+          subject={full}
+          excludeId={full.id}
+          draft={draft}
+          onDraft={setDraft}
+          place={{ provinceId: full.provinceId, districtId: full.districtId, subdistrictId: full.subdistrictId }}
+          onUse={(ring, preview) => {
+            void (async () => {
+              const areaRai = await measureRingAreaRai(ring);
+              if (areaRai == null) return;
+              if (persist) {
+                const error = await saveBoundary(full.id, ring, areaRai, preview);
+                if (error) {
+                  setNotice({ tone: "error", message: error });
+                  return;
+                }
+                const next = { ...full, polygon: ring, areaRai, hasBoundary: true };
+                setFull(next);
+                onPlotUpdated?.(next);
+                setDraft([]);
+                setEditing(false);
+                setNotice({ tone: "success", message: "บันทึกขอบเขตแล้ว" });
+                return;
+              }
+              if (onApplied) {
+                await onApplied(ring, preview, areaRai);
+                onClose();
+                return;
+              }
+              setEditing(false);
+              setDraft([]);
+            })();
+          }}
+          onClose={() => {
+            if (startEditing && !shaped) {
+              onClose();
+              return;
+            }
+            setEditing(false);
+            setDraft([]);
+          }}
+        />
+        <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Dialog title={`รูปแปลง · ${full.name}`} wide onClose={onClose}>
+        {shaped ? (
+          <div className="flex h-[min(720px,calc(100vh-10rem))] flex-col">
+            <p className="mb-3 shrink-0 text-[14px]">
+              {placeLabel(full) !== "—" ? placeLabel(full) : "ยังไม่ระบุที่ตั้ง"}
+              {" · "}
+              {formatRai(full.areaRai)}
+              {" · "}
+              {formatCoord(centroid(full.polygon))}
+            </p>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <FieldMap
+                plots={[{ id: full.id, name: full.name, color: "#5098BA", muted: false, polygon: full.polygon }]}
+                selectedId={full.id}
+                onSelect={() => {}}
+                bottomInset={64}
+              />
+            </div>
+            <div className="relative z-20 mt-4 flex shrink-0 flex-wrap gap-2">
+              <CanEdit resource="plots">
+                <PrimaryButton type="button" className="h-9" onClick={beginEdit}>
+                  <Glyph icon={Pencil} />
+                  แก้ไขขอบเขต
+                </PrimaryButton>
+              </CanEdit>
+              <SecondaryButton type="button" className="h-9" onClick={onClose}>
+                ปิด
+              </SecondaryButton>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-[14px] text-ink/60">ยังไม่มีรูปแปลง</p>
+            <div className="relative z-20 mt-4 flex flex-wrap gap-2">
+              <CanEdit resource="plots">
+                <PrimaryButton type="button" className="h-9" onClick={beginEdit}>
+                  <Glyph icon={Pencil} />
+                  วาดขอบเขต
+                </PrimaryButton>
+              </CanEdit>
+              <SecondaryButton type="button" className="h-9" onClick={onClose}>
+                ปิด
+              </SecondaryButton>
+            </div>
+          </>
+        )}
+      </Dialog>
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+    </>
+  );
+}
+
 export function DrawBoundary({
   plots,
   draft,
@@ -2384,6 +2533,7 @@ export function DrawBoundary({
   title = "วาดขอบเขต",
   place,
   excludeId,
+  subject,
 }: {
   plots: Plot[];
   draft: [number, number][];
@@ -2393,36 +2543,74 @@ export function DrawBoundary({
   title?: string;
   place?: { provinceId: number; districtId: number; subdistrictId: number } | null;
   excludeId?: string;
+  /** Plot being edited — keep its old ring visible (like แผนที่แปลง). */
+  subject?: Pick<Plot, "id" | "name" | "polygon"> | null;
 }) {
   const mapRef = useRef<FieldMapHandle>(null);
   const closed = isClosedRing(draft);
   const [measured, setMeasured] = useState<number | null>(null);
   const [measuring, setMeasuring] = useState(false);
   const [capturing, setCapturing] = useState(false);
-  const [mapPlots, setMapPlots] = useState(() =>
-    plots
+  const subjectId = subject?.id ?? excludeId ?? null;
+  const [mapPlots, setMapPlots] = useState(() => {
+    const seed = plots
       .filter((plot) => plot.polygon.length >= 4)
-      .map((plot) => ({ id: plot.id, name: plot.name, color: "#5098BA", muted: true, polygon: plot.polygon })),
-  );
-  const focus = placeCenter(place);
-  const plotKey = plots.map((plot) => plot.id).join(",");
+      .map((plot) => ({
+        id: plot.id,
+        name: plot.name,
+        color: "#5098BA",
+        muted: true,
+        polygon: plot.polygon,
+      }));
+    if (subject && subject.polygon.length >= 4 && !seed.some((plot) => plot.id === subject.id)) {
+      seed.push({
+        id: subject.id,
+        name: subject.name,
+        color: "#5098BA",
+        muted: true,
+        polygon: subject.polygon,
+      });
+    }
+    return seed;
+  });
+  // Same framing as แผนที่แปลง: stay on the selected plot; do not refit when rings load.
+  const focus =
+    subject && subject.polygon.length >= 4
+      ? { ...centroid(subject.polygon), zoom: 16 }
+      : placeCenter(place);
 
   useEffect(() => {
     let alive = true;
-    const allow = new Set(plots.map((plot) => plot.id));
     void api.listPlotBoundaries().then((items) => {
       if (!alive) return;
-      const scoped = allow.size === 0 ? items : items.filter((item) => allow.has(item.id));
-      setMapPlots(
-        scoped
-          .filter((item) => item.id !== excludeId)
-          .map((item) => ({ id: item.id, name: item.name, color: "#5098BA", muted: true, polygon: item.polygon })),
+      const byId = new Map(
+        items.map((item) => [
+          item.id,
+          {
+            id: item.id,
+            name: item.name,
+            color: "#5098BA",
+            muted: true,
+            polygon: item.polygon,
+          },
+        ]),
       );
+      // Old subject ring stays as a muted shadow under the orange draft.
+      if (subject && subject.polygon.length >= 4) {
+        byId.set(subject.id, {
+          id: subject.id,
+          name: subject.name,
+          color: "#5098BA",
+          muted: true,
+          polygon: subject.polygon,
+        });
+      }
+      setMapPlots([...byId.values()]);
     });
     return () => {
       alive = false;
     };
-  }, [plotKey, plots, excludeId]);
+  }, [subject, subjectId]);
 
   useEffect(() => {
     if (!closed) {
@@ -2455,69 +2643,71 @@ export function DrawBoundary({
   }
   return (
     <Dialog title={title} wide onClose={onClose}>
-      <p className="mb-3 text-[14px]">คลิกบนแผนที่เพื่อวางจุด แล้วคลิกจุดแรกหรือกดปิดรูป ที่อยู่จะถูกใส่จากตำแหน่งรูป</p>
-      <div className="h-[calc(100vh-12rem)]">
-        <FieldMap
-          ref={mapRef}
-          plots={mapPlots}
-          selectedId={null}
-          onSelect={() => {}}
-          draft={draft}
-          onDraftClick={closed ? undefined : placePoint}
-          bottomInset={48}
-          focus={focus}
-        />
-      </div>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {!closed && (
-          <>
-            <span className="text-[14px]">{openRing(draft).length} จุด</span>
-            <SecondaryButton className="h-9" onClick={() => onDraft(openRing(draft).slice(0, -1))} disabled={openRing(draft).length === 0}>
-              ลบจุด
-            </SecondaryButton>
-            <SecondaryButton
-              className="h-9"
-              disabled={openRing(draft).length < 3}
-              onClick={() => {
-                const shape = closeRing(openRing(draft));
-                if (shape) onDraft(shape);
-              }}
-            >
-              ปิดรูป
-            </SecondaryButton>
-          </>
-        )}
-        {closed && (
-          <>
-            <span className="text-[14px] font-bold">
-              {capturing ? "กำลังแคปรูป…" : measuring || measured == null ? "กำลังคำนวณ…" : formatRai(measured)}
-            </span>
-            <PrimaryButton
-              type="button"
-              className="h-9"
-              disabled={measuring || measured == null || capturing}
-              onClick={() => {
-                void (async () => {
-                  setCapturing(true);
-                  try {
-                    const preview = (await mapRef.current?.capturePreview(draft)) ?? null;
-                    onUse(draft, preview);
-                  } finally {
-                    setCapturing(false);
-                  }
-                })();
-              }}
-            >
-              ใช้พื้นที่นี้
-            </PrimaryButton>
-            <SecondaryButton className="h-9" onClick={() => onDraft([])}>
-              วาดใหม่
-            </SecondaryButton>
-          </>
-        )}
-        <SecondaryButton className="h-9" onClick={onClose}>
-          ยกเลิก
-        </SecondaryButton>
+      <div className="flex h-[min(720px,calc(100vh-10rem))] flex-col">
+        <p className="mb-3 shrink-0 text-[14px]">คลิกบนแผนที่เพื่อวางจุด แล้วคลิกจุดแรกหรือกดปิดรูป ที่อยู่จะถูกใส่จากตำแหน่งรูป</p>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <FieldMap
+            ref={mapRef}
+            plots={mapPlots}
+            selectedId={subjectId}
+            onSelect={() => {}}
+            draft={draft}
+            onDraftClick={closed ? undefined : placePoint}
+            bottomInset={48}
+            focus={focus}
+          />
+        </div>
+        <div className="relative z-20 mt-4 flex shrink-0 flex-wrap items-center gap-2">
+          {!closed && (
+            <>
+              <span className="text-[14px]">{openRing(draft).length} จุด</span>
+              <SecondaryButton className="h-9" onClick={() => onDraft(openRing(draft).slice(0, -1))} disabled={openRing(draft).length === 0}>
+                ลบจุด
+              </SecondaryButton>
+              <SecondaryButton
+                className="h-9"
+                disabled={openRing(draft).length < 3}
+                onClick={() => {
+                  const shape = closeRing(openRing(draft));
+                  if (shape) onDraft(shape);
+                }}
+              >
+                ปิดรูป
+              </SecondaryButton>
+            </>
+          )}
+          {closed && (
+            <>
+              <span className="text-[14px] font-bold">
+                {capturing ? "กำลังแคปรูป…" : measuring || measured == null ? "กำลังคำนวณ…" : formatRai(measured)}
+              </span>
+              <PrimaryButton
+                type="button"
+                className="h-9"
+                disabled={measuring || measured == null || capturing}
+                onClick={() => {
+                  void (async () => {
+                    setCapturing(true);
+                    try {
+                      const preview = (await mapRef.current?.capturePreview(draft)) ?? null;
+                      onUse(draft, preview);
+                    } finally {
+                      setCapturing(false);
+                    }
+                  })();
+                }}
+              >
+                ใช้พื้นที่นี้
+              </PrimaryButton>
+              <SecondaryButton className="h-9" onClick={() => onDraft([])}>
+                วาดใหม่
+              </SecondaryButton>
+            </>
+          )}
+          <SecondaryButton className="h-9" onClick={onClose}>
+            ยกเลิก
+          </SecondaryButton>
+        </div>
       </div>
     </Dialog>
   );

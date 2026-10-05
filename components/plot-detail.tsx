@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Pencil, Save, Trash2 } from "lucide-react";
 import { CanDelete, CanEdit } from "@/components/can";
-import { DrawBoundary, PlaceSelects } from "@/components/groups-screen";
+import { PlaceSelects, PlotMapDialog } from "@/components/groups-screen";
 import { useMill } from "@/components/store";
-import { api, measureRingAreaRai } from "@/lib/api";
+import { api } from "@/lib/api";
 import { centroid, formatCoord, type Plot } from "@/lib/mill";
 import { isCompletePlace, placeAt } from "@/lib/thai-place";
 import { ConfirmAlert, DirtyUndoButton, Glyph, PrimaryButton, ResultAlert, SecondaryButton, inputClass } from "@/components/ui";
@@ -66,7 +66,6 @@ export function PlotDetail({
   const [boundary, setBoundary] = useState(plot.polygon);
   const [savedBoundary, setSavedBoundary] = useState(plot.polygon);
   const [preview, setPreview] = useState<Blob | null>(null);
-  const [draft, setDraft] = useState<[number, number][]>([]);
   const [drawing, setDrawing] = useState(false);
   const [editing, setEditing] = useState(initialEditing);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -218,10 +217,7 @@ export function PlotDetail({
           <CanEdit resource="plots">
             <button
               type="button"
-              onClick={() => {
-                setDraft([]);
-                setDrawing(true);
-              }}
+              onClick={() => setDrawing(true)}
               className="mt-2 text-[14px] font-bold text-link underline"
             >
               {drawn ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
@@ -296,32 +292,31 @@ export function PlotDetail({
       </form>
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
       {drawing && (
-        <DrawBoundary
-          title={drawn ? "แก้ไขขอบเขต" : "วาดขอบเขต"}
-          plots={[]}
-          excludeId={plot.id}
-          draft={draft}
-          onDraft={setDraft}
-          place={{ provinceId, districtId, subdistrictId }}
-          onUse={(ring, nextPreview) => {
-            void (async () => {
-              const nextArea = await measureRingAreaRai(ring);
-              if (nextArea == null) return;
-              const here = centroid(ring);
-              const place = placeAt(here.lng, here.lat);
-              setBoundary(ring);
-              setPreview(nextPreview);
-              setArea(String(nextArea));
-              if (place) {
-                setProvinceId(place.provinceId);
-                setDistrictId(place.districtId);
-                setSubdistrictId(place.subdistrictId);
-              }
-              setEditing(true);
-              setDrawing(false);
-            })();
+        <PlotMapDialog
+          plot={{
+            ...plot,
+            polygon: boundary.length >= 4 ? boundary : plot.polygon,
+            areaRai: Number(area) || plot.areaRai,
+            provinceId,
+            districtId,
+            subdistrictId,
+            hasBoundary: boundary.length >= 4 || Boolean(plot.hasBoundary),
           }}
           onClose={() => setDrawing(false)}
+          onApplied={(ring, nextPreview, nextArea) => {
+            const here = centroid(ring);
+            const place = placeAt(here.lng, here.lat);
+            setBoundary(ring);
+            setPreview(nextPreview);
+            setArea(String(nextArea));
+            if (place) {
+              setProvinceId(place.provinceId);
+              setDistrictId(place.districtId);
+              setSubdistrictId(place.subdistrictId);
+            }
+            setEditing(true);
+            setDrawing(false);
+          }}
         />
       )}
     </>

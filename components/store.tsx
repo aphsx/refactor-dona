@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { ApiError, api, apiMessage, loadMillSnapshot, setApiActor } from "@/lib/api";
+import { api, apiMessage, loadMillSnapshot, setApiActor } from "@/lib/api";
 import type {
   FarmerInput,
   MillSnapshot,
@@ -269,14 +269,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     savePlot: (plotId, input) =>
       mutate(async () => {
-        const current = dataRef.current.plots.find((item) => item.id === plotId);
-        if (!current) throw new ApiError("ไม่พบแปลง", 404);
+        let provinceId = input.provinceId;
+        let districtId = input.districtId;
+        let subdistrictId = input.subdistrictId;
+        // Snapshot plots[] is empty (pages live in plotPage / API). Fall back to getPlot.
+        if (provinceId == null || districtId == null || subdistrictId == null) {
+          const cached =
+            dataRef.current.plots.find((item) => item.id === plotId) ??
+            dataRef.current.plotPage.items.find((item) => item.id === plotId);
+          const current = cached ?? (await api.getPlot(plotId));
+          provinceId = provinceId ?? current.provinceId;
+          districtId = districtId ?? current.districtId;
+          subdistrictId = subdistrictId ?? current.subdistrictId;
+        }
         return api.updatePlot(plotId, {
           name: input.name.trim(),
           areaRai: input.areaRai,
-          provinceId: input.provinceId ?? current.provinceId,
-          districtId: input.districtId ?? current.districtId,
-          subdistrictId: input.subdistrictId ?? current.subdistrictId,
+          provinceId,
+          districtId,
+          subdistrictId,
         });
       }),
     saveBoundary: async (plotId, polygon, areaRai, preview) => {

@@ -148,25 +148,28 @@ export const FieldMap = forwardRef<
   );
 
   // GPU labels (symbol layer) — unmuted plots only; collision hides clutter when zoomed out.
+  // While drawing, hide name pins so the old rings read as quiet shadows under the draft.
   const labelData = useMemo(
     () => ({
       type: "FeatureCollection" as const,
-      features: drawn
-        .filter((plot) => !plot.muted)
-        .map((plot) => {
-          const point = labelOutside(plot.polygon);
-          return {
-            type: "Feature" as const,
-            properties: {
-              id: plot.id,
-              name: plot.name,
-              selected: plot.id === selectedId ? 1 : 0,
-            },
-            geometry: { type: "Point" as const, coordinates: [point.lng, point.lat] },
-          };
-        }),
+      features: drawing
+        ? []
+        : drawn
+            .filter((plot) => !plot.muted)
+            .map((plot) => {
+              const point = labelOutside(plot.polygon);
+              return {
+                type: "Feature" as const,
+                properties: {
+                  id: plot.id,
+                  name: plot.name,
+                  selected: plot.id === selectedId ? 1 : 0,
+                },
+                geometry: { type: "Point" as const, coordinates: [point.lng, point.lat] },
+              };
+            }),
     }),
-    [drawn, selectedId],
+    [drawn, selectedId, drawing],
   );
 
   function bindPinImages() {
@@ -365,7 +368,7 @@ export const FieldMap = forwardRef<
     onSelect(id ? String(id) : null);
   }
 
-  const highlight = selectedId ?? "";
+  const highlight = drawing ? "" : (selectedId ?? "");
 
   return (
     <div className="relative h-full min-h-0">
@@ -385,7 +388,9 @@ export const FieldMap = forwardRef<
           bindPinImages();
           fitFrame({ force: true });
         }}
-        interactiveLayerIds={["plot-fill"]}
+        // While drawing, accept clicks anywhere (not only on existing fills) so
+        // placing vertices does not depend on hitting a plot layer / zooming.
+        interactiveLayerIds={onDraftClick ? undefined : ["plot-fill"]}
         onClick={selectFromMap}
         cursor={onDraftClick ? "crosshair" : "pointer"}
       >

@@ -289,7 +289,8 @@ export function MapScreen() {
       id: row.plot.id,
       name: row.plot.name,
       color: "#5098BA",
-      muted: !listedIds.has(row.plot.id),
+      // While redrawing, every existing ring (including the one being edited) is a quiet shadow.
+      muted: draft != null || !listedIds.has(row.plot.id),
       polygon: row.plot.polygon,
     }));
   const mapFocus = selected

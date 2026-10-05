@@ -174,7 +174,7 @@ export function Dialog({
             <X size={16} strokeWidth={2} />
           </button>
         </div>
-        <div className={`p-6 ${soft ? "max-h-[calc(100vh-8rem)] overflow-y-auto" : ""}`}>{children}</div>
+        <div className={`p-6 ${soft || wide ? "max-h-[calc(100vh-8rem)] overflow-y-auto" : ""}`}>{children}</div>
       </div>
     </div>
   );
