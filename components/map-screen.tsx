@@ -167,6 +167,9 @@ export function MapScreen() {
     setDraft(null);
   }
 
+  const drawnCount = rows.filter((row) => row.plot.polygon.length >= 4).length;
+  const scopedDrawn = scoped.filter((row) => row.plot.polygon.length >= 4).length;
+  const showingAll = !query.trim() && !groupText.trim();
   const mapPlots = rows
     .filter((row) => row.plot.polygon.length >= 4)
     .map((row) => ({
@@ -176,6 +179,13 @@ export function MapScreen() {
       muted: !listedIds.has(row.plot.id),
       polygon: row.plot.polygon,
     }));
+
+  function showAll() {
+    setQuery("");
+    setGroupText("");
+    setPlotId(null);
+    setSuggestOpen(false);
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -195,6 +205,23 @@ export function MapScreen() {
           focus={selected ? placeCenter(selected.plot) : null}
         />
         <div className="absolute left-4 top-4 z-20 w-[300px] space-y-3 rounded-[8px] border border-frame bg-white p-3 shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] text-ink/60">
+              {showingAll ? `ทั้งหมด ${drawnCount} แปลง` : `แสดง ${scopedDrawn} จาก ${drawnCount} แปลง`}
+            </p>
+            <button
+              type="button"
+              onClick={showAll}
+              disabled={showingAll && !plotId}
+              className={`shrink-0 rounded-[6px] px-2.5 py-1 text-[13px] font-bold ${
+                showingAll && !plotId
+                  ? "bg-bar text-white"
+                  : "border-2 border-brand bg-white text-brand hover:bg-pick"
+              }`}
+            >
+              ทั้งหมด
+            </button>
+          </div>
           <div className="relative">
             <Search size={16} strokeWidth={1.75} className="absolute left-3 top-3 text-ink/40" />
             <input
@@ -202,6 +229,7 @@ export function MapScreen() {
               onChange={(event) => {
                 setQuery(event.target.value);
                 setSuggestOpen(true);
+                setPlotId(null);
               }}
               onFocus={() => setSuggestOpen(true)}
               onBlur={() => {

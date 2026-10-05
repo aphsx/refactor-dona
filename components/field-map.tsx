@@ -70,14 +70,8 @@ export const FieldMap = forwardRef<
     [mode],
   );
   const drawn = useMemo(() => plots.filter((plot) => plot.polygon.length >= 4), [plots]);
-  const selected = drawn.find((plot) => plot.id === selectedId) ?? null;
-  // Group/search filter → name every matching plot; otherwise only the selected one.
-  const labeled = useMemo(() => {
-    const active = drawn.filter((plot) => !plot.muted);
-    const filtered = active.length > 0 && active.length < drawn.length;
-    if (filtered) return active;
-    return selected ? [selected] : [];
-  }, [drawn, selected]);
+  // Name every unmuted plot (all by default; group/search narrows the set).
+  const labeled = useMemo(() => drawn.filter((plot) => !plot.muted), [drawn]);
   const draftOpen = openRing(draft ?? []);
   const draftClosed = draft != null && isClosedRing(draft);
   const drawing = draft != null;
