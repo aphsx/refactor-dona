@@ -61,7 +61,13 @@ export const FieldMap = forwardRef<
   );
   const drawn = useMemo(() => plots.filter((plot) => plot.polygon.length >= 4), [plots]);
   const selected = drawn.find((plot) => plot.id === selectedId) ?? null;
-  const selectedPoint = selected ? centroid(selected.polygon) : null;
+  // Group/search filter → name every matching plot; otherwise only the selected one.
+  const labeled = useMemo(() => {
+    const active = drawn.filter((plot) => !plot.muted);
+    const filtered = active.length > 0 && active.length < drawn.length;
+    if (filtered) return active;
+    return selected ? [selected] : [];
+  }, [drawn, selected]);
   const draftOpen = openRing(draft ?? []);
   const draftClosed = draft != null && isClosedRing(draft);
   const drawing = draft != null;
@@ -129,13 +135,17 @@ export const FieldMap = forwardRef<
       return;
     }
 
+    // Filter set (unmuted) wins over a single selection so group/search
+    // shows every matching boundary; click still highlights one plot.
+    const active = drawn.filter((plot) => !plot.muted);
+    const filtered = active.length > 0 && active.length < drawn.length;
     const picked = selectedId ? drawn.filter((plot) => plot.id === selectedId) : [];
-    if (selectedId && picked.length === 0) {
+    if (selectedId && picked.length === 0 && !filtered) {
       flyToFocus();
       return;
     }
 
-    const subject = picked.length > 0 ? picked : drawn.filter((plot) => !plot.muted);
+    const subject = filtered ? active : picked.length > 0 ? picked : active;
     const frame = subject.length > 0 ? subject : drawn;
     const lngs = frame.flatMap((plot) => plot.polygon.map((point) => point[0]));
     const lats = frame.flatMap((plot) => plot.polygon.map((point) => point[1]));
@@ -289,13 +299,21 @@ export const FieldMap = forwardRef<
             <span className="block h-3 w-3 rounded-full border-2 border-white bg-[#F4A800]" />
           </Marker>
         ))}
-        {selected && selectedPoint && (
-          <Marker longitude={selectedPoint.lng} latitude={selectedPoint.lat} anchor="bottom">
-            <div className="mb-1 rounded-[6px] bg-white px-2 py-1 text-[12px] font-bold text-ink shadow-[0_2px_8px_rgba(0,0,0,0.16)]">
-              {selected.name}
-            </div>
-          </Marker>
-        )}
+        {labeled.map((plot) => {
+          const point = centroid(plot.polygon);
+          const active = plot.id === selectedId;
+          return (
+            <Marker key={plot.id} longitude={point.lng} latitude={point.lat} anchor="bottom">
+              <div
+                className={`mb-1 rounded-[6px] px-2 py-1 text-[12px] font-bold shadow-[0_2px_8px_rgba(0,0,0,0.16)] ${
+                  active ? "bg-[#F4A800] text-white" : "bg-white text-ink"
+                }`}
+              >
+                {plot.name}
+              </div>
+            </Marker>
+          );
+        })}
       </Map>
       <div className="absolute right-14 top-4 z-10 flex gap-2">
         <button

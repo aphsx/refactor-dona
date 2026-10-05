@@ -97,17 +97,26 @@ export function MapScreen() {
     [groups],
   );
 
-  const scoped = rows.filter((row) => {
-    const groupName = groups.find((group) => group.id === row.farmer.groupId)?.name ?? "";
-    if (groupText.trim()) {
-      if (groupText.trim() === "ไม่มีกลุ่ม") {
-        if (row.farmer.groupId != null) return false;
-      } else if (!matchesQuery(groupText, groupName)) {
-        return false;
+  const scoped = useMemo(() => {
+    return rows.filter((row) => {
+      const groupName = groups.find((group) => group.id === row.farmer.groupId)?.name ?? "";
+      if (groupText.trim()) {
+        if (groupText.trim() === "ไม่มีกลุ่ม") {
+          if (row.farmer.groupId != null) return false;
+        } else if (!matchesQuery(groupText, groupName)) {
+          return false;
+        }
       }
+      return matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.tel}`);
+    });
+  }, [rows, groups, groupText, query]);
+
+  useEffect(() => {
+    if (plotId && !scoped.some((row) => row.plot.id === plotId)) {
+      setPlotId(null);
     }
-    return matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.tel}`);
-  });
+  }, [plotId, scoped]);
+
   const listedIds = new Set(scoped.map((row) => row.plot.id));
   const selected = rows.find((row) => row.plot.id === plotId) ?? null;
   const suggestions = useMemo(() => {
@@ -210,10 +219,7 @@ export function MapScreen() {
                     <button
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setQuery(`${row.plot.name} · ${farmerName(row.farmer)}`);
-                        choosePlot(row.plot.id);
-                      }}
+                      onClick={() => choosePlot(row.plot.id)}
                       className="flex w-full flex-col px-3 py-2 text-left hover:bg-pick"
                     >
                       <span className="text-[14px] font-bold">{row.plot.name}</span>
@@ -233,7 +239,11 @@ export function MapScreen() {
               label="กลุ่ม"
               className="mt-1"
               value={groupText}
-              onChange={setGroupText}
+              onChange={(value) => {
+                setGroupText(value);
+                // Drop single-plot focus so the map frames the whole group.
+                setPlotId(null);
+              }}
               suggestions={["ไม่มีกลุ่ม", ...groupNames]}
             />
           </label>
