@@ -19,16 +19,25 @@ export type ProductKindItem = {
 };
 
 /** Seed defaults until snapshot loads; kept in sync by loadMillSnapshot. */
+/** varieties.id from seed (2xx). */
+export const VARIETY_HOMMALI_ID = 201; // หอมมะลิ
+export const VARIETY_KHAO_ID = 202; // ขาว
+export const VARIETY_STICKY_ID = 203; // เหนียว
+
 export let VARIETIES: VarietyItem[] = [
-  { id: 1, name: "หอมมะลิ" },
-  { id: 2, name: "ขาว" },
-  { id: 3, name: "เหนียว" },
+  { id: VARIETY_HOMMALI_ID, name: "หอมมะลิ" },
+  { id: VARIETY_KHAO_ID, name: "ขาว" },
+  { id: VARIETY_STICKY_ID, name: "เหนียว" },
 ];
 
-/** Seed defaults: 1=ข้าวเปลือก 2=เมล็ดพันธุ์ */
+/** product_kinds.id from seed (3xx) — stable; do not look up by name. */
+export const PRODUCT_KIND_PADDY_ID = 301; // ข้าวเปลือก
+export const PRODUCT_KIND_SEED_ID = 302; // เมล็ดพันธุ์
+
+/** Seed defaults until snapshot loads; kept in sync by loadMillSnapshot. */
 export let PRODUCT_KINDS: ProductKindItem[] = [
-  { id: 1, name: "ข้าวเปลือก" },
-  { id: 2, name: "เมล็ดพันธุ์" },
+  { id: PRODUCT_KIND_PADDY_ID, name: "ข้าวเปลือก" },
+  { id: PRODUCT_KIND_SEED_ID, name: "เมล็ดพันธุ์" },
 ];
 
 export function syncVarieties(items: VarietyItem[]) {
@@ -48,7 +57,7 @@ export function productKindName(id: number) {
 }
 
 export function defaultVarietyId(varieties: VarietyItem[] = VARIETIES) {
-  return varieties[0]?.id ?? 1;
+  return varieties[0]?.id ?? VARIETY_HOMMALI_ID;
 }
 
 export type Farmer = {
@@ -169,13 +178,11 @@ export function asMillReceiptDirection(value: string | undefined): MillReceiptDi
 
 export function defaultProductKindId(
   direction: MillReceiptDirection,
-  productKinds: ProductKindItem[] = PRODUCT_KINDS,
+  _productKinds: ProductKindItem[] = PRODUCT_KINDS,
 ): ProductKind {
-  const preferSeed = direction === "lend" || direction === "return";
-  const byName = productKinds.find((item) => item.name === (preferSeed ? "เมล็ดพันธุ์" : "ข้าวเปลือก"));
-  if (byName) return byName.id;
-  if (preferSeed) return productKinds[1]?.id ?? productKinds[0]?.id ?? 2;
-  return productKinds[0]?.id ?? 1;
+  // lend/return → เมล็ดพันธุ์; else → ข้าวเปลือก
+  if (direction === "lend" || direction === "return") return PRODUCT_KIND_SEED_ID;
+  return PRODUCT_KIND_PADDY_ID;
 }
 
 export type PlotActivityType =

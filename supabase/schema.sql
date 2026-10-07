@@ -162,14 +162,14 @@ create table public.accounts (
   username text not null,
   password_hash text not null,
   display_name text not null,
-  role_id bigint not null references public.roles (id) default 1,
+  role_id bigint not null references public.roles (id) default 101, -- mill / โรงสี
   active boolean not null default true,
   created_at timestamptz not null default now(),
   constraint accounts_username_not_blank check (char_length(btrim(username)) > 0),
   constraint accounts_username_unique unique (username),
   constraint accounts_password_hash_not_blank check (char_length(btrim(password_hash)) > 0),
   constraint accounts_display_name_not_blank check (char_length(btrim(display_name)) > 0),
-  constraint accounts_mill_role_only check (role_id = 1)
+  constraint accounts_mill_role_only check (role_id = 101) -- mill / โรงสี
 );
 
 create index accounts_role_id_idx on public.accounts (role_id);

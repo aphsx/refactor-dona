@@ -65,8 +65,9 @@ type WirePlotActivity = Omit<PlotActivity, "type" | "payload"> & {
   payload: PlotActivityPayload | Record<string, unknown>;
 };
 
-const ROLE_ID: Record<PermissionRole, number> = { mill: 1, leader: 2, member: 3 };
-const ROLE_CODE: Record<number, PermissionRole> = { 1: "mill", 2: "leader", 3: "member" };
+// roles 1xx: 101 mill, 102 leader, 103 member
+const ROLE_ID: Record<PermissionRole, number> = { mill: 101, leader: 102, member: 103 };
+const ROLE_CODE: Record<number, PermissionRole> = { 101: "mill", 102: "leader", 103: "member" };
 const FLAG_KEY: Record<PermissionFlag, keyof Pick<WirePermission, "canRead" | "canAdd" | "canEdit" | "canDelete">> = {
   canRead: "canRead",
   canAdd: "canAdd",
