@@ -4,6 +4,8 @@ export type Variety = number;
 export type VarietyItem = {
   id: number;
   name: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 /** Product kind id from API (`product_kinds.id`). */
@@ -12,6 +14,8 @@ export type ProductKind = number;
 export type ProductKindItem = {
   id: number;
   name: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 /** Seed defaults until snapshot loads; kept in sync by loadMillSnapshot. */
@@ -61,6 +65,8 @@ export type Farmer = {
   plotCount?: number;
   deliveredKg: number;
   avatarUrl?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type SupplierGroup = {
@@ -71,6 +77,8 @@ export type SupplierGroup = {
   memberCount?: number;
   receivedKg?: number;
   expectedKg?: number;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type Plot = {
@@ -86,6 +94,8 @@ export type Plot = {
   hasBoundary?: boolean;
   ownerName?: string;
   groupName?: string;
+  createdAt?: string;
+  updatedAt?: string;
   polygon: [number, number][];
 };
 
@@ -108,6 +118,8 @@ export type Planting = {
   plantedOn: string;
   harvestOn: string;
   estKg: number;
+  createdAt?: string;
+  updatedAt?: string;
   /** Present on list responses so a date window can render without loading every plot. */
   plotName?: string;
   areaRai?: number;
@@ -139,6 +151,8 @@ export type MillReceipt = {
   direction: MillReceiptDirection;
   kg: number;
   receivedOn: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export function millReceiptDirectionLabel(direction: MillReceiptDirection) {
@@ -310,7 +324,7 @@ export type MillSnapshot = {
   roleGrants: RoleGrant[];
 };
 
-export type FarmerInput = Omit<Farmer, "id" | "deliveredKg">;
+export type FarmerInput = Omit<Farmer, "id" | "deliveredKg" | "createdAt" | "updatedAt" | "groupName" | "plotCount">;
 
 export function personRole(grants: RoleGrant[], groups: SupplierGroup[], farmerId: string): PermissionRole {
   if (grants.some((grant) => grant.farmerId === farmerId && grant.role === "mill")) return "mill";

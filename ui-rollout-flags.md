@@ -12,7 +12,7 @@
 | `SHOW_PLAN_NAV` | `false` | แผนรอบปลูก (แผนรวม / แผนรายเกษตรกร) | `/plan`, `/plan/members` |
 | `SHOW_SUPPLY_NAV` | `false` | แผนรับข้าว | `/supply` |
 | `SHOW_MANAGE_NAV` | `false` | จัดการ (พันธุ์ข้าว / ชนิดสินค้า) | `/manage/varieties`, `/manage/product-kinds` |
-| `SHOW_PERMISSIONS_NAV` | `false` | จัดการสิทธิ์ | `/permissions`, `/permissions/people` |
+| `SHOW_PERMISSIONS_NAV` | `true` | จัดการสิทธิ์ | `/permissions`, `/permissions/people` |
 
 เมื่อ flag เป็น `false`:
 

@@ -21,7 +21,7 @@ const SHOW_SUPPLY_NAV = false;
 /** Flip on when rolling out จัดการ (varieties / product kinds). */
 const SHOW_MANAGE_NAV = false;
 /** Flip on when rolling out จัดการสิทธิ์. */
-const SHOW_PERMISSIONS_NAV = false;
+const SHOW_PERMISSIONS_NAV = true;
 const HOME_PATH = SHOW_PLAN_NAV ? "/plan" : "/farmers";
 
 const KNOWN_APP_PATHS = new Set([
