@@ -288,10 +288,10 @@ export const FieldMap = forwardRef<
           const finish = () => {
             if (done) return;
             done = true;
-            map.off("idle", finish);
+            map?.off("idle", finish);
             resolve();
           };
-          map.once("idle", finish);
+          map?.once("idle", finish);
           window.setTimeout(finish, timeoutMs);
         });
       }
