@@ -18,8 +18,7 @@ export type ProductKindItem = {
   updatedAt?: string;
 };
 
-/** Seed defaults until snapshot loads; kept in sync by loadMillSnapshot. */
-/** varieties.id from seed (2xx). */
+/** varieties.id from seed (2xx). Seed defaults until snapshot loads. */
 export const VARIETY_HOMMALI_ID = 201; // หอมมะลิ
 export const VARIETY_KHAO_ID = 202; // ขาว
 export const VARIETY_STICKY_ID = 203; // เหนียว
@@ -30,11 +29,10 @@ export let VARIETIES: VarietyItem[] = [
   { id: VARIETY_STICKY_ID, name: "เหนียว" },
 ];
 
-/** product_kinds.id from seed (3xx) — stable; do not look up by name. */
+/** product_kinds.id from seed (3xx). Seed defaults until snapshot loads. */
 export const PRODUCT_KIND_PADDY_ID = 301; // ข้าวเปลือก
 export const PRODUCT_KIND_SEED_ID = 302; // เมล็ดพันธุ์
 
-/** Seed defaults until snapshot loads; kept in sync by loadMillSnapshot. */
 export let PRODUCT_KINDS: ProductKindItem[] = [
   { id: PRODUCT_KIND_PADDY_ID, name: "ข้าวเปลือก" },
   { id: PRODUCT_KIND_SEED_ID, name: "เมล็ดพันธุ์" },
