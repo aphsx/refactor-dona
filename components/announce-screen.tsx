@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Clock, FileText, ImagePlus, LayoutTemplate, Link2, Megaphone, Save, Send, Type, X } from "lucide-react";
+import { Clock, FileText, ImagePlus, Megaphone, Save, Send, X } from "lucide-react";
 import { CanAdd, CanDelete, CanRead } from "@/components/can";
 import {
   ConfirmAlert,
@@ -38,7 +38,7 @@ const MAX_TITLE = 100;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_BUTTON = 20;
 
-/** Card layout presets — mirrors LINE OA / Megaphone / broadcast composer patterns. */
+/** Standard Flex card shapes — image+text+button / text+button / text only. */
 type CardLayout = "card" | "text_button" | "text";
 
 type SendMode = "now" | "schedule";
@@ -52,79 +52,10 @@ type ImageDraft = {
   previewUrl: string;
 };
 
-type ContentStarter = {
-  id: string;
-  label: string;
-  title: string;
-  message: string;
-  layout: CardLayout;
-  priorityId: number;
-  buttonLabel: string;
-};
-
-const LAYOUTS: {
-  id: CardLayout;
-  title: string;
-  desc: string;
-  icon: typeof Type;
-}[] = [
-  {
-    id: "card",
-    title: "การ์ดเต็ม",
-    desc: "รูป + ข้อความ + ปุ่มกด",
-    icon: LayoutTemplate,
-  },
-  {
-    id: "text_button",
-    title: "ข้อความ + ปุ่ม",
-    desc: "ไม่มีรูป มีปุ่มเปิดลิงก์",
-    icon: Link2,
-  },
-  {
-    id: "text",
-    title: "ข้อความอย่างเดียว",
-    desc: "สั้นๆ ไม่มีปุ่ม",
-    icon: Type,
-  },
-];
-
-const STARTERS: ContentStarter[] = [
-  {
-    id: "general",
-    label: "ประกาศทั่วไป",
-    title: "ประกาศจากโรงสี",
-    message: "",
-    layout: "card",
-    priorityId: ANNOUNCEMENT_PRIORITY.normal,
-    buttonLabel: "เปิดลิงก์",
-  },
-  {
-    id: "receive",
-    label: "เปิดรับข้าว",
-    title: "แจ้งเปิดรับข้าวเปลือก",
-    message: "โรงสีเปิดรับข้าวเปลือกตามรายละเอียดด้านล่าง กรุณาตรวจสอบก่อนนำส่ง",
-    layout: "card",
-    priorityId: ANNOUNCEMENT_PRIORITY.normal,
-    buttonLabel: "ดูรายละเอียด",
-  },
-  {
-    id: "urgent",
-    label: "ด่วน",
-    title: "ประกาศด่วน",
-    message: "",
-    layout: "text_button",
-    priorityId: ANNOUNCEMENT_PRIORITY.urgent,
-    buttonLabel: "อ่านเพิ่มเติม",
-  },
-  {
-    id: "closed",
-    label: "ปิดปรับปรุง",
-    title: "แจ้งปิดปรับปรุงชั่วคราว",
-    message: "โรงสีจะปิดปรับปรุงในวันและเวลาที่ระบุ ขออภัยในความไม่สะดวก",
-    layout: "text",
-    priorityId: ANNOUNCEMENT_PRIORITY.normal,
-    buttonLabel: "เปิดลิงก์",
-  },
+const LAYOUTS: { id: CardLayout; title: string }[] = [
+  { id: "card", title: "รูป + ข้อความ + ปุ่ม" },
+  { id: "text_button", title: "ข้อความ + ปุ่ม" },
+  { id: "text", title: "ข้อความอย่างเดียว" },
 ];
 
 function todayIso() {
@@ -185,6 +116,29 @@ function buildLineBody(title: string, message: string, linkUrl: string, priority
   return chunks.join("\n\n");
 }
 
+/** Tiny empty Flex card — same structure as live preview, for template pick. */
+function LayoutSkeleton({ layout }: { layout: CardLayout }) {
+  const showImage = layout === "card";
+  const showButton = layout === "card" || layout === "text_button";
+  return (
+    <div className="mx-auto w-[88px] rounded-[6px] bg-[#747F8D] p-1">
+      <div className="overflow-hidden rounded-[7px] bg-white">
+        {showImage && <div className="h-7 w-full bg-black/[0.08]" />}
+        <div className="space-y-1 px-1.5 py-1.5">
+          <div className="h-1.5 w-[70%] rounded-[1px] bg-black/[0.16]" />
+          <div className="h-1 w-full rounded-[1px] bg-black/[0.08]" />
+          <div className="h-1 w-[80%] rounded-[1px] bg-black/[0.08]" />
+        </div>
+        {showButton && (
+          <div className="px-1 pb-1">
+            <div className="h-3 rounded-[2px] bg-brand/85" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LineCardPreview({
   title,
   message,
@@ -207,9 +161,14 @@ function LineCardPreview({
   return (
     <div className="rounded-[8px] bg-[#747F8D] p-4">
       <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-[18px] bg-white shadow-sm">
-        {showImage && imageUrl && (
-          <img src={imageUrl} alt="" className="aspect-[20/13] w-full object-cover" />
-        )}
+        {showImage &&
+          (imageUrl ? (
+            <img src={imageUrl} alt="" className="aspect-[20/13] w-full object-cover" />
+          ) : (
+            <div className="flex aspect-[20/13] w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35">
+              รูปหัวการ์ด
+            </div>
+          ))}
         <div className="space-y-2 px-4 py-4 text-[14px] leading-[1.45] text-ink">
           {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
             <div className="text-[12px] font-bold text-danger">ด่วน</div>
@@ -217,12 +176,12 @@ function LineCardPreview({
           {title ? (
             <div className="text-[16px] font-bold">{title}</div>
           ) : (
-            <div className="text-[16px] font-bold text-ink/30">หัวข้อประกาศ</div>
+            <div className="text-[16px] font-bold text-ink/30">หัวข้อ</div>
           )}
           {message ? (
             <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
           ) : (
-            <div className="text-[13px] text-ink/30">ข้อความประกาศ…</div>
+            <div className="text-[13px] text-ink/30">ข้อความ…</div>
           )}
         </div>
         {showButton && (
@@ -231,12 +190,12 @@ function LineCardPreview({
               {buttonLabel || "เปิดลิงก์"}
             </div>
             {!linkUrl && (
-              <p className="mt-2 text-center text-[11px] text-ink/45">ยังไม่มีลิงก์ — กรอกด้านซ้าย</p>
+              <p className="mt-2 text-center text-[11px] text-ink/45">ยังไม่มีลิงก์</p>
             )}
           </div>
         )}
       </div>
-      <p className="mt-3 text-center text-[12px] text-white/80">พรีวิวการ์ดที่ผู้รับจะเห็นใน LINE</p>
+      <p className="mt-3 text-center text-[12px] text-white/80">พรีวิวใน LINE</p>
     </div>
   );
 }
@@ -244,7 +203,6 @@ function LineCardPreview({
 export function AnnounceScreen() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [layout, setLayout] = useState<CardLayout>("card");
-  const [starterId, setStarterId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
@@ -316,7 +274,6 @@ export function AnnounceScreen() {
 
   function clearForm() {
     setLayout("card");
-    setStarterId(null);
     setTitle("");
     setMessage("");
     setLinkUrl("");
@@ -328,19 +285,8 @@ export function AnnounceScreen() {
     setScheduleTime(nextHourTime());
   }
 
-  function applyStarter(starter: ContentStarter) {
-    setStarterId(starter.id);
-    setLayout(starter.layout);
-    setTitle(starter.title);
-    setMessage(starter.message);
-    setPriorityId(starter.priorityId);
-    setButtonLabel(starter.buttonLabel);
-    if (starter.layout !== "card") clearImage();
-  }
-
   function selectLayout(next: CardLayout) {
     setLayout(next);
-    setStarterId(null);
     if (next !== "card") clearImage();
     if (next === "text") setLinkUrl("");
   }
@@ -506,57 +452,32 @@ export function AnnounceScreen() {
         <PageHeader current="ประกาศ LINE" />
 
         <CanAdd resource="announcements">
-          {/* 1. Layout templates */}
           <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
-            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">1. เลือกรูปแบบการ์ด</div>
-            <div className="grid gap-3 px-6 py-5 sm:grid-cols-3">
+            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">รูปแบบการ์ด</div>
+            <div className="grid gap-3 px-6 py-4 sm:grid-cols-3">
               {LAYOUTS.map((item) => {
-                const Icon = item.icon;
                 const active = layout === item.id;
                 return (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => selectLayout(item.id)}
-                    className={`rounded-[8px] border px-4 py-4 text-left transition-colors ${
+                    className={`rounded-[6px] border px-3 py-3 transition-colors ${
                       active ? "border-brand bg-pick" : "border-frame bg-white hover:bg-table"
                     }`}
                   >
-                    <Icon size={20} strokeWidth={1.75} className={active ? "text-brand" : "text-ink/50"} />
-                    <div className="mt-2 text-[14px] font-bold">{item.title}</div>
-                    <div className="mt-1 text-[12px] text-ink/55">{item.desc}</div>
+                    <LayoutSkeleton layout={item.id} />
+                    <div className={`mt-2 text-center text-[12px] font-bold ${active ? "text-brand" : "text-ink/65"}`}>
+                      {item.title}
+                    </div>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* 2. Content starters */}
           <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
-            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">2. เนื้อหาเริ่มต้น (ถ้าต้องการ)</div>
-            <div className="flex flex-wrap gap-2 px-6 py-5">
-              {STARTERS.map((item) => {
-                const active = starterId === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => applyStarter(item)}
-                    className={`rounded-[6px] border px-3 py-2 text-[13px] font-bold transition-colors ${
-                      active ? "border-brand bg-brand text-white" : "border-frame bg-white text-ink hover:bg-pick"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-              <span className="self-center text-[12px] text-ink/45">กดแล้วแก้ข้อความต่อได้</span>
-            </div>
-          </div>
-
-          {/* 3. Compose + live preview */}
-          <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
-            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">3. เขียนประกาศ</div>
+            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">เขียนประกาศ</div>
             <form
               className="grid gap-6 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_300px]"
               onSubmit={(event) => {
@@ -569,12 +490,8 @@ export function AnnounceScreen() {
                   หัวข้อ
                   <input
                     value={title}
-                    onChange={(event) => {
-                      setTitle(event.target.value.slice(0, MAX_TITLE));
-                      setStarterId(null);
-                    }}
+                    onChange={(event) => setTitle(event.target.value.slice(0, MAX_TITLE))}
                     maxLength={MAX_TITLE}
-                    placeholder="เช่น แจ้งเปิดรับข้าวเปลือก"
                     className={`${inputClass} mt-1`}
                   />
                 </label>
@@ -583,19 +500,15 @@ export function AnnounceScreen() {
                   ข้อความ
                   <textarea
                     value={message}
-                    onChange={(event) => {
-                      setMessage(event.target.value);
-                      setStarterId(null);
-                    }}
+                    onChange={(event) => setMessage(event.target.value)}
                     rows={7}
-                    placeholder="รายละเอียดประกาศจากโรงสี…"
                     className={`${inputClass} mt-1 h-auto min-h-[160px] resize-y py-3 leading-[1.5]`}
                   />
                 </label>
 
                 {wantsImage && (
                   <div className="text-[14px] font-bold leading-[1.4]">
-                    รูปหัวการ์ด
+                    รูป
                     <input
                       ref={fileRef}
                       type="file"
@@ -604,66 +517,58 @@ export function AnnounceScreen() {
                       onChange={(event) => void onPickImage(event.target.files?.[0])}
                     />
                     {image ? (
-                      <div className="mt-1 overflow-hidden rounded-[8px] border border-frame">
-                        <img src={image.previewUrl} alt="" className="h-36 w-full object-cover" />
-                        <div className="flex items-center justify-between gap-2 px-3 py-2 text-[12px] font-normal text-ink/70">
-                          <span className="truncate">
-                            {image.name} · {(image.file.size / 1024).toFixed(0)} KB
-                          </span>
-                          <button
-                            type="button"
-                            onClick={clearImage}
-                            className="inline-flex items-center gap-1 font-bold text-brand hover:underline"
-                          >
-                            <X size={14} strokeWidth={2} />
-                            ลบ
-                          </button>
-                        </div>
+                      <div className="mt-1 flex items-center justify-between gap-2 rounded-[8px] border border-frame bg-white px-3 py-2.5 text-[13px] font-normal text-ink/70">
+                        <span className="truncate">
+                          {image.name} · {(image.file.size / 1024).toFixed(0)} KB
+                        </span>
+                        <button
+                          type="button"
+                          onClick={clearImage}
+                          className="inline-flex shrink-0 items-center gap-1 font-bold text-brand hover:underline"
+                        >
+                          <X size={14} strokeWidth={2} />
+                          ลบ
+                        </button>
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => fileRef.current?.click()}
-                        className="mt-1 flex h-36 w-full flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed border-line bg-white text-[13px] font-normal text-ink/55 transition-colors hover:bg-pick"
+                        className="mt-1 flex w-full items-center justify-center gap-2 rounded-[8px] border border-dashed border-line bg-white px-3 py-2.5 text-[13px] font-normal text-ink/55 transition-colors hover:bg-pick"
                       >
-                        <ImagePlus size={22} strokeWidth={1.75} />
-                        แนบรูป JPEG / PNG
-                        <span className="text-[12px]">บีบอัดเบาๆ · ไม่เกิน 5 MB</span>
+                        <ImagePlus size={18} strokeWidth={1.75} />
+                        แนบรูป
                       </button>
                     )}
                   </div>
                 )}
 
                 {wantsButton && (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
-                      ลิงก์เมื่อกดปุ่ม
+                  <div className="grid gap-4">
+                    <label className="block text-[14px] font-bold leading-[1.4]">
+                      ลิงก์
                       <input
                         type="url"
                         value={linkUrl}
                         onChange={(event) => setLinkUrl(event.target.value)}
-                        placeholder="https://…"
+                        placeholder="https://"
                         className={`${inputClass} mt-1`}
                       />
                     </label>
-                    <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
-                      ข้อความบนปุ่ม
+                    <label className="block text-[14px] font-bold leading-[1.4]">
+                      ข้อความปุ่ม
                       <input
                         value={buttonLabel}
                         onChange={(event) => setButtonLabel(event.target.value.slice(0, MAX_BUTTON))}
                         maxLength={MAX_BUTTON}
-                        placeholder="เปิดลิงก์"
                         className={`${inputClass} mt-1`}
                       />
-                      <span className="mt-1 block text-[12px] font-normal text-ink/45">
-                        สูงสุด {MAX_BUTTON} ตัวอักษร · ข้อความนี้จะโผล่บนปุ่มใน LINE
-                      </span>
                     </label>
                   </div>
                 )}
 
                 <fieldset className="grid gap-3 border-t border-frame pt-4">
-                  <legend className="text-[14px] font-bold leading-[1.4]">4. การส่ง</legend>
+                  <legend className="text-[14px] font-bold leading-[1.4]">การส่ง</legend>
                   <div className="flex flex-wrap gap-4">
                     {(priorities.length
                       ? priorities
@@ -729,9 +634,6 @@ export function AnnounceScreen() {
                       </label>
                     </div>
                   )}
-                  <div className="rounded-[8px] border border-frame bg-table px-4 py-3 text-[13px] text-ink/70">
-                    ผู้รับ: ทุกคนที่แอดเพื่อน LINE OA · ช่องทาง: LINE Flex Message
-                  </div>
                 </fieldset>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame pt-4">
@@ -755,7 +657,7 @@ export function AnnounceScreen() {
               </div>
 
               <div className="lg:sticky lg:top-4 lg:self-start">
-                <div className="mb-2 text-[14px] font-bold">พรีวิวสด</div>
+                <div className="mb-2 text-[14px] font-bold">พรีวิว</div>
                 <LineCardPreview
                   title={trimmedTitle}
                   message={trimmedMessage}
