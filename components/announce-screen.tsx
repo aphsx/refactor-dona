@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Clock, Eye, FileText, ImagePlus, Megaphone, Save, Send, X } from "lucide-react";
+import { Clock, FileText, ImagePlus, LayoutTemplate, Link2, Megaphone, Save, Send, Type, X } from "lucide-react";
 import { CanAdd, CanDelete, CanRead } from "@/components/can";
 import {
   ConfirmAlert,
   DateField,
-  Dialog,
   Glyph,
   PageHeader,
   Pagination,
@@ -37,6 +36,10 @@ import { compressAnnouncementImage } from "@/lib/compress-image";
 const MAX_MESSAGE = 5000;
 const MAX_TITLE = 100;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_BUTTON = 20;
+
+/** Card layout presets — mirrors LINE OA / Megaphone / broadcast composer patterns. */
+type CardLayout = "card" | "text_button" | "text";
 
 type SendMode = "now" | "schedule";
 type Notice =
@@ -48,6 +51,81 @@ type ImageDraft = {
   name: string;
   previewUrl: string;
 };
+
+type ContentStarter = {
+  id: string;
+  label: string;
+  title: string;
+  message: string;
+  layout: CardLayout;
+  priorityId: number;
+  buttonLabel: string;
+};
+
+const LAYOUTS: {
+  id: CardLayout;
+  title: string;
+  desc: string;
+  icon: typeof Type;
+}[] = [
+  {
+    id: "card",
+    title: "การ์ดเต็ม",
+    desc: "รูป + ข้อความ + ปุ่มกด",
+    icon: LayoutTemplate,
+  },
+  {
+    id: "text_button",
+    title: "ข้อความ + ปุ่ม",
+    desc: "ไม่มีรูป มีปุ่มเปิดลิงก์",
+    icon: Link2,
+  },
+  {
+    id: "text",
+    title: "ข้อความอย่างเดียว",
+    desc: "สั้นๆ ไม่มีปุ่ม",
+    icon: Type,
+  },
+];
+
+const STARTERS: ContentStarter[] = [
+  {
+    id: "general",
+    label: "ประกาศทั่วไป",
+    title: "ประกาศจากโรงสี",
+    message: "",
+    layout: "card",
+    priorityId: ANNOUNCEMENT_PRIORITY.normal,
+    buttonLabel: "เปิดลิงก์",
+  },
+  {
+    id: "receive",
+    label: "เปิดรับข้าว",
+    title: "แจ้งเปิดรับข้าวเปลือก",
+    message: "โรงสีเปิดรับข้าวเปลือกตามรายละเอียดด้านล่าง กรุณาตรวจสอบก่อนนำส่ง",
+    layout: "card",
+    priorityId: ANNOUNCEMENT_PRIORITY.normal,
+    buttonLabel: "ดูรายละเอียด",
+  },
+  {
+    id: "urgent",
+    label: "ด่วน",
+    title: "ประกาศด่วน",
+    message: "",
+    layout: "text_button",
+    priorityId: ANNOUNCEMENT_PRIORITY.urgent,
+    buttonLabel: "อ่านเพิ่มเติม",
+  },
+  {
+    id: "closed",
+    label: "ปิดปรับปรุง",
+    title: "แจ้งปิดปรับปรุงชั่วคราว",
+    message: "โรงสีจะปิดปรับปรุงในวันและเวลาที่ระบุ ขออภัยในความไม่สะดวก",
+    layout: "text",
+    priorityId: ANNOUNCEMENT_PRIORITY.normal,
+    buttonLabel: "เปิดลิงก์",
+  },
+];
 
 function todayIso() {
   const now = new Date();
@@ -107,11 +185,70 @@ function buildLineBody(title: string, message: string, linkUrl: string, priority
   return chunks.join("\n\n");
 }
 
+function LineCardPreview({
+  title,
+  message,
+  linkUrl,
+  buttonLabel,
+  priorityId,
+  imageUrl,
+  showImage,
+  showButton,
+}: {
+  title: string;
+  message: string;
+  linkUrl: string;
+  buttonLabel: string;
+  priorityId: number;
+  imageUrl: string | null;
+  showImage: boolean;
+  showButton: boolean;
+}) {
+  return (
+    <div className="rounded-[8px] bg-[#747F8D] p-4">
+      <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-[18px] bg-white shadow-sm">
+        {showImage && imageUrl && (
+          <img src={imageUrl} alt="" className="aspect-[20/13] w-full object-cover" />
+        )}
+        <div className="space-y-2 px-4 py-4 text-[14px] leading-[1.45] text-ink">
+          {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
+            <div className="text-[12px] font-bold text-danger">ด่วน</div>
+          )}
+          {title ? (
+            <div className="text-[16px] font-bold">{title}</div>
+          ) : (
+            <div className="text-[16px] font-bold text-ink/30">หัวข้อประกาศ</div>
+          )}
+          {message ? (
+            <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
+          ) : (
+            <div className="text-[13px] text-ink/30">ข้อความประกาศ…</div>
+          )}
+        </div>
+        {showButton && (
+          <div className="border-t border-black/5 px-3 py-3">
+            <div className="flex h-9 items-center justify-center rounded-[6px] bg-brand text-[13px] font-bold text-white">
+              {buttonLabel || "เปิดลิงก์"}
+            </div>
+            {!linkUrl && (
+              <p className="mt-2 text-center text-[11px] text-ink/45">ยังไม่มีลิงก์ — กรอกด้านซ้าย</p>
+            )}
+          </div>
+        )}
+      </div>
+      <p className="mt-3 text-center text-[12px] text-white/80">พรีวิวการ์ดที่ผู้รับจะเห็นใน LINE</p>
+    </div>
+  );
+}
+
 export function AnnounceScreen() {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [layout, setLayout] = useState<CardLayout>("card");
+  const [starterId, setStarterId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [buttonLabel, setButtonLabel] = useState("เปิดลิงก์");
   const [image, setImage] = useState<ImageDraft | null>(null);
   const [priorityId, setPriorityId] = useState<number>(ANNOUNCEMENT_PRIORITY.normal);
   const [mode, setMode] = useState<SendMode>("now");
@@ -124,7 +261,6 @@ export function AnnounceScreen() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -132,10 +268,19 @@ export function AnnounceScreen() {
   const trimmedTitle = title.trim();
   const trimmedMessage = message.trim();
   const trimmedLink = linkUrl.trim();
-  const lineBody = buildLineBody(trimmedTitle, trimmedMessage, trimmedLink, priorityId);
+  const trimmedButton = buttonLabel.trim() || "เปิดลิงก์";
+  const wantsButton = layout === "card" || layout === "text_button";
+  const wantsImage = layout === "card";
+  const effectiveLink = wantsButton ? trimmedLink : "";
+  const lineBody = buildLineBody(trimmedTitle, trimmedMessage, effectiveLink, priorityId);
   const remaining = MAX_MESSAGE - [...lineBody].length;
-  const hasContent = Boolean(trimmedTitle || trimmedMessage || trimmedLink || image);
-  const canPublish = hasContent && remaining >= 0 && (!trimmedLink || isHttpUrl(trimmedLink));
+  const hasContent = Boolean(trimmedTitle || trimmedMessage || (wantsImage && image) || effectiveLink);
+  const canPublish =
+    hasContent &&
+    remaining >= 0 &&
+    (!effectiveLink || isHttpUrl(effectiveLink)) &&
+    (!wantsButton || Boolean(effectiveLink));
+
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   const refresh = useCallback(async () => {
@@ -170,14 +315,34 @@ export function AnnounceScreen() {
   }
 
   function clearForm() {
+    setLayout("card");
+    setStarterId(null);
     setTitle("");
     setMessage("");
     setLinkUrl("");
+    setButtonLabel("เปิดลิงก์");
     clearImage();
     setPriorityId(ANNOUNCEMENT_PRIORITY.normal);
     setMode("now");
     setScheduleDate(todayIso());
     setScheduleTime(nextHourTime());
+  }
+
+  function applyStarter(starter: ContentStarter) {
+    setStarterId(starter.id);
+    setLayout(starter.layout);
+    setTitle(starter.title);
+    setMessage(starter.message);
+    setPriorityId(starter.priorityId);
+    setButtonLabel(starter.buttonLabel);
+    if (starter.layout !== "card") clearImage();
+  }
+
+  function selectLayout(next: CardLayout) {
+    setLayout(next);
+    setStarterId(null);
+    if (next !== "card") clearImage();
+    if (next === "text") setLinkUrl("");
   }
 
   async function onPickImage(file: File | undefined) {
@@ -204,9 +369,10 @@ export function AnnounceScreen() {
   }
 
   function validateForPublish(): string | null {
-    if (!hasContent) return "กรอกหัวข้อ ข้อความ รูป หรือลิงก์อย่างน้อยหนึ่งอย่าง";
+    if (!hasContent) return "กรอกหัวข้อ ข้อความ หรือแนบรูปอย่างน้อยหนึ่งอย่าง";
     if (remaining < 0) return `ข้อความรวมยาวเกิน ${MAX_MESSAGE.toLocaleString("th-TH")} ตัวอักษร`;
-    if (trimmedLink && !isHttpUrl(trimmedLink)) return "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://";
+    if (wantsButton && !effectiveLink) return "รูปแบบนี้ต้องมีลิงก์สำหรับปุ่มกด";
+    if (effectiveLink && !isHttpUrl(effectiveLink)) return "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://";
     return null;
   }
 
@@ -238,7 +404,7 @@ export function AnnounceScreen() {
     try {
       let imageUrl = "";
       let imageName = "";
-      if (image) {
+      if (wantsImage && image) {
         const uploaded = await uploadAnnouncementImage(image.file);
         imageUrl = uploaded.imageUrl;
         imageName = uploaded.imageName;
@@ -246,9 +412,10 @@ export function AnnounceScreen() {
       await createAnnouncement({
         title: trimmedTitle,
         message: trimmedMessage,
-        linkUrl: trimmedLink,
+        linkUrl: effectiveLink,
         imageUrl,
         imageName,
+        buttonLabel: effectiveLink ? trimmedButton : "",
         priorityId,
         mode: nextMode,
         scheduledAt,
@@ -338,63 +505,97 @@ export function AnnounceScreen() {
       <div className="h-full overflow-y-auto px-7 py-6">
         <PageHeader current="ประกาศ LINE" />
 
-        <div className="mb-6 rounded-[8px] border border-frame bg-[#F5F9FE] px-6 py-4 text-[14px] leading-[1.5] text-ink/80">
-          ส่งผ่าน <span className="font-bold text-ink">LINE Official Account</span> แบบการ์ด (Flex) — หัวข้อ · ข้อความ · รูป ·
-          ปุ่มเปิดลิงก์ (ถ้ามี) ถึงทุกคนที่แอดเพื่อน OA แล้ว
-        </div>
-
         <CanAdd resource="announcements">
+          {/* 1. Layout templates */}
           <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
-            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">เขียนประกาศ</div>
+            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">1. เลือกรูปแบบการ์ด</div>
+            <div className="grid gap-3 px-6 py-5 sm:grid-cols-3">
+              {LAYOUTS.map((item) => {
+                const Icon = item.icon;
+                const active = layout === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => selectLayout(item.id)}
+                    className={`rounded-[8px] border px-4 py-4 text-left transition-colors ${
+                      active ? "border-brand bg-pick" : "border-frame bg-white hover:bg-table"
+                    }`}
+                  >
+                    <Icon size={20} strokeWidth={1.75} className={active ? "text-brand" : "text-ink/50"} />
+                    <div className="mt-2 text-[14px] font-bold">{item.title}</div>
+                    <div className="mt-1 text-[12px] text-ink/55">{item.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. Content starters */}
+          <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
+            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">2. เนื้อหาเริ่มต้น (ถ้าต้องการ)</div>
+            <div className="flex flex-wrap gap-2 px-6 py-5">
+              {STARTERS.map((item) => {
+                const active = starterId === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => applyStarter(item)}
+                    className={`rounded-[6px] border px-3 py-2 text-[13px] font-bold transition-colors ${
+                      active ? "border-brand bg-brand text-white" : "border-frame bg-white text-ink hover:bg-pick"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+              <span className="self-center text-[12px] text-ink/45">กดแล้วแก้ข้อความต่อได้</span>
+            </div>
+          </div>
+
+          {/* 3. Compose + live preview */}
+          <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
+            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">3. เขียนประกาศ</div>
             <form
-              className="grid gap-5 px-6 py-5"
+              className="grid gap-6 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_300px]"
               onSubmit={(event) => {
                 event.preventDefault();
                 requestPublish();
               }}
             >
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <div className="grid gap-4">
-                  <label className="block text-[14px] font-bold leading-[1.4]">
-                    หัวข้อ
-                    <input
-                      value={title}
-                      onChange={(event) => setTitle(event.target.value.slice(0, MAX_TITLE))}
-                      maxLength={MAX_TITLE}
-                      placeholder="เช่น แจ้งเปิดรับข้าวเปลือก"
-                      className={`${inputClass} mt-1`}
-                    />
-                  </label>
+              <div className="grid gap-4 content-start">
+                <label className="block text-[14px] font-bold leading-[1.4]">
+                  หัวข้อ
+                  <input
+                    value={title}
+                    onChange={(event) => {
+                      setTitle(event.target.value.slice(0, MAX_TITLE));
+                      setStarterId(null);
+                    }}
+                    maxLength={MAX_TITLE}
+                    placeholder="เช่น แจ้งเปิดรับข้าวเปลือก"
+                    className={`${inputClass} mt-1`}
+                  />
+                </label>
 
-                  <label className="block text-[14px] font-bold leading-[1.4]">
-                    ข้อความ
-                    <textarea
-                      value={message}
-                      onChange={(event) => setMessage(event.target.value)}
-                      rows={8}
-                      placeholder="รายละเอียดประกาศจากโรงสี…"
-                      className={`${inputClass} mt-1 h-auto min-h-[180px] resize-y py-3 leading-[1.5]`}
-                    />
-                  </label>
+                <label className="block text-[14px] font-bold leading-[1.4]">
+                  ข้อความ
+                  <textarea
+                    value={message}
+                    onChange={(event) => {
+                      setMessage(event.target.value);
+                      setStarterId(null);
+                    }}
+                    rows={7}
+                    placeholder="รายละเอียดประกาศจากโรงสี…"
+                    className={`${inputClass} mt-1 h-auto min-h-[160px] resize-y py-3 leading-[1.5]`}
+                  />
+                </label>
 
-              <label className="block text-[14px] font-bold leading-[1.4]">
-                ลิงก์ปุ่มกดใน LINE (ถ้ามี)
-                <input
-                  type="url"
-                  value={linkUrl}
-                  onChange={(event) => setLinkUrl(event.target.value)}
-                  placeholder="https://…"
-                  className={`${inputClass} mt-1`}
-                />
-                <span className="mt-1 block text-[12px] font-normal text-ink/45">
-                  จะแสดงเป็นปุ่ม “เปิดลิงก์” ในการ์ดประกาศ — ผู้รับกดแล้วเปิดเว็บได้
-                </span>
-              </label>
-                </div>
-
-                <div className="grid gap-4 content-start">
+                {wantsImage && (
                   <div className="text-[14px] font-bold leading-[1.4]">
-                    รูปประกอบ
+                    รูปหัวการ์ด
                     <input
                       ref={fileRef}
                       type="file"
@@ -404,7 +605,7 @@ export function AnnounceScreen() {
                     />
                     {image ? (
                       <div className="mt-1 overflow-hidden rounded-[8px] border border-frame">
-                        <img src={image.previewUrl} alt="" className="h-40 w-full object-cover" />
+                        <img src={image.previewUrl} alt="" className="h-36 w-full object-cover" />
                         <div className="flex items-center justify-between gap-2 px-3 py-2 text-[12px] font-normal text-ink/70">
                           <span className="truncate">
                             {image.name} · {(image.file.size / 1024).toFixed(0)} KB
@@ -423,116 +624,148 @@ export function AnnounceScreen() {
                       <button
                         type="button"
                         onClick={() => fileRef.current?.click()}
-                        className="mt-1 flex h-40 w-full flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed border-line bg-white text-[13px] font-normal text-ink/55 transition-colors hover:bg-pick"
+                        className="mt-1 flex h-36 w-full flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed border-line bg-white text-[13px] font-normal text-ink/55 transition-colors hover:bg-pick"
                       >
                         <ImagePlus size={22} strokeWidth={1.75} />
                         แนบรูป JPEG / PNG
-                        <span className="text-[12px]">บีบอัดเบาๆ ก่อนส่ง · ไม่เกิน 5 MB</span>
+                        <span className="text-[12px]">บีบอัดเบาๆ · ไม่เกิน 5 MB</span>
                       </button>
                     )}
                   </div>
+                )}
 
-                  <fieldset className="grid gap-2">
-                    <legend className="text-[14px] font-bold leading-[1.4]">ความสำคัญ</legend>
-                    <div className="flex flex-wrap gap-4">
-                      {(priorities.length
-                        ? priorities
-                        : [
-                            { id: ANNOUNCEMENT_PRIORITY.normal, code: "normal", name: "ปกติ" },
-                            { id: ANNOUNCEMENT_PRIORITY.urgent, code: "urgent", name: "ด่วน" },
-                          ]
-                      ).map((item) => (
-                        <label key={item.id} className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                          <input
-                            type="radio"
-                            name="priority"
-                            checked={priorityId === item.id}
-                            onChange={() => setPriorityId(item.id)}
-                            className="h-4 w-4 accent-ink"
-                          />
-                          {item.name}
-                        </label>
-                      ))}
+                {wantsButton && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+                      ลิงก์เมื่อกดปุ่ม
+                      <input
+                        type="url"
+                        value={linkUrl}
+                        onChange={(event) => setLinkUrl(event.target.value)}
+                        placeholder="https://…"
+                        className={`${inputClass} mt-1`}
+                      />
+                    </label>
+                    <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+                      ข้อความบนปุ่ม
+                      <input
+                        value={buttonLabel}
+                        onChange={(event) => setButtonLabel(event.target.value.slice(0, MAX_BUTTON))}
+                        maxLength={MAX_BUTTON}
+                        placeholder="เปิดลิงก์"
+                        className={`${inputClass} mt-1`}
+                      />
+                      <span className="mt-1 block text-[12px] font-normal text-ink/45">
+                        สูงสุด {MAX_BUTTON} ตัวอักษร · ข้อความนี้จะโผล่บนปุ่มใน LINE
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                <fieldset className="grid gap-3 border-t border-frame pt-4">
+                  <legend className="text-[14px] font-bold leading-[1.4]">4. การส่ง</legend>
+                  <div className="flex flex-wrap gap-4">
+                    {(priorities.length
+                      ? priorities
+                      : [
+                          { id: ANNOUNCEMENT_PRIORITY.normal, name: "ปกติ" },
+                          { id: ANNOUNCEMENT_PRIORITY.urgent, name: "ด่วน" },
+                        ]
+                    ).map((item) => (
+                      <label key={item.id} className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
+                        <input
+                          type="radio"
+                          name="priority"
+                          checked={priorityId === item.id}
+                          onChange={() => setPriorityId(item.id)}
+                          className="h-4 w-4 accent-ink"
+                        />
+                        {item.name}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
+                      <input
+                        type="radio"
+                        name="send-mode"
+                        checked={mode === "now"}
+                        onChange={() => setMode("now")}
+                        className="h-4 w-4 accent-ink"
+                      />
+                      ส่งทันที
+                    </label>
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
+                      <input
+                        type="radio"
+                        name="send-mode"
+                        checked={mode === "schedule"}
+                        onChange={() => setMode("schedule")}
+                        className="h-4 w-4 accent-ink"
+                      />
+                      ตั้งเวลา
+                    </label>
+                  </div>
+                  {mode === "schedule" && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block text-[14px] font-bold leading-[1.4]">
+                        วันที่
+                        <DateField
+                          label="วันที่ส่ง"
+                          className="mt-1"
+                          value={scheduleDate}
+                          min={todayIso()}
+                          onChange={setScheduleDate}
+                        />
+                      </label>
+                      <label className="block text-[14px] font-bold leading-[1.4]">
+                        เวลา
+                        <input
+                          type="time"
+                          value={scheduleTime}
+                          onChange={(event) => setScheduleTime(event.target.value)}
+                          className={`${inputClass} mt-1`}
+                        />
+                      </label>
                     </div>
-                  </fieldset>
+                  )}
+                  <div className="rounded-[8px] border border-frame bg-table px-4 py-3 text-[13px] text-ink/70">
+                    ผู้รับ: ทุกคนที่แอดเพื่อน LINE OA · ช่องทาง: LINE Flex Message
+                  </div>
+                </fieldset>
 
-                  <div className="rounded-[8px] border border-frame bg-table px-4 py-3 text-[13px] font-normal leading-[1.5] text-ink/70">
-                    <div className="font-bold text-ink">ผู้รับ</div>
-                    ทุกคนที่แอดเพื่อน LINE OA
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame pt-4">
+                  <p className={`text-[13px] ${remaining < 100 ? "font-bold text-danger" : "text-ink/50"}`}>
+                    เหลือ {remaining.toLocaleString("th-TH")} ตัวอักษร
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <SecondaryButton type="button" disabled={!hasContent || busy} onClick={clearForm}>
+                      ล้าง
+                    </SecondaryButton>
+                    <SecondaryButton type="button" disabled={!canPublish || busy} onClick={() => void submit("draft")}>
+                      <Glyph icon={Save} />
+                      บันทึกร่าง
+                    </SecondaryButton>
+                    <PrimaryButton type="submit" disabled={!canPublish || busy}>
+                      <Glyph icon={mode === "schedule" ? Clock : Send} />
+                      {busy ? "กำลังส่ง…" : mode === "schedule" ? "ตั้งเวลาส่ง" : "ส่งประกาศ"}
+                    </PrimaryButton>
                   </div>
                 </div>
               </div>
 
-              <fieldset className="grid gap-3 border-t border-frame pt-5">
-                <legend className="px-1 text-[14px] font-bold leading-[1.4]">เวลาส่ง</legend>
-                <div className="flex flex-wrap gap-4">
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                    <input
-                      type="radio"
-                      name="send-mode"
-                      checked={mode === "now"}
-                      onChange={() => setMode("now")}
-                      className="h-4 w-4 accent-ink"
-                    />
-                    ส่งทันที
-                  </label>
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                    <input
-                      type="radio"
-                      name="send-mode"
-                      checked={mode === "schedule"}
-                      onChange={() => setMode("schedule")}
-                      className="h-4 w-4 accent-ink"
-                    />
-                    ตั้งเวลา
-                  </label>
-                </div>
-                {mode === "schedule" && (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:max-w-xl">
-                    <label className="block text-[14px] font-bold leading-[1.4]">
-                      วันที่
-                      <DateField
-                        label="วันที่ส่ง"
-                        className="mt-1"
-                        value={scheduleDate}
-                        min={todayIso()}
-                        onChange={setScheduleDate}
-                      />
-                    </label>
-                    <label className="block text-[14px] font-bold leading-[1.4]">
-                      เวลา
-                      <input
-                        type="time"
-                        value={scheduleTime}
-                        onChange={(event) => setScheduleTime(event.target.value)}
-                        className={`${inputClass} mt-1`}
-                      />
-                    </label>
-                  </div>
-                )}
-              </fieldset>
-
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame pt-5">
-                <p className={`text-[13px] ${remaining < 100 ? "font-bold text-danger" : "text-ink/50"}`}>
-                  ข้อความรวมใน LINE เหลือ {remaining.toLocaleString("th-TH")} ตัวอักษร
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <SecondaryButton type="button" disabled={!hasContent || busy} onClick={clearForm}>
-                    ล้าง
-                  </SecondaryButton>
-                  <SecondaryButton type="button" disabled={!hasContent || busy} onClick={() => setPreviewOpen(true)}>
-                    <Glyph icon={Eye} />
-                    พรีวิว
-                  </SecondaryButton>
-                  <SecondaryButton type="button" disabled={!canPublish || busy} onClick={() => void submit("draft")}>
-                    <Glyph icon={Save} />
-                    บันทึกร่าง
-                  </SecondaryButton>
-                  <PrimaryButton type="submit" disabled={!canPublish || busy}>
-                    <Glyph icon={mode === "schedule" ? Clock : Send} />
-                    {busy ? "กำลังส่ง…" : mode === "schedule" ? "ตั้งเวลาส่ง" : "ส่งประกาศ"}
-                  </PrimaryButton>
-                </div>
+              <div className="lg:sticky lg:top-4 lg:self-start">
+                <div className="mb-2 text-[14px] font-bold">พรีวิวสด</div>
+                <LineCardPreview
+                  title={trimmedTitle}
+                  message={trimmedMessage}
+                  linkUrl={effectiveLink}
+                  buttonLabel={trimmedButton}
+                  priorityId={priorityId}
+                  imageUrl={image?.previewUrl ?? null}
+                  showImage={wantsImage}
+                  showButton={wantsButton}
+                />
               </div>
             </form>
           </div>
@@ -675,48 +908,6 @@ export function AnnounceScreen() {
             />
           )}
         </div>
-
-        {previewOpen && (
-          <Dialog title="พรีวิวการ์ด LINE" onClose={() => setPreviewOpen(false)}>
-            <div className="rounded-[8px] bg-[#747F8D] p-4">
-              <div className="ml-auto w-full max-w-[280px] overflow-hidden rounded-[18px] bg-white shadow-sm">
-                {image && (
-                  <img src={image.previewUrl} alt="" className="aspect-[20/13] w-full object-cover" />
-                )}
-                <div className="space-y-2 px-4 py-4 text-[14px] leading-[1.45] text-ink">
-                  {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
-                    <div className="text-[12px] font-bold text-danger">ด่วน</div>
-                  )}
-                  {trimmedTitle && <div className="text-[16px] font-bold">{trimmedTitle}</div>}
-                  {trimmedMessage && (
-                    <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{trimmedMessage}</div>
-                  )}
-                  {!trimmedTitle && !trimmedMessage && !image && (
-                    <div className="text-ink/50">ยังไม่มีเนื้อหา</div>
-                  )}
-                </div>
-                {trimmedLink && (
-                  <div className="border-t border-black/5 px-3 py-3">
-                    <a
-                      href={trimmedLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex h-9 items-center justify-center rounded-[6px] bg-brand text-[13px] font-bold text-white"
-                    >
-                      เปิดลิงก์
-                    </a>
-                  </div>
-                )}
-              </div>
-              <p className="mt-3 text-center text-[12px] text-white/80">รูปแบบ Flex Message ที่ผู้รับจะเห็นในแชท OA</p>
-            </div>
-            <div className="mt-5 flex justify-end">
-              <PrimaryButton type="button" onClick={() => setPreviewOpen(false)}>
-                ปิด
-              </PrimaryButton>
-            </div>
-          </Dialog>
-        )}
 
         {notice?.tone === "confirm" && (
           <ConfirmAlert

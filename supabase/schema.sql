@@ -206,6 +206,7 @@ create table public.announcements (
   link_url text not null default '',
   image_url text not null default '',
   image_name text not null default '',
+  button_label text not null default '',
   priority_id smallint not null references public.announcement_priorities (id),
   status_id smallint not null references public.announcement_statuses (id),
   scheduled_at timestamptz,

@@ -403,6 +403,7 @@ export type Announcement = {
   linkUrl: string;
   imageUrl: string;
   imageName: string;
+  buttonLabel: string;
   priorityId: number;
   priority: AnnouncementLookup;
   statusId: number;
@@ -422,6 +423,7 @@ export type CreateAnnouncementInput = {
   linkUrl?: string;
   imageUrl?: string;
   imageName?: string;
+  buttonLabel?: string;
   priorityId?: number;
   mode: "draft" | "now" | "schedule";
   scheduledAt?: string;
