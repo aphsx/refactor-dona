@@ -404,6 +404,7 @@ export type Announcement = {
   imageUrl: string;
   imageName: string;
   buttonLabel: string;
+  imageLayout: "full" | "card";
   priorityId: number;
   priority: AnnouncementLookup;
   statusId: number;
@@ -424,6 +425,7 @@ export type CreateAnnouncementInput = {
   imageUrl?: string;
   imageName?: string;
   buttonLabel?: string;
+  imageLayout?: "full" | "card";
   priorityId?: number;
   mode: "draft" | "now" | "schedule";
   scheduledAt?: string;
