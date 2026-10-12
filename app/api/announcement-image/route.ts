@@ -33,11 +33,12 @@ export async function POST(request: NextRequest) {
   if (file.size <= 0 || file.size > MAX_BYTES) {
     return NextResponse.json({ error: "ไฟล์รูปต้องไม่เกิน 5 MB" }, { status: 400 });
   }
-  if (file.type !== "image/webp" && file.type !== "image/jpeg" && file.type !== "image/png") {
-    return NextResponse.json({ error: "รองรับเฉพาะ WebP / JPEG / PNG" }, { status: 400 });
+  // LINE image messages accept JPEG/PNG only (client compresses to JPEG).
+  if (file.type !== "image/jpeg" && file.type !== "image/png") {
+    return NextResponse.json({ error: "รองรับเฉพาะ JPEG / PNG" }, { status: 400 });
   }
 
-  const ext = file.type === "image/png" ? "png" : file.type === "image/jpeg" ? "jpg" : "webp";
+  const ext = file.type === "image/png" ? "png" : "jpg";
   const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
   let supabase: { url: string; key: string };

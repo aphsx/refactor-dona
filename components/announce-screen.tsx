@@ -32,6 +32,7 @@ import {
   type Announcement,
   type AnnouncementLookup,
 } from "@/lib/api";
+import { compressAnnouncementImage } from "@/lib/compress-image";
 
 const MAX_MESSAGE = 5000;
 const MAX_TITLE = 100;
@@ -179,7 +180,7 @@ export function AnnounceScreen() {
     setScheduleTime(nextHourTime());
   }
 
-  function onPickImage(file: File | undefined) {
+  async function onPickImage(file: File | undefined) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       setNotice({ tone: "error", message: "แนบได้เฉพาะไฟล์รูปภาพ" });
@@ -190,11 +191,16 @@ export function AnnounceScreen() {
       return;
     }
     clearImage();
-    setImage({
-      file,
-      name: file.name,
-      previewUrl: URL.createObjectURL(file),
-    });
+    try {
+      const compressed = await compressAnnouncementImage(file);
+      setImage({
+        file: compressed,
+        name: compressed.name,
+        previewUrl: URL.createObjectURL(compressed),
+      });
+    } catch {
+      setNotice({ tone: "error", message: "บีบอัดรูปไม่สำเร็จ" });
+    }
   }
 
   function validateForPublish(): string | null {
@@ -388,15 +394,17 @@ export function AnnounceScreen() {
                     <input
                       ref={fileRef}
                       type="file"
-                      accept="image/jpeg,image/png,image/webp"
+                      accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png"
                       className="sr-only"
-                      onChange={(event) => onPickImage(event.target.files?.[0])}
+                      onChange={(event) => void onPickImage(event.target.files?.[0])}
                     />
                     {image ? (
                       <div className="mt-1 overflow-hidden rounded-[8px] border border-frame">
                         <img src={image.previewUrl} alt="" className="h-40 w-full object-cover" />
                         <div className="flex items-center justify-between gap-2 px-3 py-2 text-[12px] font-normal text-ink/70">
-                          <span className="truncate">{image.name}</span>
+                          <span className="truncate">
+                            {image.name} · {(image.file.size / 1024).toFixed(0)} KB
+                          </span>
                           <button
                             type="button"
                             onClick={clearImage}
@@ -415,7 +423,7 @@ export function AnnounceScreen() {
                       >
                         <ImagePlus size={22} strokeWidth={1.75} />
                         แนบรูป JPEG / PNG
-                        <span className="text-[12px]">อัปโหลดตอนส่ง · ไม่เกิน 5 MB</span>
+                        <span className="text-[12px]">บีบอัดเบาๆ ก่อนส่ง · ไม่เกิน 5 MB</span>
                       </button>
                     )}
                   </div>
