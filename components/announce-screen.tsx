@@ -33,8 +33,6 @@ const MAX_BUTTON = 20;
  * text | image | card — not Flex layout recipes.
  */
 type MessageKind = "text" | "image" | "card";
-/** Promo image size: full chat (native image) vs Flex bubble card. */
-type ImageLayout = "full" | "card";
 
 type SendMode = "now" | "schedule";
 type Notice =
@@ -180,7 +178,6 @@ function LineCardPreview({
   buttonLabel,
   priorityId,
   imageUrl,
-  imageLayout = "full",
   cardUseImage = false,
   cardUseLink = false,
 }: {
@@ -191,7 +188,6 @@ function LineCardPreview({
   buttonLabel: string;
   priorityId: number;
   imageUrl: string | null;
-  imageLayout?: ImageLayout;
   cardUseImage?: boolean;
   cardUseLink?: boolean;
 }) {
@@ -203,7 +199,6 @@ function LineCardPreview({
   const textBody = [priorityId === ANNOUNCEMENT_PRIORITY.urgent ? "[ด่วน]" : "", title, message]
     .filter(Boolean)
     .join("\n\n");
-  const promoFull = imageOnly && imageLayout === "full";
 
   return (
     <div className="overflow-hidden rounded-[12px] border border-black/10 bg-[#7494A9] shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
@@ -232,24 +227,16 @@ function LineCardPreview({
               )}
             </div>
           ) : imageOnly ? (
-            <div
-              className={`min-w-0 overflow-hidden bg-white shadow-sm ${
-                promoFull
-                  ? "w-full max-w-none flex-[1.15] rounded-[12px]"
-                  : "max-w-[78%] flex-1 rounded-[16px]"
-              }`}
-            >
+            <div className="min-w-0 max-w-[78%] flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm">
               {imageUrl ? (
                 <img src={imageUrl} alt="" className="aspect-square w-full object-cover" />
               ) : (
                 <div className="flex aspect-square w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35">
-                  {promoFull ? "รูปโปรโมชันเต็มแชท" : "รูปโปรโมชันแบบการ์ด"}
+                  รูปโปรโมชัน
                 </div>
               )}
               {linkUrl && (
-                <p className="px-3 py-2 text-center text-[11px] text-ink/45">
-                  {promoFull ? "ลิงก์เป็นปุ่มแยกด้านล่าง" : "กดที่รูปเพื่อเปิดลิงก์"}
-                </p>
+                <p className="px-3 py-2 text-center text-[11px] text-ink/45">กดที่รูปเพื่อเปิดลิงก์</p>
               )}
             </div>
           ) : (
@@ -309,7 +296,6 @@ export function AnnounceScreen() {
   const [linkUrl, setLinkUrl] = useState("");
   const [buttonLabel, setButtonLabel] = useState("เปิดลิงก์");
   const [image, setImage] = useState<ImageDraft | null>(null);
-  const [imageLayout, setImageLayout] = useState<ImageLayout>("full");
   const [cardUseImage, setCardUseImage] = useState(false);
   const [cardUseLink, setCardUseLink] = useState(false);
   const [priorityId, setPriorityId] = useState<number>(ANNOUNCEMENT_PRIORITY.normal);
@@ -364,7 +350,6 @@ export function AnnounceScreen() {
     setMessage("");
     setLinkUrl("");
     setButtonLabel("เปิดลิงก์");
-    setImageLayout("full");
     setCardUseImage(false);
     setCardUseLink(false);
     clearImage();
@@ -386,7 +371,6 @@ export function AnnounceScreen() {
       setTitle("");
       setMessage("");
       setButtonLabel("เปิดลิงก์");
-      setImageLayout("full");
       setCardUseImage(false);
       setCardUseLink(false);
     }
@@ -472,7 +456,6 @@ export function AnnounceScreen() {
         imageUrl,
         imageName,
         buttonLabel: wantsButton && effectiveLink ? trimmedButton : "",
-        imageLayout: imageOnly ? imageLayout : "full",
         priorityId,
         mode: nextMode,
         scheduledAt,
@@ -653,41 +636,16 @@ export function AnnounceScreen() {
                 )}
 
                 {imageOnly && (
-                  <div className="grid gap-3">
-                    <div className="text-[14px] font-bold leading-[1.4]">ขนาดในแชท</div>
-                    <div className="flex flex-wrap gap-4">
-                      <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                        <input
-                          type="radio"
-                          name="image-layout"
-                          checked={imageLayout === "full"}
-                          onChange={() => setImageLayout("full")}
-                          className="h-4 w-4 accent-ink"
-                        />
-                        เต็มแชท
-                      </label>
-                      <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                        <input
-                          type="radio"
-                          name="image-layout"
-                          checked={imageLayout === "card"}
-                          onChange={() => setImageLayout("card")}
-                          className="h-4 w-4 accent-ink"
-                        />
-                        แบบการ์ด
-                      </label>
-                    </div>
-                    <label className="block text-[14px] font-bold leading-[1.4]">
-                      {imageLayout === "full" ? "ลิงก์ (ปุ่มแยก · ไม่บังคับ)" : "ลิงก์เมื่อกดรูป (ไม่บังคับ)"}
-                      <input
-                        type="url"
-                        value={linkUrl}
-                        onChange={(event) => setLinkUrl(event.target.value)}
-                        placeholder="https://"
-                        className={`${inputClass} mt-1`}
-                      />
-                    </label>
-                  </div>
+                  <label className="block text-[14px] font-bold leading-[1.4]">
+                    ลิงก์เมื่อกดรูป (ไม่บังคับ)
+                    <input
+                      type="url"
+                      value={linkUrl}
+                      onChange={(event) => setLinkUrl(event.target.value)}
+                      placeholder="https://"
+                      className={`${inputClass} mt-1`}
+                    />
+                  </label>
                 )}
 
                 {wantsButton && (
@@ -813,7 +771,6 @@ export function AnnounceScreen() {
                   buttonLabel={trimmedButton}
                   priorityId={priorityId}
                   imageUrl={image?.previewUrl ?? null}
-                  imageLayout={imageLayout}
                   cardUseImage={cardUseImage}
                   cardUseLink={cardUseLink}
                 />
