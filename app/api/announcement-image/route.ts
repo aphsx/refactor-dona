@@ -64,10 +64,15 @@ export async function POST(request: NextRequest) {
 
   if (!upload.ok) {
     const detail = await upload.text().catch(() => "");
-    return NextResponse.json(
-      { error: detail || "อัปโหลดรูปไม่สำเร็จ — ตรวจว่ามี bucket announcement-images (public)" },
-      { status: upload.status >= 400 ? upload.status : 502 },
-    );
+    let message = "อัปโหลดรูปไม่สำเร็จ";
+    if (detail.includes("Bucket not found") || detail.includes("NoSuchBucket")) {
+      message = "ยังไม่มี bucket announcement-images ใน Supabase (ต้องเป็น public)";
+    } else if (detail.includes("row-level security") || detail.includes("AccessDenied")) {
+      message = "อัปโหลดรูปไม่ได้ — ตรวจ storage policy ของ bucket announcement-images";
+    } else if (detail) {
+      message = detail.slice(0, 300);
+    }
+    return NextResponse.json({ error: message }, { status: upload.status >= 400 ? upload.status : 502 });
   }
 
   return NextResponse.json({
