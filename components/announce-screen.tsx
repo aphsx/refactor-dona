@@ -339,7 +339,8 @@ export function AnnounceScreen() {
         <PageHeader current="ประกาศ LINE" />
 
         <div className="mb-6 rounded-[8px] border border-frame bg-[#F5F9FE] px-6 py-4 text-[14px] leading-[1.5] text-ink/80">
-          ส่งผ่าน <span className="font-bold text-ink">LINE Official Account</span> ถึงทุกคนที่แอดเพื่อน OA แล้ว
+          ส่งผ่าน <span className="font-bold text-ink">LINE Official Account</span> แบบการ์ด (Flex) — หัวข้อ · ข้อความ · รูป ·
+          ปุ่มเปิดลิงก์ (ถ้ามี) ถึงทุกคนที่แอดเพื่อน OA แล้ว
         </div>
 
         <CanAdd resource="announcements">
@@ -376,16 +377,19 @@ export function AnnounceScreen() {
                     />
                   </label>
 
-                  <label className="block text-[14px] font-bold leading-[1.4]">
-                    ลิงก์ (ถ้ามี)
-                    <input
-                      type="url"
-                      value={linkUrl}
-                      onChange={(event) => setLinkUrl(event.target.value)}
-                      placeholder="https://…"
-                      className={`${inputClass} mt-1`}
-                    />
-                  </label>
+              <label className="block text-[14px] font-bold leading-[1.4]">
+                ลิงก์ปุ่มกดใน LINE (ถ้ามี)
+                <input
+                  type="url"
+                  value={linkUrl}
+                  onChange={(event) => setLinkUrl(event.target.value)}
+                  placeholder="https://…"
+                  className={`${inputClass} mt-1`}
+                />
+                <span className="mt-1 block text-[12px] font-normal text-ink/45">
+                  จะแสดงเป็นปุ่ม “เปิดลิงก์” ในการ์ดประกาศ — ผู้รับกดแล้วเปิดเว็บได้
+                </span>
+              </label>
                 </div>
 
                 <div className="grid gap-4 content-start">
@@ -673,26 +677,38 @@ export function AnnounceScreen() {
         </div>
 
         {previewOpen && (
-          <Dialog title="พรีวิวใน LINE" onClose={() => setPreviewOpen(false)}>
+          <Dialog title="พรีวิวการ์ด LINE" onClose={() => setPreviewOpen(false)}>
             <div className="rounded-[8px] bg-[#747F8D] p-4">
-              <div className="ml-auto max-w-[280px] overflow-hidden rounded-[12px] bg-white shadow-sm">
-                {image && <img src={image.previewUrl} alt="" className="max-h-44 w-full object-cover" />}
-                <div className="space-y-2 px-3 py-3 text-[14px] leading-[1.45] text-ink">
+              <div className="ml-auto w-full max-w-[280px] overflow-hidden rounded-[18px] bg-white shadow-sm">
+                {image && (
+                  <img src={image.previewUrl} alt="" className="aspect-[20/13] w-full object-cover" />
+                )}
+                <div className="space-y-2 px-4 py-4 text-[14px] leading-[1.45] text-ink">
                   {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
-                    <div className="font-bold text-danger">[ด่วน]</div>
+                    <div className="text-[12px] font-bold text-danger">ด่วน</div>
                   )}
-                  {trimmedTitle && <div className="font-bold">{trimmedTitle}</div>}
-                  {trimmedMessage && <div className="whitespace-pre-wrap break-words">{trimmedMessage}</div>}
-                  {trimmedLink && (
-                    <a href={trimmedLink} className="break-all text-link underline" target="_blank" rel="noreferrer">
-                      {trimmedLink}
-                    </a>
+                  {trimmedTitle && <div className="text-[16px] font-bold">{trimmedTitle}</div>}
+                  {trimmedMessage && (
+                    <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{trimmedMessage}</div>
                   )}
-                  {!trimmedTitle && !trimmedMessage && !trimmedLink && !image && (
+                  {!trimmedTitle && !trimmedMessage && !image && (
                     <div className="text-ink/50">ยังไม่มีเนื้อหา</div>
                   )}
                 </div>
+                {trimmedLink && (
+                  <div className="border-t border-black/5 px-3 py-3">
+                    <a
+                      href={trimmedLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex h-9 items-center justify-center rounded-[6px] bg-brand text-[13px] font-bold text-white"
+                    >
+                      เปิดลิงก์
+                    </a>
+                  </div>
+                )}
               </div>
+              <p className="mt-3 text-center text-[12px] text-white/80">รูปแบบ Flex Message ที่ผู้รับจะเห็นในแชท OA</p>
             </div>
             <div className="mt-5 flex justify-end">
               <PrimaryButton type="button" onClick={() => setPreviewOpen(false)}>
