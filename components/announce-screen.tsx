@@ -28,8 +28,8 @@ const MAX_TITLE = 100;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_BUTTON = 20;
 
-/** Standard Flex card shapes — image+text+button / text+button / text only. */
-type CardLayout = "card" | "text_button" | "text";
+/** Standard Flex shapes + promo image-only. */
+type CardLayout = "card" | "image" | "text_button" | "text";
 
 type SendMode = "now" | "schedule";
 type Notice =
@@ -44,6 +44,7 @@ type ImageDraft = {
 
 const LAYOUTS: { id: CardLayout; title: string }[] = [
   { id: "card", title: "รูป + ข้อความ + ปุ่ม" },
+  { id: "image", title: "รูปอย่างเดียว" },
   { id: "text_button", title: "ข้อความ + ปุ่ม" },
   { id: "text", title: "ข้อความอย่างเดียว" },
 ];
@@ -101,17 +102,21 @@ function buildLineBody(title: string, message: string, linkUrl: string, priority
 
 /** Tiny empty Flex card — same structure as live preview, for template pick. */
 function LayoutSkeleton({ layout }: { layout: CardLayout }) {
-  const showImage = layout === "card";
+  const imageOnly = layout === "image";
+  const showImage = layout === "card" || imageOnly;
+  const showText = layout !== "image";
   const showButton = layout === "card" || layout === "text_button";
   return (
     <div className="mx-auto w-[88px] rounded-[6px] bg-[#747F8D] p-1">
       <div className="overflow-hidden rounded-[7px] bg-white">
-        {showImage && <div className="h-7 w-full bg-black/[0.08]" />}
-        <div className="space-y-1 px-1.5 py-1.5">
-          <div className="h-1.5 w-[70%] rounded-[1px] bg-black/[0.16]" />
-          <div className="h-1 w-full rounded-[1px] bg-black/[0.08]" />
-          <div className="h-1 w-[80%] rounded-[1px] bg-black/[0.08]" />
-        </div>
+        {showImage && <div className={`${imageOnly ? "h-12" : "h-7"} w-full bg-black/[0.08]`} />}
+        {showText && (
+          <div className="space-y-1 px-1.5 py-1.5">
+            <div className="h-1.5 w-[70%] rounded-[1px] bg-black/[0.16]" />
+            <div className="h-1 w-full rounded-[1px] bg-black/[0.08]" />
+            <div className="h-1 w-[80%] rounded-[1px] bg-black/[0.08]" />
+          </div>
+        )}
         {showButton && (
           <div className="px-1 pb-1">
             <div className="h-3 rounded-[2px] bg-brand/85" />
@@ -163,6 +168,7 @@ function LineCardPreview({
   imageUrl,
   showImage,
   showButton,
+  imageOnly,
 }: {
   title: string;
   message: string;
@@ -172,10 +178,11 @@ function LineCardPreview({
   imageUrl: string | null;
   showImage: boolean;
   showButton: boolean;
+  imageOnly: boolean;
 }) {
+  const aspect = imageOnly ? "aspect-square" : "aspect-[20/13]";
   return (
     <div className="overflow-hidden rounded-[12px] border border-black/10 bg-[#7494A9] shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-      {/* Chat header */}
       <div className="flex items-center gap-3 bg-[#283849] px-4 py-3">
         <div className="h-9 w-9 shrink-0 rounded-full bg-white/20" />
         <div className="min-w-0 flex-1">
@@ -184,7 +191,6 @@ function LineCardPreview({
         </div>
       </div>
 
-      {/* Thread — one skeleton each side, then the OA card */}
       <div className="space-y-3 px-3 py-4">
         <ChatBubbleSkeleton side="left" width="w-[52%]" />
         <ChatBubbleSkeleton side="right" width="w-[44%]" />
@@ -196,27 +202,32 @@ function LineCardPreview({
           <div className="min-w-0 flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm">
             {showImage &&
               (imageUrl ? (
-                <img src={imageUrl} alt="" className="aspect-[20/13] w-full object-cover" />
+                <img src={imageUrl} alt="" className={`${aspect} w-full object-cover`} />
               ) : (
-                <div className="flex aspect-[20/13] w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35">
-                  รูปหัวการ์ด
+                <div className={`flex ${aspect} w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35`}>
+                  {imageOnly ? "รูปโปรโมชัน" : "รูปหัวการ์ด"}
                 </div>
               ))}
-            <div className="space-y-2 px-4 py-3.5 text-[14px] leading-[1.45] text-ink">
-              {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
-                <div className="text-[12px] font-bold text-danger">ด่วน</div>
-              )}
-              {title ? (
-                <div className="text-[16px] font-bold">{title}</div>
-              ) : (
-                <div className="text-[16px] font-bold text-ink/30">หัวข้อ</div>
-              )}
-              {message ? (
-                <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
-              ) : (
-                <div className="text-[13px] text-ink/30">ข้อความ…</div>
-              )}
-            </div>
+            {!imageOnly && (
+              <div className="space-y-2 px-4 py-3.5 text-[14px] leading-[1.45] text-ink">
+                {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
+                  <div className="text-[12px] font-bold text-danger">ด่วน</div>
+                )}
+                {title ? (
+                  <div className="text-[16px] font-bold">{title}</div>
+                ) : (
+                  <div className="text-[16px] font-bold text-ink/30">หัวข้อ</div>
+                )}
+                {message ? (
+                  <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
+                ) : (
+                  <div className="text-[13px] text-ink/30">ข้อความ…</div>
+                )}
+              </div>
+            )}
+            {imageOnly && linkUrl && (
+              <p className="px-3 py-2 text-center text-[11px] text-ink/45">กดที่รูปเพื่อเปิดลิงก์</p>
+            )}
             {showButton && (
               <div className="border-t border-black/5 px-3 py-3">
                 <div className="flex h-9 items-center justify-center rounded-[6px] bg-brand text-[13px] font-bold text-white">
@@ -231,7 +242,6 @@ function LineCardPreview({
         </div>
       </div>
 
-      {/* Composer stub */}
       <div className="flex items-center gap-2 border-t border-black/10 bg-[#E8EEF2] px-3 py-2.5">
         <div className="h-8 flex-1 rounded-full bg-white" />
         <div className="h-8 w-8 shrink-0 rounded-full bg-white/80" />
@@ -261,12 +271,18 @@ export function AnnounceScreen() {
   const trimmedMessage = message.trim();
   const trimmedLink = linkUrl.trim();
   const trimmedButton = buttonLabel.trim() || "เปิดลิงก์";
+  const imageOnly = layout === "image";
   const wantsButton = layout === "card" || layout === "text_button";
-  const wantsImage = layout === "card";
-  const effectiveLink = wantsButton ? trimmedLink : "";
-  const lineBody = buildLineBody(trimmedTitle, trimmedMessage, effectiveLink, priorityId);
+  const wantsImage = layout === "card" || imageOnly;
+  const wantsLink = wantsButton || imageOnly;
+  const effectiveLink = wantsLink ? trimmedLink : "";
+  const publishTitle = imageOnly ? "" : trimmedTitle;
+  const publishMessage = imageOnly ? "" : trimmedMessage;
+  const lineBody = buildLineBody(publishTitle, publishMessage, effectiveLink, priorityId);
   const remaining = MAX_MESSAGE - [...lineBody].length;
-  const hasContent = Boolean(trimmedTitle || trimmedMessage || (wantsImage && image) || effectiveLink);
+  const hasContent = imageOnly
+    ? Boolean(image)
+    : Boolean(trimmedTitle || trimmedMessage || (wantsImage && image) || effectiveLink);
   const canPublish =
     hasContent &&
     remaining >= 0 &&
@@ -302,8 +318,13 @@ export function AnnounceScreen() {
 
   function selectLayout(next: CardLayout) {
     setLayout(next);
-    if (next !== "card") clearImage();
+    if (next !== "card" && next !== "image") clearImage();
     if (next === "text") setLinkUrl("");
+    if (next === "image") {
+      setTitle("");
+      setMessage("");
+      setButtonLabel("เปิดลิงก์");
+    }
   }
 
   async function onPickImage(file: File | undefined) {
@@ -330,6 +351,7 @@ export function AnnounceScreen() {
   }
 
   function validateForPublish(): string | null {
+    if (imageOnly && !image) return "รูปแบบรูปอย่างเดียวต้องแนบรูป";
     if (!hasContent) return "กรอกหัวข้อ ข้อความ หรือแนบรูปอย่างน้อยหนึ่งอย่าง";
     if (remaining < 0) return `ข้อความรวมยาวเกิน ${MAX_MESSAGE.toLocaleString("th-TH")} ตัวอักษร`;
     if (wantsButton && !effectiveLink) return "รูปแบบนี้ต้องมีลิงก์สำหรับปุ่มกด";
@@ -371,12 +393,12 @@ export function AnnounceScreen() {
         imageName = uploaded.imageName;
       }
       await createAnnouncement({
-        title: trimmedTitle,
-        message: trimmedMessage,
+        title: publishTitle,
+        message: publishMessage,
         linkUrl: effectiveLink,
         imageUrl,
         imageName,
-        buttonLabel: effectiveLink ? trimmedButton : "",
+        buttonLabel: wantsButton && effectiveLink ? trimmedButton : "",
         priorityId,
         mode: nextMode,
         scheduledAt,
@@ -427,7 +449,7 @@ export function AnnounceScreen() {
         <CanAdd resource="announcements">
           <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
             <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">รูปแบบการ์ด</div>
-            <div className="grid gap-3 px-6 py-4 sm:grid-cols-3">
+            <div className="grid gap-3 px-6 py-4 sm:grid-cols-2 lg:grid-cols-4">
               {LAYOUTS.map((item) => {
                 const active = layout === item.id;
                 return (
@@ -459,29 +481,33 @@ export function AnnounceScreen() {
               }}
             >
               <div className="grid gap-4 content-start">
-                <label className="block text-[14px] font-bold leading-[1.4]">
-                  หัวข้อ
-                  <input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value.slice(0, MAX_TITLE))}
-                    maxLength={MAX_TITLE}
-                    className={`${inputClass} mt-1`}
-                  />
-                </label>
+                {!imageOnly && (
+                  <>
+                    <label className="block text-[14px] font-bold leading-[1.4]">
+                      หัวข้อ
+                      <input
+                        value={title}
+                        onChange={(event) => setTitle(event.target.value.slice(0, MAX_TITLE))}
+                        maxLength={MAX_TITLE}
+                        className={`${inputClass} mt-1`}
+                      />
+                    </label>
 
-                <label className="block text-[14px] font-bold leading-[1.4]">
-                  ข้อความ
-                  <textarea
-                    value={message}
-                    onChange={(event) => setMessage(event.target.value)}
-                    rows={7}
-                    className={`${inputClass} mt-1 h-auto min-h-[160px] resize-y py-3 leading-[1.5]`}
-                  />
-                </label>
+                    <label className="block text-[14px] font-bold leading-[1.4]">
+                      ข้อความ
+                      <textarea
+                        value={message}
+                        onChange={(event) => setMessage(event.target.value)}
+                        rows={7}
+                        className={`${inputClass} mt-1 h-auto min-h-[160px] resize-y py-3 leading-[1.5]`}
+                      />
+                    </label>
+                  </>
+                )}
 
                 {wantsImage && (
                   <div className="text-[14px] font-bold leading-[1.4]">
-                    รูป
+                    {imageOnly ? "รูปโปรโมชัน" : "รูป"}
                     <input
                       ref={fileRef}
                       type="file"
@@ -514,6 +540,19 @@ export function AnnounceScreen() {
                       </button>
                     )}
                   </div>
+                )}
+
+                {imageOnly && (
+                  <label className="block text-[14px] font-bold leading-[1.4]">
+                    ลิงก์เมื่อกดรูป (ไม่บังคับ)
+                    <input
+                      type="url"
+                      value={linkUrl}
+                      onChange={(event) => setLinkUrl(event.target.value)}
+                      placeholder="https://"
+                      className={`${inputClass} mt-1`}
+                    />
+                  </label>
                 )}
 
                 {wantsButton && (
@@ -640,6 +679,7 @@ export function AnnounceScreen() {
                   imageUrl={image?.previewUrl ?? null}
                   showImage={wantsImage}
                   showButton={wantsButton}
+                  imageOnly={imageOnly}
                 />
               </div>
             </form>
