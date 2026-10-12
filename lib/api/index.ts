@@ -390,6 +390,52 @@ export async function collectPages<T>(
   return items;
 }
 
+export type AnnouncementStatus = "draft" | "scheduled" | "sent" | "cancelled" | "failed";
+
+export type Announcement = {
+  id: string;
+  title: string;
+  message: string;
+  linkUrl: string;
+  imageUrl: string;
+  imageName: string;
+  priority: "normal" | "urgent";
+  status: AnnouncementStatus;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  createdBy: string;
+  errorMessage: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateAnnouncementInput = {
+  title?: string;
+  message?: string;
+  linkUrl?: string;
+  imageUrl?: string;
+  imageName?: string;
+  priority?: "normal" | "urgent";
+  mode: "draft" | "now" | "schedule";
+  scheduledAt?: string;
+};
+
+export async function listAnnouncements(status?: AnnouncementStatus) {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  return apiListAll<Announcement>(`/announcements${q}`);
+}
+
+export async function createAnnouncement(input: CreateAnnouncementInput) {
+  return apiRequest<Announcement>("/announcements", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function cancelAnnouncement(id: string) {
+  return apiRequest<Announcement>(`/announcements/${id}/cancel`, { method: "POST" });
+}
+
 /** PostGIS geography (WGS84 spheroid). Falls back to local estimate if API fails. */
 export async function measureRingAreaRai(points: [number, number][]) {
   const ring = isClosedRing(points) ? points : closeRing(openRing(points));

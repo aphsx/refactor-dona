@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Clock, Eye, FileText, ImagePlus, Megaphone, Save, Send, X } from "lucide-react";
 import {
   ConfirmAlert,
@@ -18,34 +18,27 @@ import {
   tableClass,
   usePagination,
 } from "@/components/ui";
+import {
+  apiMessage,
+  cancelAnnouncement,
+  createAnnouncement,
+  listAnnouncements,
+  type Announcement,
+  type AnnouncementStatus,
+} from "@/lib/api";
 
-/** LINE text message hard limit. */
 const MAX_MESSAGE = 5000;
 const MAX_TITLE = 100;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 type SendMode = "now" | "schedule";
 type Priority = "normal" | "urgent";
-type AnnounceStatus = "draft" | "scheduled" | "sent" | "cancelled";
-type HistoryFilter = "all" | AnnounceStatus;
+type HistoryFilter = "all" | AnnouncementStatus;
 
 type ImageDraft = {
   name: string;
   size: number;
   previewUrl: string;
-};
-
-type AnnounceItem = {
-  id: string;
-  title: string;
-  message: string;
-  linkUrl: string;
-  imageName: string | null;
-  priority: Priority;
-  createdAt: string;
-  scheduledAt: string | null;
-  createdBy: string;
-  status: AnnounceStatus;
 };
 
 type Notice =
@@ -66,7 +59,8 @@ function nextHourTime() {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-function formatWhen(iso: string) {
+function formatWhen(iso: string | null) {
+  if (!iso) return "—";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString("th-TH", {
@@ -75,22 +69,24 @@ function formatWhen(iso: string) {
   });
 }
 
-function statusLabel(status: AnnounceStatus) {
+function statusLabel(status: AnnouncementStatus) {
   if (status === "sent") return "ส่งแล้ว";
   if (status === "scheduled") return "ตั้งเวลา";
   if (status === "cancelled") return "ยกเลิกคิว";
+  if (status === "failed") return "ส่งไม่สำเร็จ";
   return "ร่าง";
 }
 
-function priorityLabel(priority: Priority) {
+function priorityLabel(priority: string) {
   return priority === "urgent" ? "ด่วน" : "ปกติ";
 }
 
-function contentKind(item: Pick<AnnounceItem, "imageName" | "linkUrl">) {
-  const parts: string[] = ["ข้อความ"];
-  if (item.imageName) parts.push("รูป");
+function contentKind(item: Announcement) {
+  const parts: string[] = [];
+  if (item.title || item.message) parts.push("ข้อความ");
+  if (item.imageName || item.imageUrl) parts.push("รูป");
   if (item.linkUrl) parts.push("ลิงก์");
-  return parts.join(" + ");
+  return parts.length ? parts.join(" + ") : "—";
 }
 
 function parseSchedule(date: string, time: string): Date | null {
@@ -110,8 +106,9 @@ function isHttpUrl(value: string) {
   }
 }
 
-function buildLineBody(title: string, message: string, linkUrl: string) {
+function buildLineBody(title: string, message: string, linkUrl: string, priority: Priority) {
   const chunks: string[] = [];
+  if (priority === "urgent") chunks.push("[ด่วน]");
   if (title) chunks.push(title);
   if (message) chunks.push(message);
   if (linkUrl) chunks.push(linkUrl);
@@ -128,24 +125,42 @@ export function AnnounceScreen() {
   const [mode, setMode] = useState<SendMode>("now");
   const [scheduleDate, setScheduleDate] = useState(todayIso);
   const [scheduleTime, setScheduleTime] = useState(nextHourTime);
-  const [items, setItems] = useState<AnnounceItem[]>([]);
+  const [items, setItems] = useState<Announcement[]>([]);
   const [filter, setFilter] = useState<HistoryFilter>("all");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
 
   const trimmedTitle = title.trim();
   const trimmedMessage = message.trim();
   const trimmedLink = linkUrl.trim();
-  const lineBody = buildLineBody(trimmedTitle, trimmedMessage, trimmedLink);
-  const remaining = MAX_MESSAGE - lineBody.length;
+  const lineBody = buildLineBody(trimmedTitle, trimmedMessage, trimmedLink, priority);
+  const remaining = MAX_MESSAGE - [...lineBody].length;
   const hasContent = Boolean(trimmedTitle || trimmedMessage || trimmedLink || image);
-  const canPublish = hasContent && lineBody.length <= MAX_MESSAGE && (!trimmedLink || isHttpUrl(trimmedLink));
+  const canPublish = hasContent && remaining >= 0 && (!trimmedLink || isHttpUrl(trimmedLink));
 
   const filtered = useMemo(() => {
     const rows = filter === "all" ? items : items.filter((item) => item.status === filter);
     return [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [items, filter]);
   const page = usePagination(filtered, filter);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await listAnnouncements();
+      setItems(rows);
+    } catch (err) {
+      setNotice({ tone: "error", message: apiMessage(err) });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   function clearImage() {
     setImage((current) => {
@@ -186,46 +201,65 @@ export function AnnounceScreen() {
 
   function validateForPublish(): string | null {
     if (!hasContent) return "กรอกหัวข้อ ข้อความ รูป หรือลิงก์อย่างน้อยหนึ่งอย่าง";
-    if (lineBody.length > MAX_MESSAGE) {
-      return `ข้อความรวมยาวเกิน ${MAX_MESSAGE.toLocaleString("th-TH")} ตัวอักษร`;
-    }
+    if (remaining < 0) return `ข้อความรวมยาวเกิน ${MAX_MESSAGE.toLocaleString("th-TH")} ตัวอักษร`;
     if (trimmedLink && !isHttpUrl(trimmedLink)) return "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://";
     return null;
   }
 
-  function resolveSchedule(): { scheduledAt: string | null; error: string | null } {
-    if (mode !== "schedule") return { scheduledAt: null, error: null };
+  function resolveSchedule(): { scheduledAt?: string; error: string | null } {
+    if (mode !== "schedule") return { error: null };
     const when = parseSchedule(scheduleDate, scheduleTime);
-    if (!when) return { scheduledAt: null, error: "เลือกวันและเวลาให้ครบ" };
-    if (when.getTime() <= Date.now()) return { scheduledAt: null, error: "เวลาที่ตั้งต้องเป็นอนาคต" };
+    if (!when) return { error: "เลือกวันและเวลาให้ครบ" };
+    if (when.getTime() <= Date.now()) return { error: "เวลาที่ตั้งต้องเป็นอนาคต" };
     return { scheduledAt: when.toISOString(), error: null };
   }
 
-  function persist(status: AnnounceStatus, scheduledAt: string | null) {
-    const item: AnnounceItem = {
-      id: crypto.randomUUID(),
-      title: trimmedTitle,
-      message: trimmedMessage,
-      linkUrl: trimmedLink,
-      imageName: image?.name ?? null,
-      priority,
-      createdAt: new Date().toISOString(),
-      scheduledAt,
-      createdBy: "โรงสี",
-      status,
-    };
-    setItems((current) => [item, ...current]);
-    clearForm();
-  }
-
-  function saveDraft() {
+  async function submit(nextMode: "draft" | "now" | "schedule") {
     const error = validateForPublish();
     if (error) {
       setNotice({ tone: "error", message: error });
       return;
     }
-    persist("draft", null);
-    setNotice({ tone: "success", message: "บันทึกร่างแล้ว — ยังไม่ได้ส่งเข้า LINE" });
+    let scheduledAt: string | undefined;
+    if (nextMode === "schedule") {
+      const schedule = resolveSchedule();
+      if (schedule.error) {
+        setNotice({ tone: "error", message: schedule.error });
+        return;
+      }
+      scheduledAt = schedule.scheduledAt;
+    }
+
+    setBusy(true);
+    try {
+      await createAnnouncement({
+        title: trimmedTitle,
+        message: trimmedMessage,
+        linkUrl: trimmedLink,
+        imageName: image?.name ?? "",
+        // Local file preview is not a public HTTPS URL — LINE image send needs hosting later.
+        imageUrl: "",
+        priority,
+        mode: nextMode,
+        scheduledAt,
+      });
+      clearForm();
+      await refresh();
+      setNotice({
+        tone: "success",
+        message:
+          nextMode === "draft"
+            ? "บันทึกร่างแล้ว"
+            : nextMode === "schedule"
+              ? "ตั้งเวลาส่งแล้ว — ระบบจะส่งเข้า LINE เมื่อถึงเวลา"
+              : "ส่งประกาศเข้า LINE OA แล้ว",
+      });
+    } catch (err) {
+      await refresh();
+      setNotice({ tone: "error", message: apiMessage(err) });
+    } finally {
+      setBusy(false);
+    }
   }
 
   function requestPublish() {
@@ -235,12 +269,11 @@ export function AnnounceScreen() {
       return;
     }
     const schedule = resolveSchedule();
-    if (schedule.error) {
+    if (mode === "schedule" && schedule.error) {
       setNotice({ tone: "error", message: schedule.error });
       return;
     }
 
-    const nextStatus: AnnounceStatus = mode === "schedule" ? "scheduled" : "sent";
     const confirmMessage =
       mode === "schedule"
         ? `ยืนยันตั้งเวลาส่งประกาศ ${formatWhen(schedule.scheduledAt!)} ไปยังผู้ติดตาม LINE OA?`
@@ -249,16 +282,7 @@ export function AnnounceScreen() {
     setNotice({
       tone: "confirm",
       message: confirmMessage,
-      accept: () => {
-        persist(nextStatus, schedule.scheduledAt);
-        setNotice({
-          tone: "success",
-          message:
-            nextStatus === "scheduled"
-              ? "ตั้งเวลาประกาศแล้ว — ยังไม่ได้ส่งเข้า LINE (รอเชื่อม API)"
-              : "บันทึกประกาศแล้ว — ยังไม่ได้ส่งเข้า LINE (รอเชื่อม API)",
-        });
-      },
+      accept: () => submit(mode === "schedule" ? "schedule" : "now"),
     });
   }
 
@@ -266,11 +290,17 @@ export function AnnounceScreen() {
     setNotice({
       tone: "confirm",
       message: "ยืนยันยกเลิกคิวประกาศนี้?",
-      accept: () => {
-        setItems((current) =>
-          current.map((item) => (item.id === id && item.status === "scheduled" ? { ...item, status: "cancelled" } : item)),
-        );
-        setNotice({ tone: "success", message: "ยกเลิกคิวแล้ว" });
+      accept: async () => {
+        setBusy(true);
+        try {
+          await cancelAnnouncement(id);
+          await refresh();
+          setNotice({ tone: "success", message: "ยกเลิกคิวแล้ว" });
+        } catch (err) {
+          setNotice({ tone: "error", message: apiMessage(err) });
+        } finally {
+          setBusy(false);
+        }
       },
     });
   }
@@ -281,7 +311,8 @@ export function AnnounceScreen() {
 
       <div className="mb-6 rounded-[8px] border border-frame bg-[#F5F9FE] px-6 py-4 text-[14px] leading-[1.5] text-ink/80">
         ส่งผ่าน <span className="font-bold text-ink">LINE Official Account</span> ถึงทุกคนที่แอดเพื่อน OA แล้ว · ผู้รับ: ทั้ง OA ·
-        ช่องทาง: LINE · หน้านี้เป็นต้นแบบ UI ยังไม่เรียก LINE จริง
+        ช่องทาง: LINE
+        {image ? " · รูปในฟอร์มใช้พรีวิวเท่านั้น (ยังไม่อัปโหลดส่ง LINE)" : null}
       </div>
 
       <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
@@ -365,7 +396,7 @@ export function AnnounceScreen() {
                   >
                     <ImagePlus size={22} strokeWidth={1.75} />
                     แนบรูป JPEG / PNG
-                    <span className="text-[12px]">ไม่เกิน 10 MB</span>
+                    <span className="text-[12px]">พรีวิวอย่างเดียว (ยังไม่ส่ง LINE)</span>
                   </button>
                 )}
               </div>
@@ -457,20 +488,20 @@ export function AnnounceScreen() {
               ข้อความรวมใน LINE เหลือ {remaining.toLocaleString("th-TH")} ตัวอักษร
             </p>
             <div className="flex flex-wrap gap-3">
-              <SecondaryButton type="button" disabled={!hasContent} onClick={clearForm}>
+              <SecondaryButton type="button" disabled={!hasContent || busy} onClick={clearForm}>
                 ล้าง
               </SecondaryButton>
-              <SecondaryButton type="button" disabled={!hasContent} onClick={() => setPreviewOpen(true)}>
+              <SecondaryButton type="button" disabled={!hasContent || busy} onClick={() => setPreviewOpen(true)}>
                 <Glyph icon={Eye} />
                 พรีวิว
               </SecondaryButton>
-              <SecondaryButton type="button" disabled={!canPublish} onClick={saveDraft}>
+              <SecondaryButton type="button" disabled={!canPublish || busy} onClick={() => void submit("draft")}>
                 <Glyph icon={Save} />
                 บันทึกร่าง
               </SecondaryButton>
-              <PrimaryButton type="submit" disabled={!canPublish}>
+              <PrimaryButton type="submit" disabled={!canPublish || busy}>
                 <Glyph icon={mode === "schedule" ? Clock : Send} />
-                {mode === "schedule" ? "ตั้งเวลาส่ง" : "ส่งประกาศ"}
+                {busy ? "กำลังส่ง…" : mode === "schedule" ? "ตั้งเวลาส่ง" : "ส่งประกาศ"}
               </PrimaryButton>
             </div>
           </div>
@@ -482,6 +513,7 @@ export function AnnounceScreen() {
         <StatusTab label="ร่าง" active={filter === "draft"} onClick={() => setFilter("draft")} />
         <StatusTab label="ตั้งเวลา" active={filter === "scheduled"} onClick={() => setFilter("scheduled")} />
         <StatusTab label="ส่งแล้ว" active={filter === "sent"} onClick={() => setFilter("sent")} />
+        <StatusTab label="ล้มเหลว" active={filter === "failed"} onClick={() => setFilter("failed")} />
         <StatusTab label="ยกเลิก" active={filter === "cancelled"} onClick={() => setFilter("cancelled")} />
       </div>
 
@@ -491,7 +523,9 @@ export function AnnounceScreen() {
             <Megaphone size={18} strokeWidth={1.75} aria-hidden />
             ประวัติประกาศ
           </span>
-          <span className="text-[14px] font-normal">{filtered.length} รายการ</span>
+          <span className="text-[14px] font-normal">
+            {loading ? "กำลังโหลด…" : `${filtered.length} รายการ`}
+          </span>
         </div>
         <TableScroll>
           <table className={tableClass}>
@@ -507,7 +541,7 @@ export function AnnounceScreen() {
               </tr>
             </thead>
             <tbody>
-              {page.rows.length === 0 && (
+              {!loading && page.rows.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-5 py-6 text-ink/60">
                     ยังไม่มีประกาศ
@@ -518,7 +552,13 @@ export function AnnounceScreen() {
                 <tr key={item.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
                   <td className="px-5 py-3 align-top">{formatWhen(item.createdAt)}</td>
                   <td className="px-5 py-3 align-top">
-                    {item.scheduledAt ? formatWhen(item.scheduledAt) : item.status === "draft" ? "—" : "ทันที"}
+                    {item.scheduledAt
+                      ? formatWhen(item.scheduledAt)
+                      : item.status === "draft"
+                        ? "—"
+                        : item.sentAt
+                          ? formatWhen(item.sentAt)
+                          : "ทันที"}
                   </td>
                   <td className="max-w-[360px] px-5 py-3 align-top">
                     <div className="font-bold">{item.title || "—"}</div>
@@ -531,6 +571,9 @@ export function AnnounceScreen() {
                         {item.imageName}
                       </div>
                     )}
+                    {item.errorMessage && (
+                      <div className="mt-2 text-[12px] text-danger">{item.errorMessage}</div>
+                    )}
                   </td>
                   <td className="px-5 py-3 align-top">{contentKind(item)}</td>
                   <td className="px-5 py-3 align-top">
@@ -541,7 +584,7 @@ export function AnnounceScreen() {
                   <td className="px-5 py-3 align-top text-ink/70">{statusLabel(item.status)}</td>
                   <td className="w-0 whitespace-nowrap px-5 py-3 align-top">
                     {item.status === "scheduled" ? (
-                      <PrimaryButton type="button" compact onClick={() => cancelScheduled(item.id)}>
+                      <PrimaryButton type="button" compact disabled={busy} onClick={() => cancelScheduled(item.id)}>
                         ยกเลิกคิว
                       </PrimaryButton>
                     ) : (
@@ -571,6 +614,7 @@ export function AnnounceScreen() {
             <div className="ml-auto max-w-[280px] overflow-hidden rounded-[12px] bg-white shadow-sm">
               {image && <img src={image.previewUrl} alt="" className="max-h-44 w-full object-cover" />}
               <div className="space-y-2 px-3 py-3 text-[14px] leading-[1.45] text-ink">
+                {priority === "urgent" && <div className="font-bold text-danger">[ด่วน]</div>}
                 {trimmedTitle && <div className="font-bold">{trimmedTitle}</div>}
                 {trimmedMessage && <div className="whitespace-pre-wrap break-words">{trimmedMessage}</div>}
                 {trimmedLink && (
@@ -584,7 +628,6 @@ export function AnnounceScreen() {
               </div>
             </div>
             <p className="mt-3 text-center text-[12px] text-white/80">
-              {priority === "urgent" ? "ความสำคัญ: ด่วน · " : ""}
               {mode === "schedule" ? `ตั้งส่ง ${scheduleDate} ${scheduleTime}` : "ส่งทันที"} · ผู้รับทั้ง OA
             </p>
           </div>
