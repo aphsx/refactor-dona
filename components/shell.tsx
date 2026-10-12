@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, CalendarDays, ChevronDown, Layers, Map, Menu, Settings2, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, Layers, Map, Megaphone, Menu, Settings2, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
 import { LoginScreen } from "@/components/login-screen";
 import { StoreProvider, useMill } from "@/components/store";
 import {
@@ -22,6 +22,8 @@ const SHOW_SUPPLY_NAV = false;
 const SHOW_MANAGE_NAV = false;
 /** Flip on when rolling out จัดการสิทธิ์. */
 const SHOW_PERMISSIONS_NAV = true;
+/** Flip on when rolling out ประกาศ LINE OA. */
+const SHOW_ANNOUNCE_NAV = true;
 const HOME_PATH = SHOW_PLAN_NAV ? "/plan" : "/farmers";
 
 const KNOWN_APP_PATHS = new Set([
@@ -36,6 +38,7 @@ const KNOWN_APP_PATHS = new Set([
   "/farmers/manage",
   ...(SHOW_MANAGE_NAV ? ["/manage", "/manage/varieties", "/manage/product-kinds", "/varieties/manage"] : []),
   ...(SHOW_PERMISSIONS_NAV ? ["/permissions", "/permissions/people"] : []),
+  ...(SHOW_ANNOUNCE_NAV ? ["/announce"] : []),
   "/dashboard",
 ]);
 
@@ -85,6 +88,7 @@ const NAV: NavItem[] = [
       ]
     : []),
   ...(SHOW_SUPPLY_NAV ? [{ href: "/supply", label: "แผนรับข้าว", icon: CalendarDays }] : []),
+  ...(SHOW_ANNOUNCE_NAV ? [{ href: "/announce", label: "ประกาศ LINE", icon: Megaphone }] : []),
   ...(SHOW_MANAGE_NAV
     ? [
         {
