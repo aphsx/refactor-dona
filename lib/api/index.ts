@@ -1,6 +1,6 @@
 import { apiListAll, apiPage, apiRequest, getApiToken, ApiError } from "@/lib/api/client";
 import {
-  asMillReceiptDirection,
+  asOrgReceiptDirection,
   closeRing,
   isClosedRing,
   openRing,
@@ -9,9 +9,9 @@ import {
   syncVarieties,
   type Farmer,
   type FarmerInput,
-  type MillReceipt,
-  type MillReceiptDirection,
-  type MillSnapshot,
+  type OrgReceipt,
+  type OrgReceiptDirection,
+  type OrgSnapshot,
   type Permission,
   type PermissionFlag,
   type PermissionResource,
@@ -28,7 +28,7 @@ import {
   type SupplierGroup,
   type Variety,
   type VarietyItem,
-} from "@/lib/mill";
+} from "@/lib/domain";
 
 export {
   ApiError,
@@ -65,9 +65,9 @@ type WirePlotActivity = Omit<PlotActivity, "type" | "payload"> & {
   payload: PlotActivityPayload | Record<string, unknown>;
 };
 
-// roles 1xx: 101 mill, 102 leader, 103 member
-const ROLE_ID: Record<PermissionRole, number> = { mill: 101, leader: 102, member: 103 };
-const ROLE_CODE: Record<number, PermissionRole> = { 101: "mill", 102: "leader", 103: "member" };
+// roles 1xx: 101 org, 102 leader, 103 member
+const ROLE_ID: Record<PermissionRole, number> = { org: 101, leader: 102, member: 103 };
+const ROLE_CODE: Record<number, PermissionRole> = { 101: "org", 102: "leader", 103: "member" };
 const FLAG_KEY: Record<PermissionFlag, keyof Pick<WirePermission, "canRead" | "canAdd" | "canEdit" | "canDelete">> = {
   canRead: "canRead",
   canAdd: "canAdd",
@@ -123,11 +123,11 @@ function asPlotActivity(item: WirePlotActivity): PlotActivity {
   };
 }
 
-function millGrants(people: WirePerson[]): RoleGrant[] {
-  return people.filter((person) => person.role === "mill").map((person) => ({ farmerId: person.id, role: "mill" as const }));
+function orgGrants(people: WirePerson[]): RoleGrant[] {
+  return people.filter((person) => person.role === "org").map((person) => ({ farmerId: person.id, role: "org" as const }));
 }
 
-export async function loadMillSnapshot(): Promise<MillSnapshot> {
+export async function loadOrgSnapshot(): Promise<OrgSnapshot> {
   const [groups, varieties, productKinds, permissions, people, farmerPage, plotPage] = await Promise.all([
       apiListAll<SupplierGroup>("/groups"),
       apiRequest<{ items: VarietyItem[] }>("/varieties").then((data) => data.items ?? []),
@@ -141,7 +141,7 @@ export async function loadMillSnapshot(): Promise<MillSnapshot> {
   const plots: WirePlot[] = [];
   const plantings: WirePlanting[] = [];
   const activities: WirePlotActivity[] = [];
-  const receipts: MillReceipt[] = [];
+  const receipts: OrgReceipt[] = [];
 
   syncVarieties(varieties);
   syncProductKinds(productKinds);
@@ -158,12 +158,12 @@ export async function loadMillSnapshot(): Promise<MillSnapshot> {
       ...item,
       varietyId: asVariety(Number(item.varietyId)),
       productKindId: Number(item.productKindId),
-      direction: asMillReceiptDirection(item.direction),
+      direction: asOrgReceiptDirection(item.direction),
     })),
     varieties,
     productKinds,
     permissions: permissions.map(asPermission),
-    roleGrants: millGrants(people),
+    roleGrants: orgGrants(people),
   };
 }
 
@@ -246,7 +246,7 @@ export const api = {
     ),
 
   listReceipts: (farmerId: string) =>
-    apiListAll<MillReceipt>(`/mill-receipts?farmerId=${encodeURIComponent(farmerId)}`),
+    apiListAll<OrgReceipt>(`/org-receipts?farmerId=${encodeURIComponent(farmerId)}`),
 
   dueHarvests: () =>
     apiRequest<{ items: { plotId: string; plotName: string; harvestOn: string }[] }>("/notices/harvests"),
@@ -325,24 +325,24 @@ export const api = {
 
   deletePlanting: (id: string) => apiRequest<void>(`/plantings/${id}`, { method: "DELETE" }),
 
-  createMillReceipt: (input: {
+  createOrgReceipt: (input: {
     farmerId: string;
     varietyId: Variety;
     productKindId: ProductKind;
-    direction: MillReceiptDirection;
+    direction: OrgReceiptDirection;
     kg: number;
     receivedOn: string;
-  }) => apiRequest<MillReceipt>("/mill-receipts", { method: "POST", body: JSON.stringify(input) }),
+  }) => apiRequest<OrgReceipt>("/org-receipts", { method: "POST", body: JSON.stringify(input) }),
 
-  updateMillReceipt: (id: string, input: {
+  updateOrgReceipt: (id: string, input: {
     varietyId: Variety;
     productKindId: ProductKind;
-    direction: MillReceiptDirection;
+    direction: OrgReceiptDirection;
     kg: number;
     receivedOn: string;
-  }) => apiRequest<MillReceipt>(`/mill-receipts/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  }) => apiRequest<OrgReceipt>(`/org-receipts/${id}`, { method: "PUT", body: JSON.stringify(input) }),
 
-  deleteMillReceipt: (id: string) => apiRequest<void>(`/mill-receipts/${id}`, { method: "DELETE" }),
+  deleteOrgReceipt: (id: string) => apiRequest<void>(`/org-receipts/${id}`, { method: "DELETE" }),
 
   createPlotActivity: (input: {
     plantingId: string;

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-/** Any unknown path → send users to the mill home. */
+/** Any unknown path → send users to the org home. */
 export default function NotFound() {
   const router = useRouter();
 

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { PageHeader, Pagination, TableScroll, tableClass, usePagination } from "@/components/ui";
-import { type Permission, type PermissionFlag, type PermissionResource, type PermissionRole } from "@/lib/mill";
+import { type Permission, type PermissionFlag, type PermissionResource, type PermissionRole } from "@/lib/domain";
 
 const ROLES: { role: PermissionRole; title: string; scope: string }[] = [
-  { role: "mill", title: "โรงสี", scope: "ทั้งโรงสี" },
+  { role: "org", title: "องค์กร", scope: "ทั้งองค์กร" },
   { role: "leader", title: "หัวหน้ากลุ่ม", scope: "เฉพาะอำนาจในกลุ่มที่ตัวเองเป็นหัวหน้า ของตัวเองยังใช้สิทธิ์สมาชิก" },
   { role: "member", title: "สมาชิก", scope: "เฉพาะของตัวเอง" },
 ];
@@ -30,7 +30,7 @@ const FLAGS: { flag: PermissionFlag; label: string }[] = [
 ];
 
 export function PermissionsScreen() {
-  const { permissions, setPermission } = useMill();
+  const { permissions, setPermission } = useOrg();
   const [error, setError] = useState("");
 
   return (

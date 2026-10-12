@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Pencil, Plus, RotateCcw, Save, Search, Trash2, X } from "lucide-react";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import {
   ConfirmAlert,
   Dialog,
@@ -24,7 +24,7 @@ import {
   usePagination,
   useTableSort,
 } from "@/components/ui";
-import type { ProductKindItem, VarietyItem } from "@/lib/mill";
+import type { ProductKindItem, VarietyItem } from "@/lib/domain";
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
@@ -54,7 +54,7 @@ async function reported(error: Promise<string | null> | string | null, success: 
 
 /** Master-data: rice varieties — inline edit/delete, no detail page. */
 export function VarietiesManageScreen() {
-  const { varieties, createVariety, updateVariety, removeVariety } = useMill();
+  const { varieties, createVariety, updateVariety, removeVariety } = useOrg();
   const [draftName, setDraftName] = useState("");
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -303,7 +303,7 @@ function CreateVariety({
 
 /** Master-data: product kinds — inline edit/delete, no detail page. */
 export function ProductKindsManageScreen() {
-  const { productKinds, createProductKind, updateProductKind, removeProductKind } = useMill();
+  const { productKinds, createProductKind, updateProductKind, removeProductKind } = useOrg();
   const [draftName, setDraftName] = useState("");
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);

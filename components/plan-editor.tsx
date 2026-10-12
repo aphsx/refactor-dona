@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Pencil, Save, Trash2, X } from "lucide-react";
 import { CanDelete, CanEdit } from "@/components/can";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { api } from "@/lib/api";
 import { ConfirmAlert, DateField, DirtyUndoButton, Glyph, PrimaryButton, ResultAlert, SecondaryButton, Select, inputClass } from "@/components/ui";
 import {
@@ -17,7 +17,7 @@ import {
   type PlotActivity,
   type SeedReceivePayload,
   type Variety,
-} from "@/lib/mill";
+} from "@/lib/domain";
 
 export type PlanRow = {
   id: string;
@@ -48,7 +48,7 @@ export function PlanEditor({
   /** When true, parent already shows title / back — skip the duplicate bar. */
   embedded?: boolean;
 }) {
-  const { varieties, savePlot, savePlanting, saveActivity, removePlot, removePlanting, revision } = useMill();
+  const { varieties, savePlot, savePlanting, saveActivity, removePlot, removePlanting, revision } = useOrg();
   const [activities, setActivities] = useState<PlotActivity[]>([]);
   const measured = plot.areaRai;
   const current = plot.plantingId

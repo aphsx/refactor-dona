@@ -94,8 +94,8 @@ create index plantings_plot_id_idx on public.plantings (plot_id);
 create index plantings_variety_id_idx on public.plantings (variety_id);
 create unique index plantings_one_per_plot on public.plantings (plot_id);
 
--- Mill intake: farmer-level, not tied to a plot.
-create table public.mill_receipts (
+-- Org intake: farmer-level, not tied to a plot.
+create table public.org_receipts (
   id uuid primary key default gen_random_uuid(),
   farmer_id uuid not null references public.farmers (id) on delete restrict,
   variety_id bigint not null references public.varieties (id),
@@ -104,14 +104,14 @@ create table public.mill_receipts (
   kg integer not null,
   received_on date not null,
   created_at timestamptz not null default now(),
-  constraint mill_receipts_kg_positive check (kg > 0),
-  constraint mill_receipts_direction_check check (direction in ('in', 'out', 'lend', 'return'))
+  constraint org_receipts_kg_positive check (kg > 0),
+  constraint org_receipts_direction_check check (direction in ('in', 'out', 'lend', 'return'))
 );
 
-create index mill_receipts_farmer_id_idx on public.mill_receipts (farmer_id);
-create index mill_receipts_variety_id_idx on public.mill_receipts (variety_id);
-create index mill_receipts_product_kind_id_idx on public.mill_receipts (product_kind_id);
-create index mill_receipts_received_on_idx on public.mill_receipts (received_on desc, id desc);
+create index org_receipts_farmer_id_idx on public.org_receipts (farmer_id);
+create index org_receipts_variety_id_idx on public.org_receipts (variety_id);
+create index org_receipts_product_kind_id_idx on public.org_receipts (product_kind_id);
+create index org_receipts_received_on_idx on public.org_receipts (received_on desc, id desc);
 
 create table public.plot_activities (
   id uuid primary key default gen_random_uuid(),
@@ -180,21 +180,21 @@ create table public.role_grants (
   role_id bigint not null references public.roles (id)
 );
 
--- Mill staff login only (username + password).
+-- Org staff login only (username + password).
 -- Farmers/members do not use this table — they enter phone (farmers.tel) on the farmer app.
 create table public.accounts (
   id uuid primary key default gen_random_uuid(),
   username text not null,
   password_hash text not null,
   display_name text not null,
-  role_id bigint not null references public.roles (id) default 101, -- mill / โรงสี
+  role_id bigint not null references public.roles (id) default 101, -- org / องค์กร
   active boolean not null default true,
   created_at timestamptz not null default now(),
   constraint accounts_username_not_blank check (char_length(btrim(username)) > 0),
   constraint accounts_username_unique unique (username),
   constraint accounts_password_hash_not_blank check (char_length(btrim(password_hash)) > 0),
   constraint accounts_display_name_not_blank check (char_length(btrim(display_name)) > 0),
-  constraint accounts_mill_role_only check (role_id = 101) -- mill / โรงสี
+  constraint accounts_org_role_only check (role_id = 101) -- org / องค์กร
 );
 
 create index accounts_role_id_idx on public.accounts (role_id);

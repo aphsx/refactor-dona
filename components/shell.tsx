@@ -5,14 +5,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Bell, CalendarDays, ChevronDown, Layers, Map, Megaphone, Menu, Settings2, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
 import { LoginScreen } from "@/components/login-screen";
-import { StoreProvider, useMill } from "@/components/store";
+import { StoreProvider, useOrg } from "@/components/store";
 import {
   api,
   clearAuthSession,
   restoreAuthSession,
   type AuthSession,
 } from "@/lib/api";
-import { daysUntil } from "@/lib/mill";
+import { daysUntil } from "@/lib/domain";
 
 /** Flip on when rolling out แผนรอบปลูก (/plan, /plan/members). */
 const SHOW_PLAN_NAV = false;
@@ -134,7 +134,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const restored = restoreAuthSession();
-    if (restored?.role === "mill") setSession(restored);
+    if (restored?.role === "org") setSession(restored);
     else {
       clearAuthSession();
       setSession(null);
@@ -198,7 +198,7 @@ function ShellFrame({
   onLogout: () => void;
 }) {
   const pathname = usePathname();
-  const { ready, loadError, reload, revision } = useMill();
+  const { ready, loadError, reload, revision } = useOrg();
   const [duePlots, setDuePlots] = useState<{ id: string; name: string; harvestOn: string }[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
@@ -295,7 +295,7 @@ function ShellFrame({
                           onClick={() => setBellOpen(false)}
                           className="block px-5 py-3 hover:bg-sub"
                         >
-                          <div className="text-[14px] font-bold">{plot.name} ใกล้เข้าโรงสี</div>
+                          <div className="text-[14px] font-bold">{plot.name} ใกล้ถึงกำหนดส่ง</div>
                           <div className="mt-1 text-[12px] text-ink/70">{dueLabel(plot.harvestOn)}</div>
                         </Link>
                       </li>
@@ -316,7 +316,7 @@ function ShellFrame({
               }}
               className="inline-flex items-center gap-1 text-[12px] font-bold text-sidebar"
             >
-              ผู้จัดการโรงสี
+              ผู้ดูแลองค์กร
               <ChevronDown size={14} strokeWidth={1.75} />
             </button>
             {roleOpen && (
@@ -325,7 +325,7 @@ function ShellFrame({
                 <div className="absolute right-0 z-50 mt-2 w-56 rounded-[8px] border border-frame bg-white px-4 py-3 text-left shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
                   <div className="text-[12px] font-bold">{displayName}</div>
                   <div className="mt-1 text-[12px] text-ink/70">@{session.username}</div>
-                  <div className="mt-1 text-[12px] text-ink/70">ผู้จัดการโรงสี</div>
+                  <div className="mt-1 text-[12px] text-ink/70">ผู้ดูแลองค์กร</div>
                   <button
                     type="button"
                     onClick={() => {

@@ -6,7 +6,7 @@ import Map, { Layer, Marker, NavigationControl, Source, type MapLayerMouseEvent,
 
 setWorkerUrl("/maplibre/maplibre-gl-worker.js");
 import { LocateFixed, Map as MapIcon, Satellite } from "lucide-react";
-import { isClosedRing, openRing } from "@/lib/mill";
+import { isClosedRing, openRing } from "@/lib/domain";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 type MapPlot = {

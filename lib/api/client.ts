@@ -1,4 +1,4 @@
-import type { PermissionRole } from "@/lib/mill";
+import type { PermissionRole } from "@/lib/domain";
 
 export class ApiError extends Error {
   status: number;
@@ -34,7 +34,7 @@ export type AuthSession = {
   role: PermissionRole;
 };
 
-let actor: Actor = { role: "mill" };
+let actor: Actor = { role: "org" };
 let accessToken = "";
 
 export function setApiActor(next: Actor) {
@@ -71,7 +71,7 @@ export function setAuthSession(session: AuthSession) {
 
 export function clearAuthSession() {
   accessToken = "";
-  actor = { role: "mill" };
+  actor = { role: "org" };
   if (typeof window !== "undefined") {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(SESSION_KEY);

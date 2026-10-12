@@ -140,7 +140,7 @@ export type Planting = {
 };
 
 /**
- * Mill ledger for a farmer — not tied to a plot.
+ * Org ledger for a farmer — not tied to a plot.
  * in     = รับซื้อเข้า
  * out    = ขายออก
  * lend   = ให้ยืม (ให้ไปปลูกก่อน)
@@ -148,34 +148,34 @@ export type Planting = {
  *
  * Variety (พันธุ์ข้าว) is separate from product kind (ชนิดสินค้า).
  */
-export type MillReceiptDirection = "in" | "out" | "lend" | "return";
+export type OrgReceiptDirection = "in" | "out" | "lend" | "return";
 
-export type MillReceipt = {
+export type OrgReceipt = {
   id: string;
   farmerId: string;
   varietyId: Variety;
   productKindId: ProductKind;
-  direction: MillReceiptDirection;
+  direction: OrgReceiptDirection;
   kg: number;
   receivedOn: string;
   createdAt?: string;
   updatedAt?: string;
 };
 
-export function millReceiptDirectionLabel(direction: MillReceiptDirection) {
+export function orgReceiptDirectionLabel(direction: OrgReceiptDirection) {
   if (direction === "out") return "ขายออก";
   if (direction === "lend") return "ให้ยืม";
   if (direction === "return") return "รับคืน";
   return "รับซื้อเข้า";
 }
 
-export function asMillReceiptDirection(value: string | undefined): MillReceiptDirection {
+export function asOrgReceiptDirection(value: string | undefined): OrgReceiptDirection {
   if (value === "out" || value === "lend" || value === "return") return value;
   return "in";
 }
 
 export function defaultProductKindId(
-  direction: MillReceiptDirection,
+  direction: OrgReceiptDirection,
   _productKinds: ProductKindItem[] = PRODUCT_KINDS,
 ): ProductKind {
   // lend/return → เมล็ดพันธุ์; else → ข้าวเปลือก
@@ -276,7 +276,7 @@ export function latestActivityOfType(activities: PlotActivity[], plantingId: str
   return rows[rows.length - 1] ?? null;
 }
 
-export type PermissionRole = "mill" | "leader" | "member";
+export type PermissionRole = "org" | "leader" | "member";
 export type PermissionResource =
   | "groups"
   | "farmers"
@@ -300,7 +300,7 @@ export type Permission = {
 
 export type RoleGrant = {
   farmerId: string;
-  role: "mill";
+  role: "org";
 };
 
 export type FarmerPage = {
@@ -313,7 +313,7 @@ export type PlotPage = {
   total: number;
 };
 
-export type MillSnapshot = {
+export type OrgSnapshot = {
   farmers: Farmer[];
   /** First page of the member list, loaded with login so the default 20 can paint immediately. */
   farmerPage: FarmerPage;
@@ -323,7 +323,7 @@ export type MillSnapshot = {
   plotPage: PlotPage;
   plantings: Planting[];
   activities: PlotActivity[];
-  receipts: MillReceipt[];
+  receipts: OrgReceipt[];
   varieties: VarietyItem[];
   productKinds: ProductKindItem[];
   permissions: Permission[];
@@ -333,13 +333,13 @@ export type MillSnapshot = {
 export type FarmerInput = Omit<Farmer, "id" | "deliveredKg" | "createdAt" | "updatedAt" | "groupName" | "plotCount">;
 
 export function personRole(grants: RoleGrant[], groups: SupplierGroup[], farmerId: string): PermissionRole {
-  if (grants.some((grant) => grant.farmerId === farmerId && grant.role === "mill")) return "mill";
+  if (grants.some((grant) => grant.farmerId === farmerId && grant.role === "org")) return "org";
   if (groups.some((group) => group.leaderId === farmerId)) return "leader";
   return "member";
 }
 
 export function roleTitle(role: PermissionRole) {
-  if (role === "mill") return "โรงสี";
+  if (role === "org") return "องค์กร";
   if (role === "leader") return "หัวหน้ากลุ่ม";
   return "สมาชิก";
 }

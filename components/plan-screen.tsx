@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { useServerPage } from "@/components/server-page";
 import { PlantingActivityPanel } from "@/components/activities-screen";
 import { PlanEditor } from "@/components/plan-editor";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { Calendar, RotateCcw, Search } from "lucide-react";
 import {
   DateField,
@@ -46,7 +46,7 @@ import {
   type Plot,
   type PlotActivity,
   type Variety,
-} from "@/lib/mill";
+} from "@/lib/domain";
 
 type SeasonRow = Plot & {
   varietyId: Variety;
@@ -80,7 +80,7 @@ const emptyMemberQuery: MemberQuery = {
 const SOON_DAYS = 14;
 
 export function PlanScreen() {
-  const { groups, varieties, revision } = useMill();
+  const { groups, varieties, revision } = useOrg();
   const today = isoToday();
   const [draft, setDraft] = useState<HarvestQuery>({ from: today, to: shiftIso(today, SOON_DAYS), groupId: "all", variety: "all" });
   const [applied, setApplied] = useState(draft);
@@ -231,7 +231,7 @@ export function PlanScreen() {
 
 /** ค้นหาเกษตรกรเพื่อเปิดแผนรอบปลูก — ไม่จัดการแปลง/บัญชี */
 export function MemberSeasonScreen() {
-  const { groups, varieties, revision } = useMill();
+  const { groups, varieties, revision } = useOrg();
   const [draft, setDraft] = useState<MemberQuery>(emptyMemberQuery);
   const [applied, setApplied] = useState<MemberQuery>(emptyMemberQuery);
   const [searched, setSearched] = useState(false);

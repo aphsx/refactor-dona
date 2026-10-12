@@ -43,9 +43,9 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
             setError("");
             try {
               const session = await apiLogin(username.trim(), password);
-              if (session.role !== "mill") {
+              if (session.role !== "org") {
                 clearAuthSession();
-                setError("แอปนี้สำหรับผู้ใช้โรงสีเท่านั้น");
+                setError("แอปนี้สำหรับผู้ดูแลองค์กรเท่านั้น");
                 return;
               }
               onSuccess(session);
@@ -64,7 +64,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: (session: AuthSession) =
             className="mx-auto h-14 w-auto object-contain drop-shadow-sm"
           />
           <p className="mt-4 text-[15px]" style={{ color: `${brandDark}99` }}>
-            เข้าสู่ระบบโรงสี
+            เข้าสู่ระบบ
           </p>
         </div>
 

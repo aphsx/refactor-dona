@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { Pencil, Save, Trash2 } from "lucide-react";
 import { CanDelete, CanEdit } from "@/components/can";
 import { PlaceSelects, PlotMapDialog } from "@/components/groups-screen";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { api } from "@/lib/api";
-import { centroid, formatCoord, type Plot } from "@/lib/mill";
+import { centroid, formatCoord, type Plot } from "@/lib/domain";
 import { isCompletePlace, placeAt } from "@/lib/thai-place";
 import { ConfirmAlert, DirtyUndoButton, Glyph, PrimaryButton, ResultAlert, SecondaryButton, inputClass } from "@/components/ui";
 
@@ -57,7 +57,7 @@ export function PlotDetail({
   initialEditing?: boolean;
   embedded?: boolean;
 }) {
-  const { savePlot, saveBoundary, removePlot } = useMill();
+  const { savePlot, saveBoundary, removePlot } = useOrg();
   const [name, setName] = useState(plot.name);
   const [area, setArea] = useState(String(plot.areaRai));
   const [provinceId, setProvinceId] = useState(plot.provinceId);

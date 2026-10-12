@@ -1,10 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { api, apiMessage, loadMillSnapshot, setApiActor } from "@/lib/api";
+import { api, apiMessage, loadOrgSnapshot, setApiActor } from "@/lib/api";
 import type {
   FarmerInput,
-  MillSnapshot,
+  OrgSnapshot,
   PermissionFlag,
   PermissionResource,
   PermissionRole,
@@ -12,9 +12,9 @@ import type {
   PlotActivityPayload,
   PlotActivityType,
   Variety,
-} from "@/lib/mill";
+} from "@/lib/domain";
 
-type Store = MillSnapshot & {
+type Store = OrgSnapshot & {
   ready: boolean;
   loadError: string;
   revision: number;
@@ -31,7 +31,7 @@ type Store = MillSnapshot & {
   createFarmer: (input: FarmerInput) => Promise<string | null>;
   updateFarmer: (farmerId: string, input: FarmerInput) => Promise<string | null>;
   assignFarmer: (farmerId: string, groupId: string | null) => Promise<string | null>;
-  createMillReceipt: (
+  createOrgReceipt: (
     farmerId: string,
     input: {
       varietyId: Variety;
@@ -41,7 +41,7 @@ type Store = MillSnapshot & {
       receivedOn: string;
     },
   ) => Promise<string | null>;
-  removeMillReceipt: (receiptId: string) => Promise<string | null>;
+  removeOrgReceipt: (receiptId: string) => Promise<string | null>;
   addPlot: (
     farmerId: string,
     input: {
@@ -80,7 +80,7 @@ type Store = MillSnapshot & {
   revokeRole: (farmerId: string) => Promise<string | null>;
 };
 
-const empty: MillSnapshot = {
+const empty: OrgSnapshot = {
   farmers: [],
   farmerPage: { items: [], total: 0 },
   groups: [],
@@ -98,11 +98,11 @@ const empty: MillSnapshot = {
 const StoreContext = createContext<Store | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<MillSnapshot>(empty);
+  const [data, setData] = useState<OrgSnapshot>(empty);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [revision, setRevision] = useState(0);
-  const [actingRole] = useState<PermissionRole>("mill");
+  const [actingRole] = useState<PermissionRole>("org");
   const dataRef = useRef(data);
   dataRef.current = data;
   /** Blocks duplicate createPlot from rapid confirm clicks (same farmer/name/area/ring). */
@@ -114,7 +114,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   async function reload() {
     try {
-      const next = await loadMillSnapshot();
+      const next = await loadOrgSnapshot();
       dataRef.current = next;
       setData(next);
       setRevision((value) => value + 1);
@@ -194,9 +194,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }),
       ),
     assignFarmer: (farmerId, groupId) => mutate(() => api.assignFarmerGroup(farmerId, groupId)),
-    createMillReceipt: (farmerId, input) =>
+    createOrgReceipt: (farmerId, input) =>
       mutate(() =>
-        api.createMillReceipt({
+        api.createOrgReceipt({
           farmerId,
           varietyId: input.varietyId,
           productKindId: input.productKindId,
@@ -205,7 +205,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           receivedOn: input.receivedOn,
         }),
       ),
-    removeMillReceipt: (receiptId) => mutate(() => api.deleteMillReceipt(receiptId)),
+    removeOrgReceipt: (receiptId) => mutate(() => api.deleteOrgReceipt(receiptId)),
     addPlot: async (farmerId, input) => {
       const name = input.name.trim();
       const dedupeKey = [
@@ -257,7 +257,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             return "บันทึกแปลงแล้ว แต่บันทึกรูปตัวอย่างไม่สำเร็จ";
           }
         }
-        // Refresh farmer/group plot tables (they listen to revision, not mill.plots).
+        // Refresh farmer/group plot tables (they listen to revision, not org.plots).
         setRevision((value) => value + 1);
         return null;
       } catch (error) {
@@ -349,8 +349,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }
 
-export function useMill() {
+export function useOrg() {
   const store = useContext(StoreContext);
-  if (!store) throw new Error("useMill must be used inside StoreProvider");
+  if (!store) throw new Error("useOrg must be used inside StoreProvider");
   return store;
 }

@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { RotateCcw, Search } from "lucide-react";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { useServerPage } from "@/components/server-page";
 import { api } from "@/lib/api";
 import { ConfirmAlert, Glyph, PageHeader, Pagination, PrimaryButton, ResultAlert, SearchSelect, SecondaryButton, SortableTh, TableScroll, inputClass, orderBy, tableClass, useTableSort } from "@/components/ui";
-import { farmerName, personRole, roleTitle, type Farmer, type PermissionRole } from "@/lib/mill";
+import { farmerName, personRole, roleTitle, type Farmer, type PermissionRole } from "@/lib/domain";
 
 const ROLE_OPTIONS: { value: PermissionRole; label: string }[] = [
-  { value: "mill", label: "โรงสี" },
+  { value: "org", label: "องค์กร" },
   { value: "leader", label: "หัวหน้ากลุ่ม" },
   { value: "member", label: "สมาชิก" },
 ];
@@ -19,7 +19,7 @@ type Notice =
   | { tone: "success" | "error"; message: string };
 
 export function PeoplePermissionsScreen() {
-  const { groups, roleGrants, revision, farmerPage } = useMill();
+  const { groups, roleGrants, revision, farmerPage } = useOrg();
   const [draftName, setDraftName] = useState("");
   const [name, setName] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -118,7 +118,7 @@ function PersonRow({
   stripe: boolean;
   onNotice: (notice: Notice) => void;
 }) {
-  const { groups, roleGrants, assignRole, revokeRole } = useMill();
+  const { groups, roleGrants, assignRole, revokeRole } = useOrg();
   const current = personRole(roleGrants, groups, farmer.id);
   const [next, setNext] = useState<PermissionRole>(current);
   const grantedMill = roleGrants.some((grant) => grant.farmerId === farmer.id);
@@ -140,7 +140,7 @@ function PersonRow({
   function revoke() {
     onNotice({
       tone: "confirm",
-      message: `ยืนยันยกเลิกยศโรงสีของ ${farmerName(farmer)}`,
+      message: `ยืนยันยกเลิกยศองค์กรของ ${farmerName(farmer)}`,
       accept: async () => onNotice(await reported(revokeRole(farmer.id), "ยกเลิกสิทธิ์แล้ว")),
     });
   }
@@ -174,7 +174,7 @@ function PersonRow({
 }
 
 function scopeLabel(role: PermissionRole, groups: { id: string; name: string; leaderId: string }[], farmerId: string) {
-  if (role === "mill") return "ทั้งโรงสี";
+  if (role === "org") return "ทั้งองค์กร";
   if (role === "leader") return groups.find((group) => group.leaderId === farmerId)?.name ?? "กลุ่มตัวเอง";
   return "ของตัวเอง";
 }

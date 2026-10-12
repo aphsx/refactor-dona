@@ -7,12 +7,12 @@ import { Pencil, Plus, RotateCcw, Save, Search, Trash2, UserMinus, UserPlus, X }
 import { PlantingActivityPanel } from "@/components/activities-screen";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { DateField, Dialog, DirtyUndoButton, FarmerSelect, Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, SearchSelect, Select, SortableTh, StatusTab, SuggestInput, ConfirmAlert, ResultAlert, TableScroll, inputClass, matchesQuery, openRow, orderBy, rowTone, tableClass, usePagination, useTableSort } from "@/components/ui";
 import { api, collectPages, measureRingAreaRai } from "@/lib/api";
 import { useServerPage } from "@/components/server-page";
 import type { FieldMapHandle } from "@/components/field-map";
-import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultProductKindId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, millReceiptDirectionLabel, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, productKindName, roleTitle, varietyName, type Farmer, type MillReceipt, type MillReceiptDirection, type Planting, type Plot, type PlotActivity, type ProductKind, type SupplierGroup, type Variety } from "@/lib/mill";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultProductKindId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, orgReceiptDirectionLabel, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, productKindName, roleTitle, varietyName, type Farmer, type OrgReceipt, type OrgReceiptDirection, type Planting, type Plot, type PlotActivity, type ProductKind, type SupplierGroup, type Variety } from "@/lib/domain";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -22,7 +22,7 @@ const PlotDetail = dynamic(() => import("@/components/plot-detail").then((mod) =
 const SHOW_MEMBER_PLOT_TABS = true;
 /** Flip on when rolling out planting-plan tabs under farmer manage. */
 const SHOW_MEMBER_PLAN_TABS = false;
-/** Flip on when rolling out receipt standing + mill ledger under farmer detail. */
+/** Flip on when rolling out receipt standing + org ledger under farmer detail. */
 const SHOW_MEMBER_RECEIPT_SECTIONS = false;
 
 type Notice =
@@ -63,7 +63,7 @@ export function GroupsScreen() {
 }
 
 export function GroupManageScreen() {
-  const { groups, createGroup } = useMill();
+  const { groups, createGroup } = useOrg();
   const router = useRouter();
   const requestedId = useSearchParams().get("group");
   const requested = groups.some((group) => group.id === requestedId) ? requestedId : null;
@@ -183,7 +183,7 @@ export function GroupManageScreen() {
                   <SortableTh label="หัวหน้า" column="leader" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="สมาชิก" column="members" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="คาดว่าจะได้" column="expected" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="รับเข้าโรงสี" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="รับเข้า" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
               </thead>
               <tbody>
@@ -224,7 +224,7 @@ export function GroupManageScreen() {
 }
 
 export function MemberManageScreen() {
-  const { groups, roleGrants, assignFarmer, revision, farmerPage } = useMill();
+  const { groups, roleGrants, assignFarmer, revision, farmerPage } = useOrg();
   const router = useRouter();
   const requestedId = useSearchParams().get("farmer");
   const requested = requestedId;
@@ -390,7 +390,7 @@ export function MemberManageScreen() {
                   <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="ตำแหน่ง" column="role" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="รับเข้าโรงสี" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="รับเข้า" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
               </thead>
@@ -469,7 +469,7 @@ export function MemberManageScreen() {
 
 function GroupDirectory() {
   const router = useRouter();
-  const { groups, createGroup } = useMill();
+  const { groups, createGroup } = useOrg();
   const [creatingGroup, setCreatingGroup] = useState(false);
   const listingSort = useTableSort("groups");
   const ordered = orderBy(groups, listingSort.sort, (group, key) => {
@@ -495,7 +495,7 @@ function GroupDirectory() {
             <SortableTh label="หัวหน้า" column="leader" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="สมาชิก" column="members" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="คาดว่าจะได้" column="expected" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="รับเข้าโรงสี" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="รับเข้า" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
@@ -545,7 +545,7 @@ function GroupDirectory() {
 
 function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => void }) {
   const router = useRouter();
-  const { updateGroup, assignFarmer, revision } = useMill();
+  const { updateGroup, assignFarmer, revision } = useOrg();
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(group.name);
   const [draftLeader, setDraftLeader] = useState(group.leaderId);
@@ -734,7 +734,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
 }
 
 function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void }) {
-  const { groups, updateFarmer } = useMill();
+  const { groups, updateFarmer } = useOrg();
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState(farmer.firstName);
   const [lastName, setLastName] = useState(farmer.lastName);
@@ -889,7 +889,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
       {SHOW_MEMBER_RECEIPT_SECTIONS && (
         <>
           <MemberStanding farmer={farmer} leads={leads} />
-          <MillReceiptRounds farmer={farmer} />
+          <OrgReceiptRounds farmer={farmer} />
         </>
       )}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
@@ -897,8 +897,8 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
   );
 }
 function MemberStanding({ farmer, leads }: { farmer: Farmer; leads: SupplierGroup | null }) {
-  const { groups, revision } = useMill();
-  const [receipts, setReceipts] = useState<MillReceipt[]>([]);
+  const { groups, revision } = useOrg();
+  const [receipts, setReceipts] = useState<OrgReceipt[]>([]);
   useEffect(() => {
     let alive = true;
     void api.listReceipts(farmer.id).then((items) => {
@@ -949,7 +949,7 @@ function MemberPlots({
   onOpenPlan?: (plotId: string) => void;
   onClose: () => void;
 }) {
-  const { varieties, addPlot, removePlot, revision } = useMill();
+  const { varieties, addPlot, removePlot, revision } = useOrg();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -1203,9 +1203,9 @@ function PlotTable({
   );
 }
 
-function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
-  const { varieties, productKinds, createMillReceipt, removeMillReceipt, revision } = useMill();
-  const [receipts, setReceipts] = useState<MillReceipt[]>([]);
+function OrgReceiptRounds({ farmer }: { farmer: Farmer }) {
+  const { varieties, productKinds, createOrgReceipt, removeOrgReceipt, revision } = useOrg();
+  const [receipts, setReceipts] = useState<OrgReceipt[]>([]);
   useEffect(() => {
     let alive = true;
     void api.listReceipts(farmer.id).then((items) => {
@@ -1216,7 +1216,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
     };
   }, [farmer.id, revision]);
   const [adding, setAdding] = useState(false);
-  const [direction, setDirection] = useState<MillReceiptDirection>("in");
+  const [direction, setDirection] = useState<OrgReceiptDirection>("in");
   const [productKindId, setProductKindId] = useState<ProductKind>(() => defaultProductKindId("in", productKinds));
   const [receivedOn, setReceivedOn] = useState("");
   const [varietyId, setVarietyId] = useState<Variety | "">("");
@@ -1229,7 +1229,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   const listingSort = useTableSort(rows.map((row) => row.id).join(","));
   const ordered = orderBy(rows, listingSort.sort, (row, key) => {
     if (key === "date") return row.receivedOn;
-    if (key === "direction") return millReceiptDirectionLabel(row.direction ?? "in");
+    if (key === "direction") return orgReceiptDirectionLabel(row.direction ?? "in");
     if (key === "kind") return productKindName(row.productKindId);
     if (key === "variety") return varietyName(row.varietyId);
     return row.kg;
@@ -1248,7 +1248,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-        บัญชีซื้อขายโรงสี
+        บัญชีซื้อขาย
         <CanAdd resource="farmers">
           <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
             <Glyph icon={Plus} />
@@ -1277,7 +1277,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
               </tr>
             )}
             {page.rows.map((row, index) => {
-              const kind = millReceiptDirectionLabel(row.direction ?? "in");
+              const kind = orgReceiptDirectionLabel(row.direction ?? "in");
               const product = productKindName(row.productKindId);
               const tone =
                 row.direction === "out" || row.direction === "lend"
@@ -1300,7 +1300,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
                           setNotice({
                             tone: "confirm",
                             message: `ยืนยันลบ${kind} ${product} ${varietyName(row.varietyId)} ${formatKg(row.kg)} วันที่ ${formatThaiDate(row.receivedOn)}`,
-                            accept: async () => setNotice(await reported(removeMillReceipt(row.id), "ลบรายการแล้ว")),
+                            accept: async () => setNotice(await reported(removeOrgReceipt(row.id), "ลบรายการแล้ว")),
                           })
                         }
                       >
@@ -1343,9 +1343,9 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
               };
               setNotice({
                 tone: "confirm",
-                message: `ยืนยัน${millReceiptDirectionLabel(direction)} ${productKindName(productKindId)} ${varietyName(payload.varietyId)} ${formatKg(payload.kg)}`,
+                message: `ยืนยัน${orgReceiptDirectionLabel(direction)} ${productKindName(productKindId)} ${varietyName(payload.varietyId)} ${formatKg(payload.kg)}`,
                 accept: async () =>
-                  setNotice(await reported(createMillReceipt(farmer.id, payload), `บันทึก${millReceiptDirectionLabel(direction)}แล้ว`, resetForm)),
+                  setNotice(await reported(createOrgReceipt(farmer.id, payload), `บันทึก${orgReceiptDirectionLabel(direction)}แล้ว`, resetForm)),
               });
             }}
           >
@@ -1357,7 +1357,7 @@ function MillReceiptRounds({ farmer }: { farmer: Farmer }) {
                 className="mt-1"
                 value={direction}
                 onChange={(value) => {
-                  const next = value as MillReceiptDirection;
+                  const next = value as OrgReceiptDirection;
                   setDirection(next);
                   setProductKindId(defaultProductKindId(next, productKinds));
                 }}
@@ -1434,7 +1434,7 @@ export function MemberPlan({
   initialPlotId?: string | null;
   onClose?: () => void;
 }) {
-  const { revision } = useMill();
+  const { revision } = useOrg();
   const [owned, setOwned] = useState<Plot[]>([]);
   const [plantings, setPlantings] = useState<Planting[]>([]);
   const [activities, setActivities] = useState<PlotActivity[]>([]);
@@ -1681,7 +1681,7 @@ function ChoosePlanPlot({
 }
 
 export function PlotWorkspace({ plot, onBack }: { plot: Plot; onBack: () => void }) {
-  const { varieties, savePlot, removePlot, savePlanting, removePlanting, revision } = useMill();
+  const { varieties, savePlot, removePlot, savePlanting, removePlanting, revision } = useOrg();
   const [rounds, setRounds] = useState<Planting[]>([]);
   const [ownerLabel, setOwnerLabel] = useState(plot.ownerName || "");
   const [groupLabel, setGroupLabel] = useState(plot.groupName || "");
@@ -1952,7 +1952,7 @@ function RequiredMark() {
 }
 
 export function AddFarmer({ onClose }: { onClose: () => void }) {
-  const { groups, createFarmer } = useMill();
+  const { groups, createFarmer } = useOrg();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [tel, setTel] = useState("");
@@ -2140,7 +2140,7 @@ export function PlotDialog({
     schedule: { plantedOn: string; harvestOn: string; estKg: number },
   ) => Promise<string | null>;
 }) {
-  const { varieties, groups } = useMill();
+  const { varieties, groups } = useOrg();
   const [owner, setOwner] = useState<Farmer | null>(null);
   const [neighborPlots, setNeighborPlots] = useState<Plot[]>([]);
   const group = groups.find((item) => item.id === owner?.groupId) ?? null;
@@ -2391,7 +2391,7 @@ export function PlotMapDialog({
   onApplied?: (ring: [number, number][], preview: Blob | null, areaRai: number) => void | Promise<void>;
   onPlotUpdated?: (plot: Plot) => void;
 }) {
-  const { saveBoundary } = useMill();
+  const { saveBoundary } = useOrg();
   const [full, setFull] = useState(plot);
   const [editing, setEditing] = useState(startEditing);
   const [draft, setDraft] = useState<[number, number][]>([]);
@@ -2796,7 +2796,7 @@ function MoveFarmer({
   onClose: () => void;
   onAssign: (farmerId: string, groupId: string) => Promise<string | null>;
 }) {
-  const { groups } = useMill();
+  const { groups } = useOrg();
   const [farmerId, setFarmerId] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
   const groupName = groups.find((group) => group.id === groupId)?.name ?? "กลุ่ม";

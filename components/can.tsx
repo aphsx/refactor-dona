@@ -1,7 +1,7 @@
 "use client";
 
-import { useMill } from "@/components/store";
-import { allowed, type PermissionFlag, type PermissionResource } from "@/lib/mill";
+import { useOrg } from "@/components/store";
+import { allowed, type PermissionFlag, type PermissionResource } from "@/lib/domain";
 
 export function Can({
   resource,
@@ -12,7 +12,7 @@ export function Can({
   action: PermissionFlag;
   children: React.ReactNode;
 }) {
-  const { permissions, actingRole } = useMill();
+  const { permissions, actingRole } = useOrg();
   if (!allowed(permissions, actingRole, resource, action)) return null;
   return children;
 }

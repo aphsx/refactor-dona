@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { api } from "@/lib/api";
 import { Kpi, PageHeader, Pagination, SearchSelect, SortableTh, StatusTab, TableScroll, orderBy, tableClass, usePagination, useTableSort } from "@/components/ui";
-import { daysUntil, formatKg, formatThaiDate, varietyName, type Planting, type Plot, type Variety } from "@/lib/mill";
+import { daysUntil, formatKg, formatThaiDate, varietyName, type Planting, type Plot, type Variety } from "@/lib/domain";
 
 type SupplyRow = Plot & { varietyId: Variety; plantingId: string; harvestOn: string; estKg: number };
 
 type WindowFilter = "ใกล้เก็บเกี่ยว" | "เดือนนี้" | "ยังไม่เข้า";
 
 export function SupplyScreen() {
-  const { groups, revision } = useMill();
+  const { groups, revision } = useOrg();
   const [filter, setFilter] = useState<WindowFilter>("ใกล้เก็บเกี่ยว");
   const [groupId, setGroupId] = useState("all");
   const [plantings, setPlantings] = useState<Planting[]>([]);

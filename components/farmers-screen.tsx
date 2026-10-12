@@ -6,15 +6,15 @@ import { useState } from "react";
 import { Plus, RotateCcw, Search } from "lucide-react";
 import { CanAdd } from "@/components/can";
 import { AddFarmer } from "@/components/groups-screen";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { useServerPage } from "@/components/server-page";
 import { Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, TableScroll, openRow, rowTone, tableClass } from "@/components/ui";
 import { api } from "@/lib/api";
-import { farmerName, formatKg, personRole, roleTitle } from "@/lib/mill";
+import { farmerName, formatKg, personRole, roleTitle } from "@/lib/domain";
 
 export function FarmersScreen() {
   const router = useRouter();
-  const { groups, roleGrants, revision, farmerPage } = useMill();
+  const { groups, roleGrants, revision, farmerPage } = useOrg();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
@@ -73,7 +73,7 @@ export function FarmersScreen() {
                 <th className="px-5 py-3 text-left text-[14px] font-bold">เบอร์โทร</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">กลุ่ม</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">ตำแหน่ง</th>
-                <th className="px-5 py-3 text-left text-[14px] font-bold">รับเข้าโรงสี</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">รับเข้า</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">แปลง</th>
                 <th />
               </tr>

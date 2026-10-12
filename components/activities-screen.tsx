@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { CanAdd, CanDelete, CanEdit, CanRead } from "@/components/can";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { api } from "@/lib/api";
 import {
   ConfirmAlert,
@@ -35,7 +35,7 @@ import {
   type PlotActivityType,
   type ProblemPayload,
   type Variety,
-} from "@/lib/mill";
+} from "@/lib/domain";
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
@@ -82,7 +82,7 @@ export function PlantingActivityPanel({
   /** From แผนรอบ — auto-creates ปลูกจริง on the timeline when missing. */
   plantedOn?: string;
 }) {
-  const { saveActivity, removeActivity, revision } = useMill();
+  const { saveActivity, removeActivity, revision } = useOrg();
   const [activities, setActivities] = useState<PlotActivity[]>([]);
   const rows = activitiesOf(activities, plantingId);
   const page = usePagination(rows, plantingId);

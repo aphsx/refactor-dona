@@ -6,10 +6,10 @@ import { Plus, RotateCcw, Search, X } from "lucide-react";
 import { CanAdd } from "@/components/can";
 import { PlotDialog } from "@/components/groups-screen";
 import { PlotDetail } from "@/components/plot-detail";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { api } from "@/lib/api";
 import { useServerPage } from "@/components/server-page";
-import { defaultVarietyId, type Plot } from "@/lib/mill";
+import { defaultVarietyId, type Plot } from "@/lib/domain";
 import { placeLabel } from "@/lib/thai-place";
 import {
   Dialog,
@@ -37,7 +37,7 @@ function RequiredMark() {
 }
 
 export function PlotManageScreen() {
-  const { varieties, groups, addPlot, revision, plotPage } = useMill();
+  const { varieties, groups, addPlot, revision, plotPage } = useOrg();
   const router = useRouter();
   const requestedId = useSearchParams().get("plot");
   const requested = requestedId;

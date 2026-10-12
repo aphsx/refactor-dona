@@ -19,7 +19,7 @@ const thai = Noto_Sans_Thai({
 
 export const metadata: Metadata = {
   title: "dona",
-  description: "โต๊ะทำงานโรงสี",
+  description: "ระบบจัดการองค์กร",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

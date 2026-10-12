@@ -4,7 +4,7 @@
  *
  * Usage:
  *   DONA_API_URL=https://your-api.up.railway.app \
- *   DONA_USER=mill \
+ *   DONA_USER=org \
  *   DONA_PASS=secret \
  *   node scripts/measure-registration-usage.mjs
  *
@@ -26,7 +26,7 @@ const registerCount = (() => {
 })();
 
 if (!USER || !PASS) {
-  console.error("Set DONA_USER and DONA_PASS (mill login).");
+  console.error("Set DONA_USER and DONA_PASS (org login).");
   process.exit(1);
 }
 
@@ -165,7 +165,7 @@ async function main() {
   resetStats();
   const before = await snapshot();
   const snapCost = snapshotStats();
-  console.log("=== One full reload (loadMillSnapshot) ===");
+  console.log("=== One full reload (loadOrgSnapshot) ===");
   console.log(`Counts: farmers=${before.farmers} plots=${before.plots} groups=${before.groups} plantings=${before.plantings} people=${before.people}`);
   console.log(`Cost:   ${snapCost.requests} req, ${snapCost.kb} KB`);
   printBreakdown();

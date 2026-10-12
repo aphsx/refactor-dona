@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { CanEdit } from "@/components/can";
 import type { FieldMapHandle } from "@/components/field-map";
-import { useMill } from "@/components/store";
+import { useOrg } from "@/components/store";
 import { SearchSelect, matchesQuery } from "@/components/ui";
 import { api, measureRingAreaRai } from "@/lib/api";
 import {
@@ -28,7 +28,7 @@ import {
   type Plot,
   type PlotBoundary,
   type Variety,
-} from "@/lib/mill";
+} from "@/lib/domain";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
@@ -52,7 +52,7 @@ type Row = {
 export function MapScreen() {
   const params = useSearchParams();
   const requestedPlot = params.get("plot");
-  const { groups, saveBoundary } = useMill();
+  const { groups, saveBoundary } = useOrg();
   const mapRef = useRef<FieldMapHandle>(null);
   const [query, setQuery] = useState("");
   /** "" = all groups, "none" = ungrouped, else group uuid */
