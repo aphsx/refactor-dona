@@ -30,8 +30,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_BUTTON = 20;
 
 /**
- * Message kinds aligned with LINE OA Manager / broadcast composers:
- * text | image | card — not Flex layout recipes.
+ * Message kinds: text | image (รูปประกาศ) | card — not Flex layout recipes.
  */
 type MessageKind = "text" | "image" | "card";
 
@@ -48,7 +47,7 @@ type ImageDraft = {
 
 const MESSAGE_KINDS: { id: MessageKind; title: string; desc: string }[] = [
   { id: "text", title: "ข้อความ", desc: "ประกาศสั้นๆ ในแชท" },
-  { id: "image", title: "รูปภาพ", desc: "โปสเตอร์ / โปรโมชัน" },
+  { id: "image", title: "รูป", desc: "ส่งเฉพาะรูปในแชท" },
   { id: "card", title: "การ์ด", desc: "ข้อความ · เลือกรูปและปุ่มได้" },
 ];
 
@@ -199,12 +198,12 @@ function LineCardPreview({
   cardUseImage?: boolean;
   cardUseLink?: boolean;
 }) {
-  const imageOnly = kind === "image";
+  const isImageAnnouncement = kind === "image";
   const isText = kind === "text";
-  const showImage = imageOnly || (kind === "card" && cardUseImage);
+  const showImage = isImageAnnouncement || (kind === "card" && cardUseImage);
   const showButton = kind === "card" && cardUseLink;
-  const aspect = imageOnly ? "aspect-square" : "aspect-[20/13]";
-  const imageFull = imageOnly && imageLayout === "full";
+  const aspect = isImageAnnouncement ? "aspect-square" : "aspect-[20/13]";
+  const imageFull = isImageAnnouncement && imageLayout === "full";
   const textBody = [priorityId === ANNOUNCEMENT_PRIORITY.urgent ? "[ด่วน]" : "", title, message]
     .filter(Boolean)
     .join("\n\n");
@@ -235,7 +234,7 @@ function LineCardPreview({
                 <div className="text-ink/30">ข้อความประกาศ…</div>
               )}
             </div>
-          ) : imageOnly ? (
+          ) : isImageAnnouncement ? (
             <div
               className={`min-w-0 flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm ${
                 imageFull ? "max-w-none" : "max-w-[78%]"
@@ -245,7 +244,7 @@ function LineCardPreview({
                 <img src={imageUrl} alt="" className="aspect-square w-full object-cover" />
               ) : (
                 <div className="flex aspect-square w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35">
-                  รูปโปรโมชัน
+                  รูปประกาศ
                 </div>
               )}
               {linkUrl && (
@@ -324,17 +323,17 @@ export function AnnounceScreen() {
   const trimmedMessage = message.trim();
   const trimmedLink = linkUrl.trim();
   const trimmedButton = buttonLabel.trim() || "เปิดลิงก์";
-  const imageOnly = kind === "image";
+  const isImageAnnouncement = kind === "image";
   const isCard = kind === "card";
-  const wantsImage = imageOnly || (isCard && cardUseImage);
+  const wantsImage = isImageAnnouncement || (isCard && cardUseImage);
   const wantsButton = isCard && cardUseLink;
-  const wantsLink = imageOnly || wantsButton;
+  const wantsLink = isImageAnnouncement || wantsButton;
   const effectiveLink = wantsLink ? trimmedLink : "";
-  const publishTitle = imageOnly ? "" : trimmedTitle;
-  const publishMessage = imageOnly ? "" : trimmedMessage;
+  const publishTitle = isImageAnnouncement ? "" : trimmedTitle;
+  const publishMessage = isImageAnnouncement ? "" : trimmedMessage;
   const lineBody = buildLineBody(publishTitle, publishMessage, effectiveLink, priorityId);
   const remaining = MAX_MESSAGE - [...lineBody].length;
-  const hasContent = imageOnly
+  const hasContent = isImageAnnouncement
     ? Boolean(image)
     : Boolean(trimmedTitle || trimmedMessage);
   const canPublish =
@@ -423,8 +422,8 @@ export function AnnounceScreen() {
   }
 
   function validateForPublish(): string | null {
-    if (imageOnly && !image) return "ประเภทรูปภาพต้องแนบรูป";
-    if (!imageOnly && !trimmedTitle && !trimmedMessage) return "กรอกหัวข้อหรือข้อความ";
+    if (isImageAnnouncement && !image) return "ประเภทต้องแนบรูปประกาศ";
+    if (!isImageAnnouncement && !trimmedTitle && !trimmedMessage) return "กรอกหัวข้อหรือข้อความ";
     if (isCard && cardUseImage && !image) return "เปิดใช้รูปแล้ว — แนบรูปด้วย หรือปิดตัวเลือกนี้";
     if (isCard && cardUseLink && !effectiveLink) return "เปิดใช้ปุ่มลิงก์แล้ว — กรอกลิงก์ด้วย หรือปิดตัวเลือกนี้";
     if (!hasContent) return "กรอกหัวข้อ ข้อความ หรือแนบรูปอย่างน้อยหนึ่งอย่าง";
@@ -473,7 +472,7 @@ export function AnnounceScreen() {
         imageUrl,
         imageName,
         buttonLabel: wantsButton && effectiveLink ? trimmedButton : "",
-        imageLayout: imageOnly ? imageLayout : "standard",
+        imageLayout: isImageAnnouncement ? imageLayout : "standard",
         priorityId,
         mode: nextMode,
         scheduledAt,
@@ -557,7 +556,7 @@ export function AnnounceScreen() {
               }}
             >
               <div className="grid gap-4 content-start">
-                {!imageOnly && (
+                {!isImageAnnouncement && (
                   <>
                     <label className="block text-[14px] font-bold leading-[1.4]">
                       หัวข้อ
@@ -628,7 +627,7 @@ export function AnnounceScreen() {
 
                 {wantsImage && (
                   <div className="text-[14px] font-bold leading-[1.4]">
-                    {imageOnly ? "รูปโปรโมชัน" : "รูปหัวการ์ด"}
+                    {isImageAnnouncement ? "รูปประกาศ" : "รูปหัวการ์ด"}
                     <input
                       ref={fileRef}
                       type="file"
@@ -663,9 +662,9 @@ export function AnnounceScreen() {
                   </div>
                 )}
 
-                {imageOnly && (
+                {isImageAnnouncement && (
                   <div className="grid gap-3">
-                    <div className="text-[14px] font-bold leading-[1.4]">ขนาดรูปในแชท LINE</div>
+                    <div className="text-[14px] font-bold leading-[1.4]">ขนาดรูปประกาศ</div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {IMAGE_LAYOUTS.map((item) => {
                         const active = imageLayout === item.id;
@@ -691,7 +690,7 @@ export function AnnounceScreen() {
                   </div>
                 )}
 
-                {imageOnly && (
+                {isImageAnnouncement && (
                   <label className="block text-[14px] font-bold leading-[1.4]">
                     ลิงก์เมื่อกดรูป (ไม่บังคับ)
                     <input

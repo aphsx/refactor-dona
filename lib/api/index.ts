@@ -396,7 +396,7 @@ export type AnnouncementLookup = {
   name: string;
 };
 
-/** Image-only Flex bubble: standard = mega, full = giga (full chat width). */
+/** รูปประกาศ Flex bubble: standard = mega, full = giga (full chat width). */
 export type AnnouncementImageLayout = "standard" | "full";
 
 export type Announcement = {
