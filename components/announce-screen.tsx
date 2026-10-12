@@ -117,7 +117,7 @@ function KindSkeleton({ kind }: { kind: MessageKind }) {
   if (kind === "image") {
     return (
       <div className="mx-auto w-[88px] rounded-[6px] bg-[#747F8D] p-1">
-        <div className="h-14 overflow-hidden rounded-[7px] bg-black/[0.1]" />
+        <div className="h-16 w-full overflow-hidden rounded-[6px] bg-black/[0.12]" />
       </div>
     );
   }
@@ -221,36 +221,39 @@ function LineCardPreview({
                 <div className="text-ink/30">ข้อความประกาศ…</div>
               )}
             </div>
-          ) : (
-            <div className="min-w-0 flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm">
-              {showImage &&
-                (imageUrl ? (
-                  <img src={imageUrl} alt="" className={`${aspect} w-full object-cover`} />
-                ) : imageOnly ? (
-                  <div className={`flex ${aspect} w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35`}>
-                    รูปโปรโมชัน
-                  </div>
-                ) : null)}
-              {!imageOnly && (
-                <div className="space-y-2 px-4 py-3.5 text-[14px] leading-[1.45] text-ink">
-                  {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
-                    <div className="text-[12px] font-bold text-danger">ด่วน</div>
-                  )}
-                  {title ? (
-                    <div className="text-[16px] font-bold">{title}</div>
-                  ) : (
-                    <div className="text-[16px] font-bold text-ink/30">หัวข้อ</div>
-                  )}
-                  {message ? (
-                    <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
-                  ) : (
-                    <div className="text-[13px] text-ink/30">ข้อความ…</div>
-                  )}
+          ) : imageOnly ? (
+            <div className="min-w-0 w-full max-w-none flex-[1.15] overflow-hidden rounded-[12px] bg-white shadow-sm">
+              {imageUrl ? (
+                <img src={imageUrl} alt="" className="aspect-square w-full object-cover" />
+              ) : (
+                <div className="flex aspect-square w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35">
+                  รูปโปรโมชันเต็มแชท
                 </div>
               )}
-              {imageOnly && linkUrl && (
+              {linkUrl && (
                 <p className="px-3 py-2 text-center text-[11px] text-ink/45">กดที่รูปเพื่อเปิดลิงก์</p>
               )}
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm">
+              {showImage && imageUrl ? (
+                <img src={imageUrl} alt="" className={`${aspect} w-full object-cover`} />
+              ) : null}
+              <div className="space-y-2 px-4 py-3.5 text-[14px] leading-[1.45] text-ink">
+                {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
+                  <div className="text-[12px] font-bold text-danger">ด่วน</div>
+                )}
+                {title ? (
+                  <div className="text-[16px] font-bold">{title}</div>
+                ) : (
+                  <div className="text-[16px] font-bold text-ink/30">หัวข้อ</div>
+                )}
+                {message ? (
+                  <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
+                ) : (
+                  <div className="text-[13px] text-ink/30">ข้อความ…</div>
+                )}
+              </div>
               {showButton && (
                 <div className="border-t border-black/5 px-3 py-3">
                   <div className="flex h-9 items-center justify-center rounded-[6px] bg-brand text-[13px] font-bold text-white">
