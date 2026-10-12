@@ -137,6 +137,31 @@ create table public.plot_activities (
 create index plot_activities_planting_id_idx on public.plot_activities (planting_id);
 create index plot_activities_occurred_on_idx on public.plot_activities (occurred_on, created_at);
 
+-- Lookup id ranges: mirror of dona-api/db/LOOKUP_IDS.md
+create table public.planting_plan_statuses (
+  id smallint primary key,
+  code text not null unique,
+  name text not null,
+  constraint planting_plan_statuses_code_not_blank check (char_length(btrim(code)) > 0),
+  constraint planting_plan_statuses_name_not_blank check (char_length(btrim(name)) > 0)
+);
+
+create table public.announcement_statuses (
+  id smallint primary key,
+  code text not null unique,
+  name text not null,
+  constraint announcement_statuses_code_not_blank check (char_length(btrim(code)) > 0),
+  constraint announcement_statuses_name_not_blank check (char_length(btrim(name)) > 0)
+);
+
+create table public.announcement_priorities (
+  id smallint primary key,
+  code text not null unique,
+  name text not null,
+  constraint announcement_priorities_code_not_blank check (char_length(btrim(code)) > 0),
+  constraint announcement_priorities_name_not_blank check (char_length(btrim(name)) > 0)
+);
+
 create table public.permissions (
   role_id bigint not null references public.roles (id),
   resource text not null,
@@ -173,3 +198,26 @@ create table public.accounts (
 );
 
 create index accounts_role_id_idx on public.accounts (role_id);
+
+create table public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default '',
+  message text not null default '',
+  link_url text not null default '',
+  image_url text not null default '',
+  image_name text not null default '',
+  priority_id smallint not null references public.announcement_priorities (id),
+  status_id smallint not null references public.announcement_statuses (id),
+  scheduled_at timestamptz,
+  sent_at timestamptz,
+  created_by_account_id uuid not null references public.accounts (id) on delete restrict,
+  error_message text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index announcements_created_at_idx on public.announcements (created_at desc);
+create index announcements_status_id_idx on public.announcements (status_id);
+create index announcements_due_idx
+  on public.announcements (scheduled_at)
+  where status_id = 502;
