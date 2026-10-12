@@ -122,6 +122,38 @@ function LayoutSkeleton({ layout }: { layout: CardLayout }) {
   );
 }
 
+function ChatBubbleSkeleton({
+  side,
+  width,
+}: {
+  side: "left" | "right";
+  width: string;
+}) {
+  const bubble = (
+    <div
+      className={`px-3 py-2.5 ${width} ${
+        side === "left"
+          ? "rounded-[14px] rounded-bl-[4px] bg-white/90"
+          : "rounded-[14px] rounded-br-[4px] bg-[#8CD18F]"
+      }`}
+    >
+      <div className={`h-2 w-[78%] rounded-sm ${side === "left" ? "bg-black/[0.1]" : "bg-black/[0.12]"}`} />
+      <div className={`mt-1.5 h-2 w-[55%] rounded-sm ${side === "left" ? "bg-black/[0.07]" : "bg-black/[0.08]"}`} />
+    </div>
+  );
+
+  if (side === "right") {
+    return <div className="flex justify-end pl-10">{bubble}</div>;
+  }
+
+  return (
+    <div className="flex items-end gap-2 pr-10">
+      <div className="h-7 w-7 shrink-0 rounded-full bg-white/25" />
+      {bubble}
+    </div>
+  );
+}
+
 function LineCardPreview({
   title,
   message,
@@ -142,43 +174,68 @@ function LineCardPreview({
   showButton: boolean;
 }) {
   return (
-    <div className="rounded-[8px] bg-[#747F8D] p-4">
-      <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-[18px] bg-white shadow-sm">
-        {showImage &&
-          (imageUrl ? (
-            <img src={imageUrl} alt="" className="aspect-[20/13] w-full object-cover" />
-          ) : (
-            <div className="flex aspect-[20/13] w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35">
-              รูปหัวการ์ด
-            </div>
-          ))}
-        <div className="space-y-2 px-4 py-4 text-[14px] leading-[1.45] text-ink">
-          {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
-            <div className="text-[12px] font-bold text-danger">ด่วน</div>
-          )}
-          {title ? (
-            <div className="text-[16px] font-bold">{title}</div>
-          ) : (
-            <div className="text-[16px] font-bold text-ink/30">หัวข้อ</div>
-          )}
-          {message ? (
-            <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
-          ) : (
-            <div className="text-[13px] text-ink/30">ข้อความ…</div>
-          )}
+    <div className="overflow-hidden rounded-[12px] border border-black/10 bg-[#7494A9] shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
+      {/* Chat header */}
+      <div className="flex items-center gap-3 bg-[#283849] px-4 py-3">
+        <div className="h-9 w-9 shrink-0 rounded-full bg-white/20" />
+        <div className="min-w-0 flex-1">
+          <div className="h-2.5 w-28 rounded-sm bg-white/55" />
+          <div className="mt-1.5 h-2 w-16 rounded-sm bg-white/25" />
         </div>
-        {showButton && (
-          <div className="border-t border-black/5 px-3 py-3">
-            <div className="flex h-9 items-center justify-center rounded-[6px] bg-brand text-[13px] font-bold text-white">
-              {buttonLabel || "เปิดลิงก์"}
+      </div>
+
+      {/* Thread — one skeleton each side, then the OA card */}
+      <div className="space-y-3 px-3 py-4">
+        <ChatBubbleSkeleton side="left" width="w-[52%]" />
+        <ChatBubbleSkeleton side="right" width="w-[44%]" />
+
+        <div className="flex items-end gap-2 pr-6">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#06C755] text-[10px] font-bold text-white">
+            OA
+          </div>
+          <div className="min-w-0 flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm">
+            {showImage &&
+              (imageUrl ? (
+                <img src={imageUrl} alt="" className="aspect-[20/13] w-full object-cover" />
+              ) : (
+                <div className="flex aspect-[20/13] w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35">
+                  รูปหัวการ์ด
+                </div>
+              ))}
+            <div className="space-y-2 px-4 py-3.5 text-[14px] leading-[1.45] text-ink">
+              {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
+                <div className="text-[12px] font-bold text-danger">ด่วน</div>
+              )}
+              {title ? (
+                <div className="text-[16px] font-bold">{title}</div>
+              ) : (
+                <div className="text-[16px] font-bold text-ink/30">หัวข้อ</div>
+              )}
+              {message ? (
+                <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
+              ) : (
+                <div className="text-[13px] text-ink/30">ข้อความ…</div>
+              )}
             </div>
-            {!linkUrl && (
-              <p className="mt-2 text-center text-[11px] text-ink/45">ยังไม่มีลิงก์</p>
+            {showButton && (
+              <div className="border-t border-black/5 px-3 py-3">
+                <div className="flex h-9 items-center justify-center rounded-[6px] bg-brand text-[13px] font-bold text-white">
+                  {buttonLabel || "เปิดลิงก์"}
+                </div>
+                {!linkUrl && (
+                  <p className="mt-2 text-center text-[11px] text-ink/45">ยังไม่มีลิงก์</p>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
       </div>
-      <p className="mt-3 text-center text-[12px] text-white/80">พรีวิวใน LINE</p>
+
+      {/* Composer stub */}
+      <div className="flex items-center gap-2 border-t border-black/10 bg-[#E8EEF2] px-3 py-2.5">
+        <div className="h-8 flex-1 rounded-full bg-white" />
+        <div className="h-8 w-8 shrink-0 rounded-full bg-white/80" />
+      </div>
     </div>
   );
 }
@@ -395,7 +452,7 @@ export function AnnounceScreen() {
           <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
             <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">เขียนประกาศ</div>
             <form
-              className="grid gap-6 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_300px]"
+              className="grid gap-6 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]"
               onSubmit={(event) => {
                 event.preventDefault();
                 requestPublish();
@@ -483,8 +540,8 @@ export function AnnounceScreen() {
                   </div>
                 )}
 
-                <fieldset className="grid gap-3 border-t border-frame pt-4">
-                  <legend className="text-[14px] font-bold leading-[1.4]">การส่ง</legend>
+                <div className="grid gap-3 border-t border-frame pt-4">
+                  <div className="text-[14px] font-bold leading-[1.4]">การส่ง</div>
                   <div className="flex flex-wrap gap-4">
                     {(priorities.length
                       ? priorities
@@ -550,7 +607,7 @@ export function AnnounceScreen() {
                       </label>
                     </div>
                   )}
-                </fieldset>
+                </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame pt-4">
                   <p className={`text-[13px] ${remaining < 100 ? "font-bold text-danger" : "text-ink/50"}`}>
@@ -572,8 +629,8 @@ export function AnnounceScreen() {
                 </div>
               </div>
 
-              <div className="lg:sticky lg:top-4 lg:self-start">
-                <div className="mb-2 text-[14px] font-bold">พรีวิว</div>
+              <div className="xl:sticky xl:top-4 xl:self-start">
+                <div className="mb-2 text-[14px] font-bold">พรีวิวแชท LINE</div>
                 <LineCardPreview
                   title={trimmedTitle}
                   message={trimmedMessage}
