@@ -28,8 +28,11 @@ const MAX_TITLE = 100;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_BUTTON = 20;
 
-/** Standard Flex shapes + promo image-only. */
-type CardLayout = "card" | "image" | "text_button" | "text";
+/**
+ * Message kinds aligned with LINE OA Manager / broadcast composers:
+ * text | image | card — not Flex layout recipes.
+ */
+type MessageKind = "text" | "image" | "card";
 
 type SendMode = "now" | "schedule";
 type Notice =
@@ -42,11 +45,10 @@ type ImageDraft = {
   previewUrl: string;
 };
 
-const LAYOUTS: { id: CardLayout; title: string }[] = [
-  { id: "card", title: "รูป + ข้อความ + ปุ่ม" },
-  { id: "image", title: "รูปอย่างเดียว" },
-  { id: "text_button", title: "ข้อความ + ปุ่ม" },
-  { id: "text", title: "ข้อความอย่างเดียว" },
+const MESSAGE_KINDS: { id: MessageKind; title: string; desc: string }[] = [
+  { id: "text", title: "ข้อความ", desc: "ประกาศสั้นๆ ในแชท" },
+  { id: "image", title: "รูปภาพ", desc: "โปสเตอร์ / โปรโมชัน" },
+  { id: "card", title: "การ์ด", desc: "ข้อความ รูปร่วม และปุ่มลิงก์" },
 ];
 
 function todayIso() {
@@ -100,28 +102,36 @@ function buildLineBody(title: string, message: string, linkUrl: string, priority
   return chunks.join("\n\n");
 }
 
-/** Tiny empty Flex card — same structure as live preview, for template pick. */
-function LayoutSkeleton({ layout }: { layout: CardLayout }) {
-  const imageOnly = layout === "image";
-  const showImage = layout === "card" || imageOnly;
-  const showText = layout !== "image";
-  const showButton = layout === "card" || layout === "text_button";
+/** Tiny chat bubble preview for the kind picker. */
+function KindSkeleton({ kind }: { kind: MessageKind }) {
+  if (kind === "text") {
+    return (
+      <div className="mx-auto w-[88px] rounded-[6px] bg-[#747F8D] p-1.5">
+        <div className="rounded-[8px] rounded-bl-[3px] bg-white px-2 py-2">
+          <div className="h-1.5 w-[85%] rounded-[1px] bg-black/[0.14]" />
+          <div className="mt-1 h-1.5 w-[60%] rounded-[1px] bg-black/[0.08]" />
+        </div>
+      </div>
+    );
+  }
+  if (kind === "image") {
+    return (
+      <div className="mx-auto w-[88px] rounded-[6px] bg-[#747F8D] p-1">
+        <div className="h-14 overflow-hidden rounded-[7px] bg-black/[0.1]" />
+      </div>
+    );
+  }
   return (
     <div className="mx-auto w-[88px] rounded-[6px] bg-[#747F8D] p-1">
       <div className="overflow-hidden rounded-[7px] bg-white">
-        {showImage && <div className={`${imageOnly ? "h-12" : "h-7"} w-full bg-black/[0.08]`} />}
-        {showText && (
-          <div className="space-y-1 px-1.5 py-1.5">
-            <div className="h-1.5 w-[70%] rounded-[1px] bg-black/[0.16]" />
-            <div className="h-1 w-full rounded-[1px] bg-black/[0.08]" />
-            <div className="h-1 w-[80%] rounded-[1px] bg-black/[0.08]" />
-          </div>
-        )}
-        {showButton && (
-          <div className="px-1 pb-1">
-            <div className="h-3 rounded-[2px] bg-brand/85" />
-          </div>
-        )}
+        <div className="h-7 w-full bg-black/[0.08]" />
+        <div className="space-y-1 px-1.5 py-1.5">
+          <div className="h-1.5 w-[70%] rounded-[1px] bg-black/[0.16]" />
+          <div className="h-1 w-[88%] rounded-[1px] bg-black/[0.08]" />
+        </div>
+        <div className="px-1 pb-1">
+          <div className="h-3 rounded-[2px] bg-brand/85" />
+        </div>
       </div>
     </div>
   );
@@ -160,27 +170,31 @@ function ChatBubbleSkeleton({
 }
 
 function LineCardPreview({
+  kind,
   title,
   message,
   linkUrl,
   buttonLabel,
   priorityId,
   imageUrl,
-  showImage,
-  showButton,
-  imageOnly,
 }: {
+  kind: MessageKind;
   title: string;
   message: string;
   linkUrl: string;
   buttonLabel: string;
   priorityId: number;
   imageUrl: string | null;
-  showImage: boolean;
-  showButton: boolean;
-  imageOnly: boolean;
 }) {
+  const imageOnly = kind === "image";
+  const isText = kind === "text";
+  const showImage = kind === "card" || imageOnly;
+  const showButton = kind === "card";
   const aspect = imageOnly ? "aspect-square" : "aspect-[20/13]";
+  const textBody = [priorityId === ANNOUNCEMENT_PRIORITY.urgent ? "[ด่วน]" : "", title, message]
+    .filter(Boolean)
+    .join("\n\n");
+
   return (
     <div className="overflow-hidden rounded-[12px] border border-black/10 bg-[#7494A9] shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
       <div className="flex items-center gap-3 bg-[#283849] px-4 py-3">
@@ -199,46 +213,56 @@ function LineCardPreview({
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#06C755] text-[10px] font-bold text-white">
             OA
           </div>
-          <div className="min-w-0 flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm">
-            {showImage &&
-              (imageUrl ? (
-                <img src={imageUrl} alt="" className={`${aspect} w-full object-cover`} />
+          {isText ? (
+            <div className="min-w-0 flex-1 rounded-[16px] rounded-bl-[4px] bg-white px-3.5 py-3 text-[13px] leading-[1.45] text-ink shadow-sm">
+              {textBody ? (
+                <div className="whitespace-pre-wrap break-words">{textBody}</div>
               ) : (
-                <div className={`flex ${aspect} w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35`}>
-                  {imageOnly ? "รูปโปรโมชัน" : "รูปหัวการ์ด"}
+                <div className="text-ink/30">ข้อความประกาศ…</div>
+              )}
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm">
+              {showImage &&
+                (imageUrl ? (
+                  <img src={imageUrl} alt="" className={`${aspect} w-full object-cover`} />
+                ) : imageOnly ? (
+                  <div className={`flex ${aspect} w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35`}>
+                    รูปโปรโมชัน
+                  </div>
+                ) : null)}
+              {!imageOnly && (
+                <div className="space-y-2 px-4 py-3.5 text-[14px] leading-[1.45] text-ink">
+                  {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
+                    <div className="text-[12px] font-bold text-danger">ด่วน</div>
+                  )}
+                  {title ? (
+                    <div className="text-[16px] font-bold">{title}</div>
+                  ) : (
+                    <div className="text-[16px] font-bold text-ink/30">หัวข้อ</div>
+                  )}
+                  {message ? (
+                    <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
+                  ) : (
+                    <div className="text-[13px] text-ink/30">ข้อความ…</div>
+                  )}
                 </div>
-              ))}
-            {!imageOnly && (
-              <div className="space-y-2 px-4 py-3.5 text-[14px] leading-[1.45] text-ink">
-                {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
-                  <div className="text-[12px] font-bold text-danger">ด่วน</div>
-                )}
-                {title ? (
-                  <div className="text-[16px] font-bold">{title}</div>
-                ) : (
-                  <div className="text-[16px] font-bold text-ink/30">หัวข้อ</div>
-                )}
-                {message ? (
-                  <div className="whitespace-pre-wrap break-words text-[13px] text-ink/70">{message}</div>
-                ) : (
-                  <div className="text-[13px] text-ink/30">ข้อความ…</div>
-                )}
-              </div>
-            )}
-            {imageOnly && linkUrl && (
-              <p className="px-3 py-2 text-center text-[11px] text-ink/45">กดที่รูปเพื่อเปิดลิงก์</p>
-            )}
-            {showButton && (
-              <div className="border-t border-black/5 px-3 py-3">
-                <div className="flex h-9 items-center justify-center rounded-[6px] bg-brand text-[13px] font-bold text-white">
-                  {buttonLabel || "เปิดลิงก์"}
+              )}
+              {imageOnly && linkUrl && (
+                <p className="px-3 py-2 text-center text-[11px] text-ink/45">กดที่รูปเพื่อเปิดลิงก์</p>
+              )}
+              {showButton && (
+                <div className="border-t border-black/5 px-3 py-3">
+                  <div className="flex h-9 items-center justify-center rounded-[6px] bg-brand text-[13px] font-bold text-white">
+                    {buttonLabel || "เปิดลิงก์"}
+                  </div>
+                  {!linkUrl && (
+                    <p className="mt-2 text-center text-[11px] text-ink/45">ยังไม่มีลิงก์</p>
+                  )}
                 </div>
-                {!linkUrl && (
-                  <p className="mt-2 text-center text-[11px] text-ink/45">ยังไม่มีลิงก์</p>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -253,7 +277,7 @@ function LineCardPreview({
 
 export function AnnounceScreen() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [layout, setLayout] = useState<CardLayout>("card");
+  const [kind, setKind] = useState<MessageKind>("card");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
@@ -271,10 +295,12 @@ export function AnnounceScreen() {
   const trimmedMessage = message.trim();
   const trimmedLink = linkUrl.trim();
   const trimmedButton = buttonLabel.trim() || "เปิดลิงก์";
-  const imageOnly = layout === "image";
-  const wantsButton = layout === "card" || layout === "text_button";
-  const wantsImage = layout === "card" || imageOnly;
-  const wantsLink = wantsButton || imageOnly;
+  const imageOnly = kind === "image";
+  const isCard = kind === "card";
+  const isText = kind === "text";
+  const wantsImage = isCard || imageOnly;
+  const wantsButton = isCard;
+  const wantsLink = isCard || imageOnly;
   const effectiveLink = wantsLink ? trimmedLink : "";
   const publishTitle = imageOnly ? "" : trimmedTitle;
   const publishMessage = imageOnly ? "" : trimmedMessage;
@@ -282,12 +308,14 @@ export function AnnounceScreen() {
   const remaining = MAX_MESSAGE - [...lineBody].length;
   const hasContent = imageOnly
     ? Boolean(image)
-    : Boolean(trimmedTitle || trimmedMessage || (wantsImage && image) || effectiveLink);
+    : isText
+      ? Boolean(trimmedTitle || trimmedMessage)
+      : Boolean(trimmedTitle || trimmedMessage || image || effectiveLink);
   const canPublish =
     hasContent &&
     remaining >= 0 &&
     (!effectiveLink || isHttpUrl(effectiveLink)) &&
-    (!wantsButton || Boolean(effectiveLink));
+    (!isCard || Boolean(effectiveLink));
 
   useEffect(() => {
     void listAnnouncementPriorities()
@@ -304,7 +332,7 @@ export function AnnounceScreen() {
   }
 
   function clearForm() {
-    setLayout("card");
+    setKind("card");
     setTitle("");
     setMessage("");
     setLinkUrl("");
@@ -316,10 +344,12 @@ export function AnnounceScreen() {
     setScheduleTime(nextHourTime());
   }
 
-  function selectLayout(next: CardLayout) {
-    setLayout(next);
-    if (next !== "card" && next !== "image") clearImage();
-    if (next === "text") setLinkUrl("");
+  function selectKind(next: MessageKind) {
+    setKind(next);
+    if (next === "text") {
+      clearImage();
+      setLinkUrl("");
+    }
     if (next === "image") {
       setTitle("");
       setMessage("");
@@ -351,10 +381,11 @@ export function AnnounceScreen() {
   }
 
   function validateForPublish(): string | null {
-    if (imageOnly && !image) return "รูปแบบรูปอย่างเดียวต้องแนบรูป";
+    if (imageOnly && !image) return "ประเภทรูปภาพต้องแนบรูป";
+    if (isText && !trimmedTitle && !trimmedMessage) return "กรอกหัวข้อหรือข้อความ";
     if (!hasContent) return "กรอกหัวข้อ ข้อความ หรือแนบรูปอย่างน้อยหนึ่งอย่าง";
     if (remaining < 0) return `ข้อความรวมยาวเกิน ${MAX_MESSAGE.toLocaleString("th-TH")} ตัวอักษร`;
-    if (wantsButton && !effectiveLink) return "รูปแบบนี้ต้องมีลิงก์สำหรับปุ่มกด";
+    if (isCard && !effectiveLink) return "การ์ดต้องมีลิงก์สำหรับปุ่มกด";
     if (effectiveLink && !isHttpUrl(effectiveLink)) return "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://";
     return null;
   }
@@ -448,23 +479,24 @@ export function AnnounceScreen() {
 
         <CanAdd resource="announcements">
           <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
-            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">รูปแบบการ์ด</div>
-            <div className="grid gap-3 px-6 py-4 sm:grid-cols-2 lg:grid-cols-4">
-              {LAYOUTS.map((item) => {
-                const active = layout === item.id;
+            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ประเภทข้อความ</div>
+            <div className="grid gap-3 px-6 py-4 sm:grid-cols-3">
+              {MESSAGE_KINDS.map((item) => {
+                const active = kind === item.id;
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => selectLayout(item.id)}
+                    onClick={() => selectKind(item.id)}
                     className={`rounded-[6px] border px-3 py-3 transition-colors ${
                       active ? "border-brand bg-pick" : "border-frame bg-white hover:bg-table"
                     }`}
                   >
-                    <LayoutSkeleton layout={item.id} />
-                    <div className={`mt-2 text-center text-[12px] font-bold ${active ? "text-brand" : "text-ink/65"}`}>
+                    <KindSkeleton kind={item.id} />
+                    <div className={`mt-2 text-center text-[13px] font-bold ${active ? "text-brand" : "text-ink"}`}>
                       {item.title}
                     </div>
+                    <div className="mt-0.5 text-center text-[11px] text-ink/50">{item.desc}</div>
                   </button>
                 );
               })}
@@ -671,15 +703,13 @@ export function AnnounceScreen() {
               <div className="xl:sticky xl:top-4 xl:self-start">
                 <div className="mb-2 text-[14px] font-bold">พรีวิวแชท LINE</div>
                 <LineCardPreview
+                  kind={kind}
                   title={trimmedTitle}
                   message={trimmedMessage}
                   linkUrl={effectiveLink}
                   buttonLabel={trimmedButton}
                   priorityId={priorityId}
                   imageUrl={image?.previewUrl ?? null}
-                  showImage={wantsImage}
-                  showButton={wantsButton}
-                  imageOnly={imageOnly}
                 />
               </div>
             </form>
