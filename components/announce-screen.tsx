@@ -52,9 +52,9 @@ const MESSAGE_KINDS: { id: MessageKind; title: string; desc: string }[] = [
   { id: "card", title: "การ์ด", desc: "ข้อความ · เลือกรูปและปุ่มได้" },
 ];
 
-const IMAGE_LAYOUTS: { id: AnnouncementImageLayout; title: string; desc: string }[] = [
-  { id: "standard", title: "แบบปกติ", desc: "การ์ดขนาดมาตรฐาน (mega)" },
-  { id: "full", title: "เต็มแชท", desc: "กว้างสุดในแชท (giga)" },
+const IMAGE_LAYOUTS: { id: AnnouncementImageLayout; title: string }[] = [
+  { id: "standard", title: "แบบปกติ" },
+  { id: "full", title: "เต็มแชท" },
 ];
 
 function todayIso() {
@@ -582,37 +582,47 @@ export function AnnounceScreen() {
                 )}
 
                 {isCard && (
-                  <div className="grid gap-3 rounded-[8px] border border-frame bg-table/60 px-4 py-3">
-                    <div className="text-[13px] font-bold text-ink/70">ตัวเลือกเพิ่ม (ไม่บังคับ)</div>
-                    <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                      <input
-                        type="checkbox"
-                        checked={cardUseImage}
-                        onChange={(event) => {
-                          const on = event.target.checked;
-                          setCardUseImage(on);
-                          if (!on) clearImage();
-                        }}
-                        className="h-4 w-4 accent-ink"
-                      />
-                      ใส่รูปหัวการ์ด
-                    </label>
-                    <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                      <input
-                        type="checkbox"
-                        checked={cardUseLink}
-                        onChange={(event) => {
-                          const on = event.target.checked;
-                          setCardUseLink(on);
-                          if (!on) {
-                            setLinkUrl("");
-                            setButtonLabel("เปิดลิงก์");
-                          }
-                        }}
-                        className="h-4 w-4 accent-ink"
-                      />
-                      ใส่ปุ่มลิงก์
-                    </label>
+                  <div className="grid gap-3">
+                    <div className="text-[14px] font-bold leading-[1.4]">ตัวเลือกเพิ่ม (ไม่บังคับ)</div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label
+                        className={`inline-flex cursor-pointer items-center gap-2 rounded-[6px] border px-3 py-2.5 text-[14px] font-bold ${
+                          cardUseImage ? "border-brand bg-pick" : "border-frame bg-white hover:bg-table"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={cardUseImage}
+                          onChange={(event) => {
+                            const on = event.target.checked;
+                            setCardUseImage(on);
+                            if (!on) clearImage();
+                          }}
+                          className="h-4 w-4 accent-ink"
+                        />
+                        ใส่รูปหัวการ์ด
+                      </label>
+                      <label
+                        className={`inline-flex cursor-pointer items-center gap-2 rounded-[6px] border px-3 py-2.5 text-[14px] font-bold ${
+                          cardUseLink ? "border-brand bg-pick" : "border-frame bg-white hover:bg-table"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={cardUseLink}
+                          onChange={(event) => {
+                            const on = event.target.checked;
+                            setCardUseLink(on);
+                            if (!on) {
+                              setLinkUrl("");
+                              setButtonLabel("เปิดลิงก์");
+                            }
+                          }}
+                          className="h-4 w-4 accent-ink"
+                        />
+                        ใส่ปุ่มลิงก์
+                      </label>
+                    </div>
                   </div>
                 )}
 
@@ -654,31 +664,26 @@ export function AnnounceScreen() {
                 )}
 
                 {imageOnly && (
-                  <div className="grid gap-3 rounded-[8px] border border-frame bg-table/60 px-4 py-3">
-                    <div className="text-[13px] font-bold text-ink/70">ขนาดรูปในแชท LINE</div>
+                  <div className="grid gap-3">
+                    <div className="text-[14px] font-bold leading-[1.4]">ขนาดรูปในแชท LINE</div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {IMAGE_LAYOUTS.map((item) => {
                         const active = imageLayout === item.id;
                         return (
                           <label
                             key={item.id}
-                            className={`cursor-pointer rounded-[6px] border px-3 py-2.5 ${
+                            className={`inline-flex cursor-pointer items-center gap-2 rounded-[6px] border px-3 py-2.5 text-[14px] font-bold ${
                               active ? "border-brand bg-pick" : "border-frame bg-white hover:bg-table"
                             }`}
                           >
-                            <span className="inline-flex items-center gap-2 text-[14px] font-bold">
-                              <input
-                                type="radio"
-                                name="image-layout"
-                                checked={active}
-                                onChange={() => setImageLayout(item.id)}
-                                className="h-4 w-4 accent-ink"
-                              />
-                              {item.title}
-                            </span>
-                            <span className="mt-0.5 block pl-6 text-[11px] font-normal text-ink/50">
-                              {item.desc}
-                            </span>
+                            <input
+                              type="radio"
+                              name="image-layout"
+                              checked={active}
+                              onChange={() => setImageLayout(item.id)}
+                              className="h-4 w-4 accent-ink"
+                            />
+                            {item.title}
                           </label>
                         );
                       })}
