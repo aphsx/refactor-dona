@@ -78,3 +78,12 @@ select:-webkit-autofill:focus {
 .login-rise {
   animation: login-rise 420ms ease-out;
 }
+
+/* Keep scroll; hide the bar (sidebar / long pages). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

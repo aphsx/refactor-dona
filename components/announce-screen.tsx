@@ -364,7 +364,7 @@ export function AnnounceScreen() {
 
   return (
     <CanRead resource="announcements">
-      <div className="h-full overflow-y-auto px-7 py-6">
+      <div className="no-scrollbar h-full overflow-y-auto px-7 py-6">
         <PageHeader current="สร้าง" />
 
         <CanAdd resource="announcements">

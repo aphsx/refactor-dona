@@ -38,17 +38,7 @@ const KNOWN_APP_PATHS = new Set([
   "/farmers/manage",
   ...(SHOW_MANAGE_NAV ? ["/manage", "/manage/varieties", "/manage/product-kinds", "/varieties/manage"] : []),
   ...(SHOW_PERMISSIONS_NAV ? ["/permissions", "/permissions/people"] : []),
-  ...(SHOW_ANNOUNCE_NAV
-    ? [
-        "/announce",
-        "/announce/all",
-        "/announce/draft",
-        "/announce/scheduled",
-        "/announce/sent",
-        "/announce/cancelled",
-        "/announce/failed",
-      ]
-    : []),
+  ...(SHOW_ANNOUNCE_NAV ? ["/announce", "/announce/list"] : []),
   "/dashboard",
 ]);
 
@@ -105,12 +95,7 @@ const NAV: NavItem[] = [
           icon: Megaphone,
           children: [
             { href: "/announce", label: "สร้าง" },
-            { href: "/announce/all", label: "ทั้งหมด" },
-            { href: "/announce/draft", label: "ร่าง" },
-            { href: "/announce/scheduled", label: "ตั้งเวลา" },
-            { href: "/announce/sent", label: "ส่งแล้ว" },
-            { href: "/announce/cancelled", label: "ยกเลิกคิว" },
-            { href: "/announce/failed", label: "ส่งไม่สำเร็จ" },
+            { href: "/announce/list", label: "รายการ" },
           ],
         },
       ]
@@ -362,7 +347,7 @@ function ShellFrame({
       </header>
       <div className="flex min-h-0 flex-1">
         <aside className={`flex shrink-0 flex-col border-r border-frame bg-white ${collapsed ? "w-[96px]" : "w-[316px]"}`}>
-          <nav className="min-h-0 flex-1 overflow-y-auto py-2">
+          <nav className="no-scrollbar min-h-0 flex-1 overflow-y-auto py-2">
             {NAV.map((item) => {
               const Icon = item.icon;
               const childActive = item.children?.some((child) => pathname === child.href) ?? false;
