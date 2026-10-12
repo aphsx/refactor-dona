@@ -19,6 +19,7 @@ import {
   createAnnouncement,
   listAnnouncementPriorities,
   uploadAnnouncementImage,
+  type AnnouncementImageLayout,
   type AnnouncementLookup,
 } from "@/lib/api";
 import { compressAnnouncementImage } from "@/lib/compress-image";
@@ -49,6 +50,11 @@ const MESSAGE_KINDS: { id: MessageKind; title: string; desc: string }[] = [
   { id: "text", title: "ข้อความ", desc: "ประกาศสั้นๆ ในแชท" },
   { id: "image", title: "รูปภาพ", desc: "โปสเตอร์ / โปรโมชัน" },
   { id: "card", title: "การ์ด", desc: "ข้อความ · เลือกรูปและปุ่มได้" },
+];
+
+const IMAGE_LAYOUTS: { id: AnnouncementImageLayout; title: string; desc: string }[] = [
+  { id: "standard", title: "แบบปกติ", desc: "การ์ดขนาดมาตรฐาน (mega)" },
+  { id: "full", title: "เต็มแชท", desc: "กว้างสุดในแชท (giga)" },
 ];
 
 function todayIso() {
@@ -178,6 +184,7 @@ function LineCardPreview({
   buttonLabel,
   priorityId,
   imageUrl,
+  imageLayout = "standard",
   cardUseImage = false,
   cardUseLink = false,
 }: {
@@ -188,6 +195,7 @@ function LineCardPreview({
   buttonLabel: string;
   priorityId: number;
   imageUrl: string | null;
+  imageLayout?: AnnouncementImageLayout;
   cardUseImage?: boolean;
   cardUseLink?: boolean;
 }) {
@@ -196,6 +204,7 @@ function LineCardPreview({
   const showImage = imageOnly || (kind === "card" && cardUseImage);
   const showButton = kind === "card" && cardUseLink;
   const aspect = imageOnly ? "aspect-square" : "aspect-[20/13]";
+  const imageFull = imageOnly && imageLayout === "full";
   const textBody = [priorityId === ANNOUNCEMENT_PRIORITY.urgent ? "[ด่วน]" : "", title, message]
     .filter(Boolean)
     .join("\n\n");
@@ -214,7 +223,7 @@ function LineCardPreview({
         <ChatBubbleSkeleton side="left" width="w-[52%]" />
         <ChatBubbleSkeleton side="right" width="w-[44%]" />
 
-        <div className="flex items-end gap-2 pr-6">
+        <div className={`flex items-end gap-2 ${imageFull ? "pr-2" : "pr-6"}`}>
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#06C755] text-[10px] font-bold text-white">
             OA
           </div>
@@ -227,7 +236,11 @@ function LineCardPreview({
               )}
             </div>
           ) : imageOnly ? (
-            <div className="min-w-0 max-w-[78%] flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm">
+            <div
+              className={`min-w-0 flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm ${
+                imageFull ? "max-w-none" : "max-w-[78%]"
+              }`}
+            >
               {imageUrl ? (
                 <img src={imageUrl} alt="" className="aspect-square w-full object-cover" />
               ) : (
@@ -296,6 +309,7 @@ export function AnnounceScreen() {
   const [linkUrl, setLinkUrl] = useState("");
   const [buttonLabel, setButtonLabel] = useState("เปิดลิงก์");
   const [image, setImage] = useState<ImageDraft | null>(null);
+  const [imageLayout, setImageLayout] = useState<AnnouncementImageLayout>("standard");
   const [cardUseImage, setCardUseImage] = useState(false);
   const [cardUseLink, setCardUseLink] = useState(false);
   const [priorityId, setPriorityId] = useState<number>(ANNOUNCEMENT_PRIORITY.normal);
@@ -350,6 +364,7 @@ export function AnnounceScreen() {
     setMessage("");
     setLinkUrl("");
     setButtonLabel("เปิดลิงก์");
+    setImageLayout("standard");
     setCardUseImage(false);
     setCardUseLink(false);
     clearImage();
@@ -364,6 +379,7 @@ export function AnnounceScreen() {
     if (next === "text") {
       clearImage();
       setLinkUrl("");
+      setImageLayout("standard");
       setCardUseImage(false);
       setCardUseLink(false);
     }
@@ -377,6 +393,7 @@ export function AnnounceScreen() {
     if (next === "card") {
       setCardUseImage(false);
       setCardUseLink(false);
+      setImageLayout("standard");
       clearImage();
       setLinkUrl("");
     }
@@ -456,6 +473,7 @@ export function AnnounceScreen() {
         imageUrl,
         imageName,
         buttonLabel: wantsButton && effectiveLink ? trimmedButton : "",
+        imageLayout: imageOnly ? imageLayout : "standard",
         priorityId,
         mode: nextMode,
         scheduledAt,
@@ -636,6 +654,39 @@ export function AnnounceScreen() {
                 )}
 
                 {imageOnly && (
+                  <div className="grid gap-3 rounded-[8px] border border-frame bg-table/60 px-4 py-3">
+                    <div className="text-[13px] font-bold text-ink/70">ขนาดรูปในแชท LINE</div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {IMAGE_LAYOUTS.map((item) => {
+                        const active = imageLayout === item.id;
+                        return (
+                          <label
+                            key={item.id}
+                            className={`cursor-pointer rounded-[6px] border px-3 py-2.5 ${
+                              active ? "border-brand bg-pick" : "border-frame bg-white hover:bg-table"
+                            }`}
+                          >
+                            <span className="inline-flex items-center gap-2 text-[14px] font-bold">
+                              <input
+                                type="radio"
+                                name="image-layout"
+                                checked={active}
+                                onChange={() => setImageLayout(item.id)}
+                                className="h-4 w-4 accent-ink"
+                              />
+                              {item.title}
+                            </span>
+                            <span className="mt-0.5 block pl-6 text-[11px] font-normal text-ink/50">
+                              {item.desc}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {imageOnly && (
                   <label className="block text-[14px] font-bold leading-[1.4]">
                     ลิงก์เมื่อกดรูป (ไม่บังคับ)
                     <input
@@ -771,6 +822,7 @@ export function AnnounceScreen() {
                   buttonLabel={trimmedButton}
                   priorityId={priorityId}
                   imageUrl={image?.previewUrl ?? null}
+                  imageLayout={imageLayout}
                   cardUseImage={cardUseImage}
                   cardUseLink={cardUseLink}
                 />

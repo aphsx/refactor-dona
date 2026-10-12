@@ -396,6 +396,9 @@ export type AnnouncementLookup = {
   name: string;
 };
 
+/** Image-only Flex bubble: standard = mega, full = giga (full chat width). */
+export type AnnouncementImageLayout = "standard" | "full";
+
 export type Announcement = {
   id: string;
   title: string;
@@ -404,6 +407,7 @@ export type Announcement = {
   imageUrl: string;
   imageName: string;
   buttonLabel: string;
+  imageLayout: AnnouncementImageLayout;
   priorityId: number;
   priority: AnnouncementLookup;
   statusId: number;
@@ -424,6 +428,7 @@ export type CreateAnnouncementInput = {
   imageUrl?: string;
   imageName?: string;
   buttonLabel?: string;
+  imageLayout?: AnnouncementImageLayout;
   priorityId?: number;
   mode: "draft" | "now" | "schedule";
   scheduledAt?: string;

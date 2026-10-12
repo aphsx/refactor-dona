@@ -207,6 +207,7 @@ create table public.announcements (
   image_url text not null default '',
   image_name text not null default '',
   button_label text not null default '',
+  image_layout text not null default 'standard',
   priority_id smallint not null references public.announcement_priorities (id),
   status_id smallint not null references public.announcement_statuses (id),
   scheduled_at timestamptz,
@@ -214,7 +215,8 @@ create table public.announcements (
   created_by_account_id uuid not null references public.accounts (id) on delete restrict,
   error_message text not null default '',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint announcements_image_layout_check check (image_layout in ('standard', 'full'))
 );
 
 create index announcements_created_at_idx on public.announcements (created_at desc);
