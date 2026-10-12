@@ -38,7 +38,17 @@ const KNOWN_APP_PATHS = new Set([
   "/farmers/manage",
   ...(SHOW_MANAGE_NAV ? ["/manage", "/manage/varieties", "/manage/product-kinds", "/varieties/manage"] : []),
   ...(SHOW_PERMISSIONS_NAV ? ["/permissions", "/permissions/people"] : []),
-  ...(SHOW_ANNOUNCE_NAV ? ["/announce"] : []),
+  ...(SHOW_ANNOUNCE_NAV
+    ? [
+        "/announce",
+        "/announce/all",
+        "/announce/draft",
+        "/announce/scheduled",
+        "/announce/sent",
+        "/announce/cancelled",
+        "/announce/failed",
+      ]
+    : []),
   "/dashboard",
 ]);
 
@@ -88,7 +98,23 @@ const NAV: NavItem[] = [
       ]
     : []),
   ...(SHOW_SUPPLY_NAV ? [{ href: "/supply", label: "แผนรับข้าว", icon: CalendarDays }] : []),
-  ...(SHOW_ANNOUNCE_NAV ? [{ href: "/announce", label: "ประกาศ LINE", icon: Megaphone }] : []),
+  ...(SHOW_ANNOUNCE_NAV
+    ? [
+        {
+          label: "ประกาศ LINE",
+          icon: Megaphone,
+          children: [
+            { href: "/announce", label: "สร้าง" },
+            { href: "/announce/all", label: "ทั้งหมด" },
+            { href: "/announce/draft", label: "ร่าง" },
+            { href: "/announce/scheduled", label: "ตั้งเวลา" },
+            { href: "/announce/sent", label: "ส่งแล้ว" },
+            { href: "/announce/cancelled", label: "ยกเลิกคิว" },
+            { href: "/announce/failed", label: "ส่งไม่สำเร็จ" },
+          ],
+        },
+      ]
+    : []),
   ...(SHOW_MANAGE_NAV
     ? [
         {
