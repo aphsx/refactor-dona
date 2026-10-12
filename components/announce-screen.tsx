@@ -48,7 +48,7 @@ type ImageDraft = {
 const MESSAGE_KINDS: { id: MessageKind; title: string; desc: string }[] = [
   { id: "text", title: "ข้อความ", desc: "ประกาศสั้นๆ ในแชท" },
   { id: "image", title: "รูปภาพ", desc: "โปสเตอร์ / โปรโมชัน" },
-  { id: "card", title: "การ์ด", desc: "ข้อความ รูปร่วม และปุ่มลิงก์" },
+  { id: "card", title: "การ์ด", desc: "ข้อความ · เลือกรูปและปุ่มได้" },
 ];
 
 function todayIso() {
@@ -124,13 +124,14 @@ function KindSkeleton({ kind }: { kind: MessageKind }) {
   return (
     <div className="mx-auto w-[88px] rounded-[6px] bg-[#747F8D] p-1">
       <div className="overflow-hidden rounded-[7px] bg-white">
-        <div className="h-7 w-full bg-black/[0.08]" />
-        <div className="space-y-1 px-1.5 py-1.5">
+        <div className="space-y-1 px-1.5 py-2">
           <div className="h-1.5 w-[70%] rounded-[1px] bg-black/[0.16]" />
-          <div className="h-1 w-[88%] rounded-[1px] bg-black/[0.08]" />
+          <div className="h-1 w-full rounded-[1px] bg-black/[0.08]" />
+          <div className="h-1 w-[80%] rounded-[1px] bg-black/[0.08]" />
         </div>
-        <div className="px-1 pb-1">
-          <div className="h-3 rounded-[2px] bg-brand/85" />
+        <div className="flex gap-0.5 border-t border-black/5 px-1 py-1">
+          <div className="h-2 flex-1 rounded-[1px] bg-black/[0.06]" />
+          <div className="h-2 flex-1 rounded-[1px] bg-brand/50" />
         </div>
       </div>
     </div>
@@ -177,6 +178,8 @@ function LineCardPreview({
   buttonLabel,
   priorityId,
   imageUrl,
+  cardUseImage = false,
+  cardUseLink = false,
 }: {
   kind: MessageKind;
   title: string;
@@ -185,11 +188,13 @@ function LineCardPreview({
   buttonLabel: string;
   priorityId: number;
   imageUrl: string | null;
+  cardUseImage?: boolean;
+  cardUseLink?: boolean;
 }) {
   const imageOnly = kind === "image";
   const isText = kind === "text";
-  const showImage = kind === "card" || imageOnly;
-  const showButton = kind === "card";
+  const showImage = imageOnly || (kind === "card" && cardUseImage);
+  const showButton = kind === "card" && cardUseLink;
   const aspect = imageOnly ? "aspect-square" : "aspect-[20/13]";
   const textBody = [priorityId === ANNOUNCEMENT_PRIORITY.urgent ? "[ด่วน]" : "", title, message]
     .filter(Boolean)
@@ -236,9 +241,14 @@ function LineCardPreview({
             </div>
           ) : (
             <div className="min-w-0 flex-1 overflow-hidden rounded-[16px] bg-white shadow-sm">
-              {showImage && imageUrl ? (
-                <img src={imageUrl} alt="" className={`${aspect} w-full object-cover`} />
-              ) : null}
+              {showImage &&
+                (imageUrl ? (
+                  <img src={imageUrl} alt="" className={`${aspect} w-full object-cover`} />
+                ) : (
+                  <div className={`flex ${aspect} w-full items-center justify-center bg-black/[0.06] text-[12px] text-ink/35`}>
+                    รูปหัวการ์ด
+                  </div>
+                ))}
               <div className="space-y-2 px-4 py-3.5 text-[14px] leading-[1.45] text-ink">
                 {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
                   <div className="text-[12px] font-bold text-danger">ด่วน</div>
@@ -286,6 +296,8 @@ export function AnnounceScreen() {
   const [linkUrl, setLinkUrl] = useState("");
   const [buttonLabel, setButtonLabel] = useState("เปิดลิงก์");
   const [image, setImage] = useState<ImageDraft | null>(null);
+  const [cardUseImage, setCardUseImage] = useState(false);
+  const [cardUseLink, setCardUseLink] = useState(false);
   const [priorityId, setPriorityId] = useState<number>(ANNOUNCEMENT_PRIORITY.normal);
   const [mode, setMode] = useState<SendMode>("now");
   const [scheduleDate, setScheduleDate] = useState(todayIso);
@@ -300,10 +312,9 @@ export function AnnounceScreen() {
   const trimmedButton = buttonLabel.trim() || "เปิดลิงก์";
   const imageOnly = kind === "image";
   const isCard = kind === "card";
-  const isText = kind === "text";
-  const wantsImage = isCard || imageOnly;
-  const wantsButton = isCard;
-  const wantsLink = isCard || imageOnly;
+  const wantsImage = imageOnly || (isCard && cardUseImage);
+  const wantsButton = isCard && cardUseLink;
+  const wantsLink = imageOnly || wantsButton;
   const effectiveLink = wantsLink ? trimmedLink : "";
   const publishTitle = imageOnly ? "" : trimmedTitle;
   const publishMessage = imageOnly ? "" : trimmedMessage;
@@ -311,14 +322,13 @@ export function AnnounceScreen() {
   const remaining = MAX_MESSAGE - [...lineBody].length;
   const hasContent = imageOnly
     ? Boolean(image)
-    : isText
-      ? Boolean(trimmedTitle || trimmedMessage)
-      : Boolean(trimmedTitle || trimmedMessage || image || effectiveLink);
+    : Boolean(trimmedTitle || trimmedMessage);
   const canPublish =
     hasContent &&
     remaining >= 0 &&
-    (!effectiveLink || isHttpUrl(effectiveLink)) &&
-    (!isCard || Boolean(effectiveLink));
+    (!wantsImage || Boolean(image)) &&
+    (!wantsButton || Boolean(effectiveLink)) &&
+    (!effectiveLink || isHttpUrl(effectiveLink));
 
   useEffect(() => {
     void listAnnouncementPriorities()
@@ -340,6 +350,8 @@ export function AnnounceScreen() {
     setMessage("");
     setLinkUrl("");
     setButtonLabel("เปิดลิงก์");
+    setCardUseImage(false);
+    setCardUseLink(false);
     clearImage();
     setPriorityId(ANNOUNCEMENT_PRIORITY.normal);
     setMode("now");
@@ -352,11 +364,21 @@ export function AnnounceScreen() {
     if (next === "text") {
       clearImage();
       setLinkUrl("");
+      setCardUseImage(false);
+      setCardUseLink(false);
     }
     if (next === "image") {
       setTitle("");
       setMessage("");
       setButtonLabel("เปิดลิงก์");
+      setCardUseImage(false);
+      setCardUseLink(false);
+    }
+    if (next === "card") {
+      setCardUseImage(false);
+      setCardUseLink(false);
+      clearImage();
+      setLinkUrl("");
     }
   }
 
@@ -385,10 +407,11 @@ export function AnnounceScreen() {
 
   function validateForPublish(): string | null {
     if (imageOnly && !image) return "ประเภทรูปภาพต้องแนบรูป";
-    if (isText && !trimmedTitle && !trimmedMessage) return "กรอกหัวข้อหรือข้อความ";
+    if (!imageOnly && !trimmedTitle && !trimmedMessage) return "กรอกหัวข้อหรือข้อความ";
+    if (isCard && cardUseImage && !image) return "เปิดใช้รูปแล้ว — แนบรูปด้วย หรือปิดตัวเลือกนี้";
+    if (isCard && cardUseLink && !effectiveLink) return "เปิดใช้ปุ่มลิงก์แล้ว — กรอกลิงก์ด้วย หรือปิดตัวเลือกนี้";
     if (!hasContent) return "กรอกหัวข้อ ข้อความ หรือแนบรูปอย่างน้อยหนึ่งอย่าง";
     if (remaining < 0) return `ข้อความรวมยาวเกิน ${MAX_MESSAGE.toLocaleString("th-TH")} ตัวอักษร`;
-    if (isCard && !effectiveLink) return "การ์ดต้องมีลิงก์สำหรับปุ่มกด";
     if (effectiveLink && !isHttpUrl(effectiveLink)) return "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://";
     return null;
   }
@@ -540,9 +563,44 @@ export function AnnounceScreen() {
                   </>
                 )}
 
+                {isCard && (
+                  <div className="grid gap-3 rounded-[8px] border border-frame bg-table/60 px-4 py-3">
+                    <div className="text-[13px] font-bold text-ink/70">ตัวเลือกเพิ่ม (ไม่บังคับ)</div>
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
+                      <input
+                        type="checkbox"
+                        checked={cardUseImage}
+                        onChange={(event) => {
+                          const on = event.target.checked;
+                          setCardUseImage(on);
+                          if (!on) clearImage();
+                        }}
+                        className="h-4 w-4 accent-ink"
+                      />
+                      ใส่รูปหัวการ์ด
+                    </label>
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
+                      <input
+                        type="checkbox"
+                        checked={cardUseLink}
+                        onChange={(event) => {
+                          const on = event.target.checked;
+                          setCardUseLink(on);
+                          if (!on) {
+                            setLinkUrl("");
+                            setButtonLabel("เปิดลิงก์");
+                          }
+                        }}
+                        className="h-4 w-4 accent-ink"
+                      />
+                      ใส่ปุ่มลิงก์
+                    </label>
+                  </div>
+                )}
+
                 {wantsImage && (
                   <div className="text-[14px] font-bold leading-[1.4]">
-                    {imageOnly ? "รูปโปรโมชัน" : "รูป"}
+                    {imageOnly ? "รูปโปรโมชัน" : "รูปหัวการ์ด"}
                     <input
                       ref={fileRef}
                       type="file"
@@ -713,6 +771,8 @@ export function AnnounceScreen() {
                   buttonLabel={trimmedButton}
                   priorityId={priorityId}
                   imageUrl={image?.previewUrl ?? null}
+                  cardUseImage={cardUseImage}
+                  cardUseLink={cardUseLink}
                 />
               </div>
             </form>
