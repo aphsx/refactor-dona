@@ -10,7 +10,7 @@ import { useOrg } from "@/components/store";
 import { useServerPage } from "@/components/server-page";
 import { Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, TableScroll, openRow, rowTone, tableClass } from "@/components/ui";
 import { api } from "@/lib/api";
-import { farmerName, formatKg, personRole, roleTitle } from "@/lib/domain";
+import { farmerName, personRole, roleTitle } from "@/lib/domain";
 
 export function FarmersScreen() {
   const router = useRouter();
@@ -62,7 +62,7 @@ export function FarmersScreen() {
       </div>
       <div className="overflow-hidden rounded-[8px] border border-frame">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-          บัญชีรับซื้อ
+          รายการเกษตรกร
           <span className="text-[14px] font-normal">{page.total} คน</span>
         </div>
         <TableScroll>
@@ -73,7 +73,6 @@ export function FarmersScreen() {
                 <th className="px-5 py-3 text-left text-[14px] font-bold">เบอร์โทร</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">กลุ่ม</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">ตำแหน่ง</th>
-                <th className="px-5 py-3 text-left text-[14px] font-bold">รับเข้า</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">แปลง</th>
                 <th />
               </tr>
@@ -81,7 +80,7 @@ export function FarmersScreen() {
             <tbody>
               {page.rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-6 text-ink/60">
+                  <td colSpan={6} className="px-5 py-6 text-ink/60">
                     ไม่พบเกษตรกร
                   </td>
                 </tr>
@@ -96,7 +95,6 @@ export function FarmersScreen() {
                   <td className="px-5 py-3">{farmer.tel}</td>
                   <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "—"}</td>
                   <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
-                  <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                   <td className="px-5 py-3">{farmer.plotCount ?? 0}</td>
                   <td className="px-5 py-3">
                     <Link href={`/map?farmer=${farmer.id}`} className="font-bold text-link underline">

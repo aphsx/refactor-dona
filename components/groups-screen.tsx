@@ -12,7 +12,7 @@ import { DateField, Dialog, DirtyUndoButton, FarmerSelect, Glyph, PageHeader, Pa
 import { api, collectPages, measureRingAreaRai } from "@/lib/api";
 import { useServerPage } from "@/components/server-page";
 import type { FieldMapHandle } from "@/components/field-map";
-import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultProductKindId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, orgReceiptDirectionLabel, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, productKindName, roleTitle, varietyName, type Farmer, type OrgReceipt, type OrgReceiptDirection, type Planting, type Plot, type PlotActivity, type ProductKind, type SupplierGroup, type Variety } from "@/lib/domain";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, roleTitle, varietyName, type Farmer, type Planting, type Plot, type PlotActivity, type SupplierGroup, type Variety } from "@/lib/domain";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -22,8 +22,6 @@ const PlotDetail = dynamic(() => import("@/components/plot-detail").then((mod) =
 const SHOW_MEMBER_PLOT_TABS = true;
 /** Flip on when rolling out planting-plan tabs under farmer manage. */
 const SHOW_MEMBER_PLAN_TABS = false;
-/** Flip on when rolling out receipt standing + org ledger under farmer detail. */
-const SHOW_MEMBER_RECEIPT_SECTIONS = false;
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
@@ -88,7 +86,6 @@ export function GroupManageScreen() {
     if (key === "name") return group.name;
     if (key === "leader") return group.leaderName ?? "";
     if (key === "members") return group.memberCount ?? 0;
-    if (key === "received") return group.receivedKg ?? 0;
     return group.expectedKg ?? 0;
   });
   const page = usePagination(ordered, `${name}:${leaderId}`);
@@ -183,13 +180,12 @@ export function GroupManageScreen() {
                   <SortableTh label="หัวหน้า" column="leader" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="สมาชิก" column="members" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="คาดว่าจะได้" column="expected" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="รับเข้า" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
               </thead>
               <tbody>
                 {page.rows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-6 text-ink/60">
+                    <td colSpan={4} className="px-5 py-6 text-ink/60">
                       ไม่พบกลุ่ม
                     </td>
                   </tr>
@@ -200,7 +196,6 @@ export function GroupManageScreen() {
                       <td className="px-5 py-3">{group.leaderName || "—"}</td>
                       <td className="px-5 py-3">{group.memberCount ?? 0}</td>
                       <td className="px-5 py-3">{formatKg(group.expectedKg ?? 0)}</td>
-                      <td className="px-5 py-3">{formatKg(group.receivedKg ?? 0)}</td>
                     </tr>
                   ))}
               </tbody>
@@ -390,14 +385,13 @@ export function MemberManageScreen() {
                   <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="ตำแหน่ง" column="role" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="รับเข้า" column="delivered" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
               </thead>
               <tbody>
                 {page.rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-6 text-ink/60">
+                    <td colSpan={5} className="px-5 py-6 text-ink/60">
                       ไม่พบเกษตรกร
                     </td>
                   </tr>
@@ -410,7 +404,6 @@ export function MemberManageScreen() {
                       <td className="px-5 py-3">{farmer.tel}</td>
                       <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "ไม่มีกลุ่ม"}</td>
                       <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
-                      <td className="px-5 py-3">{formatKg(farmer.deliveredKg)}</td>
                       <td className="px-5 py-3 text-right">
                         {!leads && (
                           <CanEdit resource="farmers">
@@ -476,7 +469,6 @@ function GroupDirectory() {
     if (key === "name") return group.name;
     if (key === "leader") return group.leaderName ?? "";
     if (key === "members") return group.memberCount ?? 0;
-    if (key === "received") return group.receivedKg ?? 0;
     return group.expectedKg ?? 0;
   });
   const page = usePagination(ordered);
@@ -484,7 +476,7 @@ function GroupDirectory() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-        กลุ่มรับซื้อ
+        กลุ่ม
         <span className="text-[14px] font-normal">{groups.length} กลุ่ม</span>
       </div>
       <TableScroll>
@@ -495,13 +487,12 @@ function GroupDirectory() {
             <SortableTh label="หัวหน้า" column="leader" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="สมาชิก" column="members" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="คาดว่าจะได้" column="expected" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="รับเข้า" column="received" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
           {page.rows.length === 0 && (
             <tr>
-              <td colSpan={5} className="px-5 py-6 text-ink/60">
+              <td colSpan={4} className="px-5 py-6 text-ink/60">
                 ไม่พบกลุ่ม
               </td>
             </tr>
@@ -516,7 +507,6 @@ function GroupDirectory() {
                 <td className="px-5 py-3">{group.leaderName || "—"}</td>
                 <td className="px-5 py-3">{group.memberCount ?? 0}</td>
                 <td className="px-5 py-3">{formatKg(group.expectedKg ?? 0)}</td>
-                <td className="px-5 py-3">{formatKg(group.receivedKg ?? 0)}</td>
               </tr>
             ))}
         </tbody>
@@ -886,56 +876,10 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             </CanEdit>
           </div>
         </form>
-      {SHOW_MEMBER_RECEIPT_SECTIONS && (
-        <>
-          <MemberStanding farmer={farmer} leads={leads} />
-          <OrgReceiptRounds farmer={farmer} />
-        </>
-      )}
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
 }
-function MemberStanding({ farmer, leads }: { farmer: Farmer; leads: SupplierGroup | null }) {
-  const { groups, revision } = useOrg();
-  const [receipts, setReceipts] = useState<OrgReceipt[]>([]);
-  useEffect(() => {
-    let alive = true;
-    void api.listReceipts(farmer.id).then((items) => {
-      if (alive) setReceipts(items);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [farmer.id, revision]);
-  const group = groups.find((item) => item.id === farmer.groupId) ?? null;
-  const mine = receipts.filter((item) => item.farmerId === farmer.id);
-  const boughtIn = mine.filter((item) => item.direction === "in").reduce((sum, item) => sum + item.kg, 0);
-  const soldOut = mine.filter((item) => item.direction === "out").reduce((sum, item) => sum + item.kg, 0);
-  const lent = mine.filter((item) => item.direction === "lend").reduce((sum, item) => sum + item.kg, 0);
-  const returned = mine.filter((item) => item.direction === "return").reduce((sum, item) => sum + item.kg, 0);
-  const onHand = boughtIn - soldOut;
-  const loanOpen = lent - returned;
-
-  return (
-    <div className="border-b border-frame">
-      <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">สถานะรับซื้อ</div>
-      <div className="grid gap-4 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <Fact label="รับซื้อเข้า" value={formatKg(boughtIn)} />
-        <Fact label="ขายออก" value={formatKg(soldOut)} />
-        <Fact label="คงเหลือ" value={formatKg(onHand)} />
-        <Fact label="ให้ยืม" value={formatKg(lent)} />
-        <Fact label="ค้างยืม" value={formatKg(loanOpen)} />
-      </div>
-      {!leads && group && (
-        <div className="border-t border-frame px-6 py-4 text-[14px]">
-          <span className="font-bold">สมาชิก {group.name}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function MemberPlots({
   farmer,
   plots,
@@ -1200,223 +1144,6 @@ function PlotTable({
       />
     )}
     </>
-  );
-}
-
-function OrgReceiptRounds({ farmer }: { farmer: Farmer }) {
-  const { varieties, productKinds, createOrgReceipt, removeOrgReceipt, revision } = useOrg();
-  const [receipts, setReceipts] = useState<OrgReceipt[]>([]);
-  useEffect(() => {
-    let alive = true;
-    void api.listReceipts(farmer.id).then((items) => {
-      if (alive) setReceipts(items);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [farmer.id, revision]);
-  const [adding, setAdding] = useState(false);
-  const [direction, setDirection] = useState<OrgReceiptDirection>("in");
-  const [productKindId, setProductKindId] = useState<ProductKind>(() => defaultProductKindId("in", productKinds));
-  const [receivedOn, setReceivedOn] = useState("");
-  const [varietyId, setVarietyId] = useState<Variety | "">("");
-  const [kg, setKg] = useState("");
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const rows = receipts
-    .filter((receipt) => receipt.farmerId === farmer.id)
-    .slice()
-    .sort((a, b) => b.receivedOn.localeCompare(a.receivedOn) || b.id.localeCompare(a.id));
-  const listingSort = useTableSort(rows.map((row) => row.id).join(","));
-  const ordered = orderBy(rows, listingSort.sort, (row, key) => {
-    if (key === "date") return row.receivedOn;
-    if (key === "direction") return orgReceiptDirectionLabel(row.direction ?? "in");
-    if (key === "kind") return productKindName(row.productKindId);
-    if (key === "variety") return varietyName(row.varietyId);
-    return row.kg;
-  });
-  const page = usePagination(ordered, rows.map((row) => row.id).join(","));
-
-  function resetForm() {
-    setAdding(false);
-    setDirection("in");
-    setProductKindId(defaultProductKindId("in", productKinds));
-    setReceivedOn("");
-    setVarietyId("");
-    setKg("");
-  }
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-        บัญชีซื้อขาย
-        <CanAdd resource="farmers">
-          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
-            <Glyph icon={Plus} />
-            เพิ่มรายการ
-          </SecondaryButton>
-        </CanAdd>
-      </div>
-      <TableScroll>
-        <table className={tableClass}>
-          <thead className="bg-table">
-            <tr>
-              <SortableTh label="วันที่" column="date" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="ประเภท" column="direction" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="ชนิด" column="kind" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="จำนวน" column="kg" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-              <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            </tr>
-          </thead>
-          <tbody>
-            {ordered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-5 py-6 text-ink/60">
-                  ยังไม่มีรายการซื้อขาย
-                </td>
-              </tr>
-            )}
-            {page.rows.map((row, index) => {
-              const kind = orgReceiptDirectionLabel(row.direction ?? "in");
-              const product = productKindName(row.productKindId);
-              const tone =
-                row.direction === "out" || row.direction === "lend"
-                  ? "text-danger"
-                  : row.direction === "return"
-                    ? "text-brand"
-                    : "text-ok";
-              return (
-                <tr key={row.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                  <td className="px-5 py-3 font-bold">{formatThaiDate(row.receivedOn)}</td>
-                  <td className={`px-5 py-3 font-bold ${tone}`}>{kind}</td>
-                  <td className="px-5 py-3">{product}</td>
-                  <td className="px-5 py-3">{varietyName(row.varietyId)}</td>
-                  <td className="px-5 py-3">{formatKg(row.kg)}</td>
-                  <td className="px-5 py-3 text-right">
-                    <CanDelete resource="farmers">
-                      <SecondaryButton
-                        className="h-9"
-                        onClick={() =>
-                          setNotice({
-                            tone: "confirm",
-                            message: `ยืนยันลบ${kind} ${product} ${varietyName(row.varietyId)} ${formatKg(row.kg)} วันที่ ${formatThaiDate(row.receivedOn)}`,
-                            accept: async () => setNotice(await reported(removeOrgReceipt(row.id), "ลบรายการแล้ว")),
-                          })
-                        }
-                      >
-                        <Glyph icon={Trash2} />
-                        ลบ
-                      </SecondaryButton>
-                    </CanDelete>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </TableScroll>
-      <Pagination
-        page={page.page}
-        pageCount={page.pageCount}
-        pageSize={page.pageSize}
-        total={page.total}
-        onPageChange={page.setPage}
-        onPageSizeChange={page.setPageSize}
-      />
-      {adding && (
-        <Dialog title="เพิ่มรายการซื้อขาย" onClose={resetForm}>
-          <form
-            className="grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const amount = Number(kg);
-              if (!receivedOn || varietyId === "" || !Number.isFinite(amount) || amount <= 0) {
-                setNotice({ tone: "error", message: "ใส่วันที่ พันธุ์ และจำนวนกก. ให้ถูกต้อง" });
-                return;
-              }
-              const payload = {
-                varietyId: varietyId as Variety,
-                productKindId,
-                direction,
-                kg: Math.round(amount),
-                receivedOn,
-              };
-              setNotice({
-                tone: "confirm",
-                message: `ยืนยัน${orgReceiptDirectionLabel(direction)} ${productKindName(productKindId)} ${varietyName(payload.varietyId)} ${formatKg(payload.kg)}`,
-                accept: async () =>
-                  setNotice(await reported(createOrgReceipt(farmer.id, payload), `บันทึก${orgReceiptDirectionLabel(direction)}แล้ว`, resetForm)),
-              });
-            }}
-          >
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              ประเภท
-              <RequiredMark />
-              <Select
-                label="ประเภท"
-                className="mt-1"
-                value={direction}
-                onChange={(value) => {
-                  const next = value as OrgReceiptDirection;
-                  setDirection(next);
-                  setProductKindId(defaultProductKindId(next, productKinds));
-                }}
-                options={[
-                  { value: "in", label: "รับซื้อเข้า" },
-                  { value: "out", label: "ขายออก" },
-                  { value: "lend", label: "ให้ยืม" },
-                  { value: "return", label: "รับคืน" },
-                ]}
-              />
-            </label>
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              ชนิด
-              <RequiredMark />
-              <Select
-                label="ชนิด"
-                className="mt-1"
-                value={String(productKindId)}
-                onChange={(value) => setProductKindId(Number(value))}
-                options={productKinds.map((item) => ({ value: String(item.id), label: item.name }))}
-              />
-            </label>
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              วันที่
-              <RequiredMark />
-              <DateField label="วันที่" className="mt-1" value={receivedOn} onChange={setReceivedOn} />
-            </label>
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              พันธุ์
-              <RequiredMark />
-              <Select
-                label="พันธุ์"
-                className="mt-1"
-                value={varietyId === "" ? "" : String(varietyId)}
-                onChange={(value) => setVarietyId(value ? Number(value) : "")}
-                placeholder="เลือกพันธุ์"
-                options={varieties.map((item) => ({ value: String(item.id), label: item.name }))}
-              />
-            </label>
-            <label className="block text-[14px] font-bold leading-[1.4]">
-              จำนวน (กก.)
-              <RequiredMark />
-              <input value={kg} inputMode="numeric" onChange={(event) => setKg(event.target.value)} className={`${inputClass} mt-1`} />
-            </label>
-            <div className="flex flex-wrap gap-3">
-              <SecondaryButton type="button" onClick={resetForm}>
-                <Glyph icon={X} />
-                ยกเลิก
-              </SecondaryButton>
-              <PrimaryButton type="submit">
-                <Glyph icon={Save} />
-                บันทึก
-              </PrimaryButton>
-            </div>
-          </form>
-        </Dialog>
-      )}
-      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
-    </div>
   );
 }
 
@@ -2719,14 +2446,6 @@ function nearPoint(a: [number, number], b: [number, number]) {
   return lng * lng + lat * lat < 0.00008 * 0.00008;
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="font-bold leading-[1.4]">{label}</div>
-      <div className="mt-1">{value}</div>
-    </div>
-  );
-}
 
 function CreateGroup({
   onClose,

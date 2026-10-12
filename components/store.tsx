@@ -25,23 +25,9 @@ type Store = OrgSnapshot & {
   createVariety: (name: string) => Promise<string | null>;
   updateVariety: (varietyId: number, name: string) => Promise<string | null>;
   removeVariety: (varietyId: number) => Promise<string | null>;
-  createProductKind: (name: string) => Promise<string | null>;
-  updateProductKind: (productKindId: number, name: string) => Promise<string | null>;
-  removeProductKind: (productKindId: number) => Promise<string | null>;
   createFarmer: (input: FarmerInput) => Promise<string | null>;
   updateFarmer: (farmerId: string, input: FarmerInput) => Promise<string | null>;
   assignFarmer: (farmerId: string, groupId: string | null) => Promise<string | null>;
-  createOrgReceipt: (
-    farmerId: string,
-    input: {
-      varietyId: Variety;
-      productKindId: number;
-      direction: "in" | "out" | "lend" | "return";
-      kg: number;
-      receivedOn: string;
-    },
-  ) => Promise<string | null>;
-  removeOrgReceipt: (receiptId: string) => Promise<string | null>;
   addPlot: (
     farmerId: string,
     input: {
@@ -88,9 +74,7 @@ const empty: OrgSnapshot = {
   plotPage: { items: [], total: 0 },
   plantings: [],
   activities: [],
-  receipts: [],
   varieties: [],
-  productKinds: [],
   permissions: [],
   roleGrants: [],
 };
@@ -172,9 +156,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createVariety: (name) => mutate(() => api.createVariety(name.trim())),
     updateVariety: (varietyId, name) => mutate(() => api.updateVariety(varietyId, name.trim())),
     removeVariety: (varietyId) => mutate(() => api.deleteVariety(varietyId)),
-    createProductKind: (name) => mutate(() => api.createProductKind(name.trim())),
-    updateProductKind: (productKindId, name) => mutate(() => api.updateProductKind(productKindId, name.trim())),
-    removeProductKind: (productKindId) => mutate(() => api.deleteProductKind(productKindId)),
     createFarmer: (input) =>
       mutate(() =>
         api.createFarmer({
@@ -194,18 +175,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }),
       ),
     assignFarmer: (farmerId, groupId) => mutate(() => api.assignFarmerGroup(farmerId, groupId)),
-    createOrgReceipt: (farmerId, input) =>
-      mutate(() =>
-        api.createOrgReceipt({
-          farmerId,
-          varietyId: input.varietyId,
-          productKindId: input.productKindId,
-          direction: input.direction,
-          kg: input.kg,
-          receivedOn: input.receivedOn,
-        }),
-      ),
-    removeOrgReceipt: (receiptId) => mutate(() => api.deleteOrgReceipt(receiptId)),
     addPlot: async (farmerId, input) => {
       const name = input.name.trim();
       const dedupeKey = [

@@ -148,7 +148,6 @@ export function MapScreen() {
         subdistrictId: 0,
         groupId: item.groupId ?? null,
         groupName: item.groupName ?? "",
-        deliveredKg: 0,
       };
       const plot: Plot = {
         id: item.id,

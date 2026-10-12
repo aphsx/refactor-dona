@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Clock, ImagePlus, Save, Send, X } from "lucide-react";
 import { CanAdd, CanRead } from "@/components/can";
 import {
@@ -14,13 +14,10 @@ import {
   inputClass,
 } from "@/components/ui";
 import {
-  ANNOUNCEMENT_PRIORITY,
   apiMessage,
   createAnnouncement,
-  listAnnouncementPriorities,
   uploadAnnouncementImage,
   type AnnouncementImageLayout,
-  type AnnouncementLookup,
 } from "@/lib/api";
 import { compressAnnouncementImage } from "@/lib/compress-image";
 
@@ -98,9 +95,8 @@ function isHttpUrl(value: string) {
   }
 }
 
-function buildLineBody(title: string, message: string, linkUrl: string, priorityId: number) {
+function buildLineBody(title: string, message: string, linkUrl: string) {
   const chunks: string[] = [];
-  if (priorityId === ANNOUNCEMENT_PRIORITY.urgent) chunks.push("[ด่วน]");
   if (title) chunks.push(title);
   if (message) chunks.push(message);
   if (linkUrl) chunks.push(linkUrl);
@@ -181,7 +177,6 @@ function LineCardPreview({
   message,
   linkUrl,
   buttonLabel,
-  priorityId,
   imageUrl,
   imageLayout = "standard",
   cardUseImage = false,
@@ -192,7 +187,6 @@ function LineCardPreview({
   message: string;
   linkUrl: string;
   buttonLabel: string;
-  priorityId: number;
   imageUrl: string | null;
   imageLayout?: AnnouncementImageLayout;
   cardUseImage?: boolean;
@@ -204,9 +198,7 @@ function LineCardPreview({
   const showButton = kind === "card" && cardUseLink;
   const aspect = isImageAnnouncement ? "aspect-square" : "aspect-[20/13]";
   const imageFull = isImageAnnouncement && imageLayout === "full";
-  const textBody = [priorityId === ANNOUNCEMENT_PRIORITY.urgent ? "[ด่วน]" : "", title, message]
-    .filter(Boolean)
-    .join("\n\n");
+  const textBody = [title, message].filter(Boolean).join("\n\n");
 
   return (
     <div className="overflow-hidden rounded-[12px] border border-black/10 bg-[#7494A9] shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
@@ -262,9 +254,6 @@ function LineCardPreview({
                   </div>
                 ))}
               <div className="space-y-2 px-4 py-3.5 text-[14px] leading-[1.45] text-ink">
-                {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
-                  <div className="text-[12px] font-bold text-danger">ด่วน</div>
-                )}
                 {title ? (
                   <div className="text-[16px] font-bold">{title}</div>
                 ) : (
@@ -311,11 +300,9 @@ export function AnnounceScreen() {
   const [imageLayout, setImageLayout] = useState<AnnouncementImageLayout>("standard");
   const [cardUseImage, setCardUseImage] = useState(false);
   const [cardUseLink, setCardUseLink] = useState(false);
-  const [priorityId, setPriorityId] = useState<number>(ANNOUNCEMENT_PRIORITY.normal);
   const [mode, setMode] = useState<SendMode>("now");
   const [scheduleDate, setScheduleDate] = useState(todayIso);
   const [scheduleTime, setScheduleTime] = useState(nextHourTime);
-  const [priorities, setPriorities] = useState<AnnouncementLookup[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
 
@@ -331,7 +318,7 @@ export function AnnounceScreen() {
   const effectiveLink = wantsLink ? trimmedLink : "";
   const publishTitle = isImageAnnouncement ? "" : trimmedTitle;
   const publishMessage = isImageAnnouncement ? "" : trimmedMessage;
-  const lineBody = buildLineBody(publishTitle, publishMessage, effectiveLink, priorityId);
+  const lineBody = buildLineBody(publishTitle, publishMessage, effectiveLink);
   const remaining = MAX_MESSAGE - [...lineBody].length;
   const hasContent = isImageAnnouncement
     ? Boolean(image)
@@ -342,12 +329,6 @@ export function AnnounceScreen() {
     (!wantsImage || Boolean(image)) &&
     (!wantsButton || Boolean(effectiveLink)) &&
     (!effectiveLink || isHttpUrl(effectiveLink));
-
-  useEffect(() => {
-    void listAnnouncementPriorities()
-      .then(setPriorities)
-      .catch((err) => setNotice({ tone: "error", message: apiMessage(err) }));
-  }, []);
 
   function clearImage() {
     setImage((current) => {
@@ -367,7 +348,6 @@ export function AnnounceScreen() {
     setCardUseImage(false);
     setCardUseLink(false);
     clearImage();
-    setPriorityId(ANNOUNCEMENT_PRIORITY.normal);
     setMode("now");
     setScheduleDate(todayIso());
     setScheduleTime(nextHourTime());
@@ -473,7 +453,6 @@ export function AnnounceScreen() {
         imageName,
         buttonLabel: wantsButton && effectiveLink ? trimmedButton : "",
         imageLayout: isImageAnnouncement ? imageLayout : "standard",
-        priorityId,
         mode: nextMode,
         scheduledAt,
       });
@@ -730,26 +709,6 @@ export function AnnounceScreen() {
                 <div className="grid gap-3 border-t border-frame pt-4">
                   <div className="text-[14px] font-bold leading-[1.4]">การส่ง</div>
                   <div className="flex flex-wrap gap-4">
-                    {(priorities.length
-                      ? priorities
-                      : [
-                          { id: ANNOUNCEMENT_PRIORITY.normal, name: "ปกติ" },
-                          { id: ANNOUNCEMENT_PRIORITY.urgent, name: "ด่วน" },
-                        ]
-                    ).map((item) => (
-                      <label key={item.id} className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                        <input
-                          type="radio"
-                          name="priority"
-                          checked={priorityId === item.id}
-                          onChange={() => setPriorityId(item.id)}
-                          className="h-4 w-4 accent-ink"
-                        />
-                        {item.name}
-                      </label>
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-4">
                     <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
                       <input
                         type="radio"
@@ -824,7 +783,6 @@ export function AnnounceScreen() {
                   message={trimmedMessage}
                   linkUrl={effectiveLink}
                   buttonLabel={trimmedButton}
-                  priorityId={priorityId}
                   imageUrl={image?.previewUrl ?? null}
                   imageLayout={imageLayout}
                   cardUseImage={cardUseImage}

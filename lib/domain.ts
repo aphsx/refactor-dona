@@ -8,16 +8,6 @@ export type VarietyItem = {
   updatedAt?: string;
 };
 
-/** Product kind id from API (`product_kinds.id`). */
-export type ProductKind = number;
-
-export type ProductKindItem = {
-  id: number;
-  name: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
 /** varieties.id from seed (2xx). Seed defaults until snapshot loads. */
 export const VARIETY_HOMMALI_ID = 201; // หอมมะลิ
 export const VARIETY_KHAO_ID = 202; // ขาว
@@ -29,29 +19,12 @@ export let VARIETIES: VarietyItem[] = [
   { id: VARIETY_STICKY_ID, name: "เหนียว" },
 ];
 
-/** product_kinds.id from seed (3xx). Seed defaults until snapshot loads. */
-export const PRODUCT_KIND_PADDY_ID = 301; // ข้าวเปลือก
-export const PRODUCT_KIND_SEED_ID = 302; // เมล็ดพันธุ์
-
-export let PRODUCT_KINDS: ProductKindItem[] = [
-  { id: PRODUCT_KIND_PADDY_ID, name: "ข้าวเปลือก" },
-  { id: PRODUCT_KIND_SEED_ID, name: "เมล็ดพันธุ์" },
-];
-
 export function syncVarieties(items: VarietyItem[]) {
   if (items.length > 0) VARIETIES = items;
 }
 
-export function syncProductKinds(items: ProductKindItem[]) {
-  if (items.length > 0) PRODUCT_KINDS = items;
-}
-
 export function varietyName(id: number) {
   return VARIETIES.find((item) => item.id === id)?.name ?? "—";
-}
-
-export function productKindName(id: number) {
-  return PRODUCT_KINDS.find((item) => item.id === id)?.name ?? "—";
 }
 
 export function defaultVarietyId(varieties: VarietyItem[] = VARIETIES) {
@@ -70,7 +43,6 @@ export type Farmer = {
   groupId: string | null;
   groupName?: string;
   plotCount?: number;
-  deliveredKg: number;
   avatarUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -82,7 +54,6 @@ export type SupplierGroup = {
   leaderId: string;
   leaderName?: string;
   memberCount?: number;
-  receivedKg?: number;
   expectedKg?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -138,50 +109,6 @@ export type Planting = {
   plantedAreaRai?: number;
   stage?: string;
 };
-
-/**
- * Org ledger for a farmer — not tied to a plot.
- * in     = รับซื้อเข้า
- * out    = ขายออก
- * lend   = ให้ยืม (ให้ไปปลูกก่อน)
- * return = รับคืน (คืนยืม)
- *
- * Variety (พันธุ์ข้าว) is separate from product kind (ชนิดสินค้า).
- */
-export type OrgReceiptDirection = "in" | "out" | "lend" | "return";
-
-export type OrgReceipt = {
-  id: string;
-  farmerId: string;
-  varietyId: Variety;
-  productKindId: ProductKind;
-  direction: OrgReceiptDirection;
-  kg: number;
-  receivedOn: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-export function orgReceiptDirectionLabel(direction: OrgReceiptDirection) {
-  if (direction === "out") return "ขายออก";
-  if (direction === "lend") return "ให้ยืม";
-  if (direction === "return") return "รับคืน";
-  return "รับซื้อเข้า";
-}
-
-export function asOrgReceiptDirection(value: string | undefined): OrgReceiptDirection {
-  if (value === "out" || value === "lend" || value === "return") return value;
-  return "in";
-}
-
-export function defaultProductKindId(
-  direction: OrgReceiptDirection,
-  _productKinds: ProductKindItem[] = PRODUCT_KINDS,
-): ProductKind {
-  // lend/return → เมล็ดพันธุ์; else → ข้าวเปลือก
-  if (direction === "lend" || direction === "return") return PRODUCT_KIND_SEED_ID;
-  return PRODUCT_KIND_PADDY_ID;
-}
 
 export type PlotActivityType =
   | "seed_receive"
@@ -284,7 +211,6 @@ export type PermissionResource =
   | "plantings"
   | "activities"
   | "varieties"
-  | "productKinds"
   | "announcements";
 export type PermissionFlag = "canRead" | "canAdd" | "canEdit" | "canDelete";
 
@@ -323,14 +249,12 @@ export type OrgSnapshot = {
   plotPage: PlotPage;
   plantings: Planting[];
   activities: PlotActivity[];
-  receipts: OrgReceipt[];
   varieties: VarietyItem[];
-  productKinds: ProductKindItem[];
   permissions: Permission[];
   roleGrants: RoleGrant[];
 };
 
-export type FarmerInput = Omit<Farmer, "id" | "deliveredKg" | "createdAt" | "updatedAt" | "groupName" | "plotCount">;
+export type FarmerInput = Omit<Farmer, "id" | "createdAt" | "updatedAt" | "groupName" | "plotCount">;
 
 export function personRole(grants: RoleGrant[], groups: SupplierGroup[], farmerId: string): PermissionRole {
   if (grants.some((grant) => grant.farmerId === farmerId && grant.role === "org")) return "org";

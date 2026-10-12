@@ -14,7 +14,6 @@ import {
   tableClass,
 } from "@/components/ui";
 import {
-  ANNOUNCEMENT_PRIORITY,
   ANNOUNCEMENT_STATUS,
   apiMessage,
   cancelAnnouncement,
@@ -181,7 +180,6 @@ export function AnnouncementListScreen() {
                   <th className="px-5 py-3 font-bold">เวลาส่ง</th>
                   <th className="min-w-[220px] px-5 py-3 font-bold">หัวข้อ / ข้อความ</th>
                   <th className="px-5 py-3 font-bold">ประเภท</th>
-                  <th className="px-5 py-3 font-bold">ความสำคัญ</th>
                   <th className="px-5 py-3 font-bold">ผู้ส่ง</th>
                   <th className="px-5 py-3 font-bold">สถานะ</th>
                   <th className="w-0 whitespace-nowrap px-5 py-3 font-bold">จัดการ</th>
@@ -190,7 +188,7 @@ export function AnnouncementListScreen() {
               <tbody>
                 {!loading && items.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-5 py-6 text-ink/60">
+                    <td colSpan={7} className="px-5 py-6 text-ink/60">
                       ยังไม่มีประกาศ
                     </td>
                   </tr>
@@ -223,11 +221,6 @@ export function AnnouncementListScreen() {
                       )}
                     </td>
                     <td className="px-5 py-3 align-top">{contentKind(item)}</td>
-                    <td className="px-5 py-3 align-top">
-                      <span className={item.priorityId === ANNOUNCEMENT_PRIORITY.urgent ? "font-bold text-danger" : ""}>
-                        {item.priority?.name ?? "—"}
-                      </span>
-                    </td>
                     <td className="px-5 py-3 align-top">{item.createdByName || "—"}</td>
                     <td className="px-5 py-3 align-top text-ink/70">{item.status?.name ?? "—"}</td>
                     <td className="w-0 whitespace-nowrap px-5 py-3 align-top">

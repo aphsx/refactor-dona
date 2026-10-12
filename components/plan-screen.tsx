@@ -554,7 +554,6 @@ function farmersFromPlantings(items: Planting[]): Farmer[] {
       groupId: item.groupId ?? null,
       groupName: item.groupName,
       plotCount: 1,
-      deliveredKg: 0,
     });
   }
   return [...seen.values()];

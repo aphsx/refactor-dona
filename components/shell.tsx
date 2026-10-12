@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, CalendarDays, ChevronDown, Layers, Map, Megaphone, Menu, Settings2, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
+import { Bell, ChevronDown, Layers, Map, Megaphone, Menu, Settings2, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
 import { LoginScreen } from "@/components/login-screen";
 import { StoreProvider, useOrg } from "@/components/store";
 import {
@@ -16,9 +16,7 @@ import { daysUntil } from "@/lib/domain";
 
 /** Flip on when rolling out แผนรอบปลูก (/plan, /plan/members). */
 const SHOW_PLAN_NAV = false;
-/** Flip on when rolling out แผนรับข้าว (/supply). */
-const SHOW_SUPPLY_NAV = false;
-/** Flip on when rolling out จัดการ (varieties / product kinds). */
+/** Flip on when rolling out จัดการ (พันธุ์ข้าว). */
 const SHOW_MANAGE_NAV = false;
 /** Flip on when rolling out จัดการสิทธิ์. */
 const SHOW_PERMISSIONS_NAV = true;
@@ -29,14 +27,13 @@ const HOME_PATH = SHOW_PLAN_NAV ? "/plan" : "/farmers";
 const KNOWN_APP_PATHS = new Set([
   "/",
   ...(SHOW_PLAN_NAV ? ["/plan", "/plan/members"] : []),
-  ...(SHOW_SUPPLY_NAV ? ["/supply"] : []),
   "/map",
   "/map/manage",
   "/groups",
   "/groups/manage",
   "/farmers",
   "/farmers/manage",
-  ...(SHOW_MANAGE_NAV ? ["/manage", "/manage/varieties", "/manage/product-kinds", "/varieties/manage"] : []),
+  ...(SHOW_MANAGE_NAV ? ["/manage", "/manage/varieties", "/varieties/manage"] : []),
   ...(SHOW_PERMISSIONS_NAV ? ["/permissions", "/permissions/people"] : []),
   ...(SHOW_ANNOUNCE_NAV ? ["/announce", "/announce/list"] : []),
   "/dashboard",
@@ -87,7 +84,6 @@ const NAV: NavItem[] = [
         },
       ]
     : []),
-  ...(SHOW_SUPPLY_NAV ? [{ href: "/supply", label: "แผนรับข้าว", icon: CalendarDays }] : []),
   ...(SHOW_ANNOUNCE_NAV
     ? [
         {
@@ -105,10 +101,7 @@ const NAV: NavItem[] = [
         {
           label: "จัดการ",
           icon: Settings2,
-          children: [
-            { href: "/manage/varieties", label: "พันธุ์ข้าว" },
-            { href: "/manage/product-kinds", label: "ชนิดสินค้า" },
-          ],
+          children: [{ href: "/manage/varieties", label: "พันธุ์ข้าว" }],
         },
       ]
     : []),
@@ -291,7 +284,7 @@ function ShellFrame({
                     {duePlots.map((plot) => (
                       <li key={plot.id} className="border-b border-table last:border-b-0">
                         <Link
-                          href={SHOW_SUPPLY_NAV ? "/supply" : HOME_PATH}
+                          href={HOME_PATH}
                           onClick={() => setBellOpen(false)}
                           className="block px-5 py-3 hover:bg-sub"
                         >

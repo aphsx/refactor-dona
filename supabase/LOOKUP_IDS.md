@@ -12,7 +12,7 @@ Mirror of the API doc. Canonical source of truth:
 | 301–399 | `product_kinds` |
 | 401–499 | `planting_plan_statuses` |
 | 501–599 | `announcement_statuses` |
-| 601–699 | `announcement_priorities` |
+| 601–699 | reserved |
 | 701–799 | reserved |
 
-Portal FE constants for announcements: `lib/api/index.ts` (`ANNOUNCEMENT_STATUS`, `ANNOUNCEMENT_PRIORITY`).
+Portal FE constants for announcements: `lib/api/index.ts` (`ANNOUNCEMENT_STATUS`).

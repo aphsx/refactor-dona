@@ -1,16 +1,12 @@
 import { apiListAll, apiPage, apiRequest, getApiToken, ApiError } from "@/lib/api/client";
 import {
-  asOrgReceiptDirection,
   closeRing,
   isClosedRing,
   openRing,
   polygonAreaRai,
-  syncProductKinds,
   syncVarieties,
   type Farmer,
   type FarmerInput,
-  type OrgReceipt,
-  type OrgReceiptDirection,
   type OrgSnapshot,
   type Permission,
   type PermissionFlag,
@@ -22,8 +18,6 @@ import {
   type PlotActivity,
   type PlotActivityPayload,
   type PlotActivityType,
-  type ProductKind,
-  type ProductKindItem,
   type RoleGrant,
   type SupplierGroup,
   type Variety,
@@ -128,10 +122,9 @@ function orgGrants(people: WirePerson[]): RoleGrant[] {
 }
 
 export async function loadOrgSnapshot(): Promise<OrgSnapshot> {
-  const [groups, varieties, productKinds, permissions, people, farmerPage, plotPage] = await Promise.all([
+  const [groups, varieties, permissions, people, farmerPage, plotPage] = await Promise.all([
       apiListAll<SupplierGroup>("/groups"),
       apiRequest<{ items: VarietyItem[] }>("/varieties").then((data) => data.items ?? []),
-      apiRequest<{ items: ProductKindItem[] }>("/product-kinds").then((data) => data.items ?? []),
       apiRequest<{ items: WirePermission[] }>("/permissions").then((data) => data.items ?? []),
       apiListAll<WirePerson>("/people"),
       api.listFarmersPage({ page: 1, pageSize: 20 }),
@@ -141,10 +134,8 @@ export async function loadOrgSnapshot(): Promise<OrgSnapshot> {
   const plots: WirePlot[] = [];
   const plantings: WirePlanting[] = [];
   const activities: WirePlotActivity[] = [];
-  const receipts: OrgReceipt[] = [];
 
   syncVarieties(varieties);
-  syncProductKinds(productKinds);
 
   return {
     groups,
@@ -154,14 +145,7 @@ export async function loadOrgSnapshot(): Promise<OrgSnapshot> {
     plotPage: { items: plotPage.items ?? [], total: plotPage.total ?? 0 },
     plantings: plantings.map(asPlanting),
     activities: activities.map(asPlotActivity),
-    receipts: receipts.map((item) => ({
-      ...item,
-      varietyId: asVariety(Number(item.varietyId)),
-      productKindId: Number(item.productKindId),
-      direction: asOrgReceiptDirection(item.direction),
-    })),
     varieties,
-    productKinds,
     permissions: permissions.map(asPermission),
     roleGrants: orgGrants(people),
   };
@@ -181,14 +165,6 @@ export const api = {
     apiRequest<VarietyItem>(`/varieties/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
 
   deleteVariety: (id: number) => apiRequest<void>(`/varieties/${id}`, { method: "DELETE" }),
-
-  createProductKind: (name: string) =>
-    apiRequest<ProductKindItem>("/product-kinds", { method: "POST", body: JSON.stringify({ name }) }),
-
-  updateProductKind: (id: number, name: string) =>
-    apiRequest<ProductKindItem>(`/product-kinds/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
-
-  deleteProductKind: (id: number) => apiRequest<void>(`/product-kinds/${id}`, { method: "DELETE" }),
 
   createFarmer: (input: FarmerInput) => apiRequest<Farmer>("/farmers", { method: "POST", body: JSON.stringify(input) }),
 
@@ -244,9 +220,6 @@ export const api = {
     apiListAll<WirePlotActivity>(`/plot-activities?plantingId=${encodeURIComponent(plantingId)}`).then((items) =>
       items.map(asPlotActivity),
     ),
-
-  listReceipts: (farmerId: string) =>
-    apiListAll<OrgReceipt>(`/org-receipts?farmerId=${encodeURIComponent(farmerId)}`),
 
   dueHarvests: () =>
     apiRequest<{ items: { plotId: string; plotName: string; harvestOn: string }[] }>("/notices/harvests"),
@@ -325,25 +298,6 @@ export const api = {
 
   deletePlanting: (id: string) => apiRequest<void>(`/plantings/${id}`, { method: "DELETE" }),
 
-  createOrgReceipt: (input: {
-    farmerId: string;
-    varietyId: Variety;
-    productKindId: ProductKind;
-    direction: OrgReceiptDirection;
-    kg: number;
-    receivedOn: string;
-  }) => apiRequest<OrgReceipt>("/org-receipts", { method: "POST", body: JSON.stringify(input) }),
-
-  updateOrgReceipt: (id: string, input: {
-    varietyId: Variety;
-    productKindId: ProductKind;
-    direction: OrgReceiptDirection;
-    kg: number;
-    receivedOn: string;
-  }) => apiRequest<OrgReceipt>(`/org-receipts/${id}`, { method: "PUT", body: JSON.stringify(input) }),
-
-  deleteOrgReceipt: (id: string) => apiRequest<void>(`/org-receipts/${id}`, { method: "DELETE" }),
-
   createPlotActivity: (input: {
     plantingId: string;
     type: PlotActivityType;
@@ -408,8 +362,6 @@ export type Announcement = {
   imageName: string;
   buttonLabel: string;
   imageLayout: AnnouncementImageLayout;
-  priorityId: number;
-  priority: AnnouncementLookup;
   statusId: number;
   status: AnnouncementLookup;
   scheduledAt: string | null;
@@ -429,7 +381,6 @@ export type CreateAnnouncementInput = {
   imageName?: string;
   buttonLabel?: string;
   imageLayout?: AnnouncementImageLayout;
-  priorityId?: number;
   mode: "draft" | "now" | "schedule";
   scheduledAt?: string;
 };
@@ -443,18 +394,8 @@ export const ANNOUNCEMENT_STATUS = {
   failed: 506,
 } as const;
 
-export const ANNOUNCEMENT_PRIORITY = {
-  normal: 601,
-  urgent: 602,
-} as const;
-
 export async function listAnnouncementStatuses() {
   const data = await apiRequest<{ items: AnnouncementLookup[] }>("/announcement-statuses");
-  return data.items ?? [];
-}
-
-export async function listAnnouncementPriorities() {
-  const data = await apiRequest<{ items: AnnouncementLookup[] }>("/announcement-priorities");
   return data.items ?? [];
 }
 
