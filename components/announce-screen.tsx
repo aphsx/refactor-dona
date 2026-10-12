@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Clock, Eye, FileText, ImagePlus, Megaphone, Save, Send, X } from "lucide-react";
+import { CanAdd, CanDelete, CanRead } from "@/components/can";
 import {
   ConfirmAlert,
   DateField,
@@ -16,34 +17,36 @@ import {
   TableScroll,
   inputClass,
   tableClass,
-  usePagination,
 } from "@/components/ui";
 import {
+  ANNOUNCEMENT_PRIORITY,
+  ANNOUNCEMENT_STATUS,
   apiMessage,
   cancelAnnouncement,
   createAnnouncement,
-  listAnnouncements,
+  listAnnouncementPriorities,
+  listAnnouncementsPage,
+  listAnnouncementStatuses,
+  sendAnnouncementDraft,
+  uploadAnnouncementImage,
   type Announcement,
-  type AnnouncementStatus,
+  type AnnouncementLookup,
 } from "@/lib/api";
 
 const MAX_MESSAGE = 5000;
 const MAX_TITLE = 100;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 type SendMode = "now" | "schedule";
-type Priority = "normal" | "urgent";
-type HistoryFilter = "all" | AnnouncementStatus;
-
-type ImageDraft = {
-  name: string;
-  size: number;
-  previewUrl: string;
-};
-
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
   | { tone: "success" | "error"; message: string };
+
+type ImageDraft = {
+  file: File;
+  name: string;
+  previewUrl: string;
+};
 
 function todayIso() {
   const now = new Date();
@@ -67,18 +70,6 @@ function formatWhen(iso: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   });
-}
-
-function statusLabel(status: AnnouncementStatus) {
-  if (status === "sent") return "ส่งแล้ว";
-  if (status === "scheduled") return "ตั้งเวลา";
-  if (status === "cancelled") return "ยกเลิกคิว";
-  if (status === "failed") return "ส่งไม่สำเร็จ";
-  return "ร่าง";
-}
-
-function priorityLabel(priority: string) {
-  return priority === "urgent" ? "ด่วน" : "ปกติ";
 }
 
 function contentKind(item: Announcement) {
@@ -106,9 +97,9 @@ function isHttpUrl(value: string) {
   }
 }
 
-function buildLineBody(title: string, message: string, linkUrl: string, priority: Priority) {
+function buildLineBody(title: string, message: string, linkUrl: string, priorityId: number) {
   const chunks: string[] = [];
-  if (priority === "urgent") chunks.push("[ด่วน]");
+  if (priorityId === ANNOUNCEMENT_PRIORITY.urgent) chunks.push("[ด่วน]");
   if (title) chunks.push(title);
   if (message) chunks.push(message);
   if (linkUrl) chunks.push(linkUrl);
@@ -121,12 +112,17 @@ export function AnnounceScreen() {
   const [message, setMessage] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [image, setImage] = useState<ImageDraft | null>(null);
-  const [priority, setPriority] = useState<Priority>("normal");
+  const [priorityId, setPriorityId] = useState<number>(ANNOUNCEMENT_PRIORITY.normal);
   const [mode, setMode] = useState<SendMode>("now");
   const [scheduleDate, setScheduleDate] = useState(todayIso);
   const [scheduleTime, setScheduleTime] = useState(nextHourTime);
   const [items, setItems] = useState<Announcement[]>([]);
-  const [filter, setFilter] = useState<HistoryFilter>("all");
+  const [statuses, setStatuses] = useState<AnnouncementLookup[]>([]);
+  const [priorities, setPriorities] = useState<AnnouncementLookup[]>([]);
+  const [filterStatusId, setFilterStatusId] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -135,28 +131,30 @@ export function AnnounceScreen() {
   const trimmedTitle = title.trim();
   const trimmedMessage = message.trim();
   const trimmedLink = linkUrl.trim();
-  const lineBody = buildLineBody(trimmedTitle, trimmedMessage, trimmedLink, priority);
+  const lineBody = buildLineBody(trimmedTitle, trimmedMessage, trimmedLink, priorityId);
   const remaining = MAX_MESSAGE - [...lineBody].length;
   const hasContent = Boolean(trimmedTitle || trimmedMessage || trimmedLink || image);
   const canPublish = hasContent && remaining >= 0 && (!trimmedLink || isHttpUrl(trimmedLink));
-
-  const filtered = useMemo(() => {
-    const rows = filter === "all" ? items : items.filter((item) => item.status === filter);
-    return [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [items, filter]);
-  const page = usePagination(filtered, filter);
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await listAnnouncements();
-      setItems(rows);
+      const [pageData, statusRows, priorityRows] = await Promise.all([
+        listAnnouncementsPage(page, pageSize, filterStatusId || undefined),
+        listAnnouncementStatuses(),
+        listAnnouncementPriorities(),
+      ]);
+      setItems(pageData.items ?? []);
+      setTotal(pageData.total ?? 0);
+      setStatuses(statusRows);
+      setPriorities(priorityRows);
     } catch (err) {
       setNotice({ tone: "error", message: apiMessage(err) });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize, filterStatusId]);
 
   useEffect(() => {
     void refresh();
@@ -175,7 +173,7 @@ export function AnnounceScreen() {
     setMessage("");
     setLinkUrl("");
     clearImage();
-    setPriority("normal");
+    setPriorityId(ANNOUNCEMENT_PRIORITY.normal);
     setMode("now");
     setScheduleDate(todayIso());
     setScheduleTime(nextHourTime());
@@ -188,13 +186,13 @@ export function AnnounceScreen() {
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      setNotice({ tone: "error", message: "รูปต้องไม่เกิน 10 MB" });
+      setNotice({ tone: "error", message: "รูปต้องไม่เกิน 5 MB" });
       return;
     }
     clearImage();
     setImage({
+      file,
       name: file.name,
-      size: file.size,
       previewUrl: URL.createObjectURL(file),
     });
   }
@@ -232,18 +230,25 @@ export function AnnounceScreen() {
 
     setBusy(true);
     try {
+      let imageUrl = "";
+      let imageName = "";
+      if (image) {
+        const uploaded = await uploadAnnouncementImage(image.file);
+        imageUrl = uploaded.imageUrl;
+        imageName = uploaded.imageName;
+      }
       await createAnnouncement({
         title: trimmedTitle,
         message: trimmedMessage,
         linkUrl: trimmedLink,
-        imageName: image?.name ?? "",
-        // Local file preview is not a public HTTPS URL — LINE image send needs hosting later.
-        imageUrl: "",
-        priority,
+        imageUrl,
+        imageName,
+        priorityId,
         mode: nextMode,
         scheduledAt,
       });
       clearForm();
+      setPage(1);
       await refresh();
       setNotice({
         tone: "success",
@@ -251,7 +256,7 @@ export function AnnounceScreen() {
           nextMode === "draft"
             ? "บันทึกร่างแล้ว"
             : nextMode === "schedule"
-              ? "ตั้งเวลาส่งแล้ว — ระบบจะส่งเข้า LINE เมื่อถึงเวลา"
+              ? "ตั้งเวลาส่งแล้ว"
               : "ส่งประกาศเข้า LINE OA แล้ว",
       });
     } catch (err) {
@@ -273,15 +278,12 @@ export function AnnounceScreen() {
       setNotice({ tone: "error", message: schedule.error });
       return;
     }
-
-    const confirmMessage =
-      mode === "schedule"
-        ? `ยืนยันตั้งเวลาส่งประกาศ ${formatWhen(schedule.scheduledAt!)} ไปยังผู้ติดตาม LINE OA?`
-        : "ยืนยันส่งประกาศไปยังผู้ติดตาม LINE OA ทันที?";
-
     setNotice({
       tone: "confirm",
-      message: confirmMessage,
+      message:
+        mode === "schedule"
+          ? `ยืนยันตั้งเวลาส่งประกาศ ${formatWhen(schedule.scheduledAt!)} ไปยังผู้ติดตาม LINE OA?`
+          : "ยืนยันส่งประกาศไปยังผู้ติดตาม LINE OA ทันที?",
       accept: () => submit(mode === "schedule" ? "schedule" : "now"),
     });
   }
@@ -305,350 +307,404 @@ export function AnnounceScreen() {
     });
   }
 
+  function sendDraft(id: string) {
+    setNotice({
+      tone: "confirm",
+      message: "ยืนยันส่งร่างนี้เข้า LINE OA ทันที?",
+      accept: async () => {
+        setBusy(true);
+        try {
+          await sendAnnouncementDraft(id);
+          await refresh();
+          setNotice({ tone: "success", message: "ส่งประกาศเข้า LINE OA แล้ว" });
+        } catch (err) {
+          await refresh();
+          setNotice({ tone: "error", message: apiMessage(err) });
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
+  }
+
   return (
-    <div className="h-full overflow-y-auto px-7 py-6">
-      <PageHeader current="ประกาศ LINE" />
+    <CanRead resource="announcements">
+      <div className="h-full overflow-y-auto px-7 py-6">
+        <PageHeader current="ประกาศ LINE" />
 
-      <div className="mb-6 rounded-[8px] border border-frame bg-[#F5F9FE] px-6 py-4 text-[14px] leading-[1.5] text-ink/80">
-        ส่งผ่าน <span className="font-bold text-ink">LINE Official Account</span> ถึงทุกคนที่แอดเพื่อน OA แล้ว · ผู้รับ: ทั้ง OA ·
-        ช่องทาง: LINE
-        {image ? " · รูปในฟอร์มใช้พรีวิวเท่านั้น (ยังไม่อัปโหลดส่ง LINE)" : null}
-      </div>
+        <div className="mb-6 rounded-[8px] border border-frame bg-[#F5F9FE] px-6 py-4 text-[14px] leading-[1.5] text-ink/80">
+          ส่งผ่าน <span className="font-bold text-ink">LINE Official Account</span> ถึงทุกคนที่แอดเพื่อน OA แล้ว
+        </div>
 
-      <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
-        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">เขียนประกาศ</div>
-        <form
-          className="grid gap-5 px-6 py-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            requestPublish();
-          }}
-        >
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="grid gap-4">
-              <label className="block text-[14px] font-bold leading-[1.4]">
-                หัวข้อ
-                <input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value.slice(0, MAX_TITLE))}
-                  maxLength={MAX_TITLE}
-                  placeholder="เช่น แจ้งเปิดรับข้าวเปลือก"
-                  className={`${inputClass} mt-1`}
-                />
-                <span className="mt-1 block text-[12px] font-normal text-ink/45">
-                  {trimmedTitle.length}/{MAX_TITLE}
-                </span>
-              </label>
+        <CanAdd resource="announcements">
+          <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
+            <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">เขียนประกาศ</div>
+            <form
+              className="grid gap-5 px-6 py-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                requestPublish();
+              }}
+            >
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <div className="grid gap-4">
+                  <label className="block text-[14px] font-bold leading-[1.4]">
+                    หัวข้อ
+                    <input
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value.slice(0, MAX_TITLE))}
+                      maxLength={MAX_TITLE}
+                      placeholder="เช่น แจ้งเปิดรับข้าวเปลือก"
+                      className={`${inputClass} mt-1`}
+                    />
+                  </label>
 
-              <label className="block text-[14px] font-bold leading-[1.4]">
-                ข้อความ
-                <textarea
-                  value={message}
-                  onChange={(event) => setMessage(event.target.value)}
-                  rows={8}
-                  placeholder="รายละเอียดประกาศจากโรงสี…"
-                  className={`${inputClass} mt-1 h-auto min-h-[180px] resize-y py-3 leading-[1.5]`}
-                />
-              </label>
+                  <label className="block text-[14px] font-bold leading-[1.4]">
+                    ข้อความ
+                    <textarea
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                      rows={8}
+                      placeholder="รายละเอียดประกาศจากโรงสี…"
+                      className={`${inputClass} mt-1 h-auto min-h-[180px] resize-y py-3 leading-[1.5]`}
+                    />
+                  </label>
 
-              <label className="block text-[14px] font-bold leading-[1.4]">
-                ลิงก์ (ถ้ามี)
-                <input
-                  type="url"
-                  value={linkUrl}
-                  onChange={(event) => setLinkUrl(event.target.value)}
-                  placeholder="https://…"
-                  className={`${inputClass} mt-1`}
-                />
-              </label>
-            </div>
+                  <label className="block text-[14px] font-bold leading-[1.4]">
+                    ลิงก์ (ถ้ามี)
+                    <input
+                      type="url"
+                      value={linkUrl}
+                      onChange={(event) => setLinkUrl(event.target.value)}
+                      placeholder="https://…"
+                      className={`${inputClass} mt-1`}
+                    />
+                  </label>
+                </div>
 
-            <div className="grid gap-4 content-start">
-              <div className="text-[14px] font-bold leading-[1.4]">
-                รูปประกอบ
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="sr-only"
-                  onChange={(event) => onPickImage(event.target.files?.[0])}
-                />
-                {image ? (
-                  <div className="mt-1 overflow-hidden rounded-[8px] border border-frame">
-                    <img src={image.previewUrl} alt="" className="h-40 w-full object-cover" />
-                    <div className="flex items-center justify-between gap-2 px-3 py-2 text-[12px] font-normal text-ink/70">
-                      <span className="truncate">{image.name}</span>
+                <div className="grid gap-4 content-start">
+                  <div className="text-[14px] font-bold leading-[1.4]">
+                    รูปประกอบ
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(event) => onPickImage(event.target.files?.[0])}
+                    />
+                    {image ? (
+                      <div className="mt-1 overflow-hidden rounded-[8px] border border-frame">
+                        <img src={image.previewUrl} alt="" className="h-40 w-full object-cover" />
+                        <div className="flex items-center justify-between gap-2 px-3 py-2 text-[12px] font-normal text-ink/70">
+                          <span className="truncate">{image.name}</span>
+                          <button
+                            type="button"
+                            onClick={clearImage}
+                            className="inline-flex items-center gap-1 font-bold text-brand hover:underline"
+                          >
+                            <X size={14} strokeWidth={2} />
+                            ลบ
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
                       <button
                         type="button"
-                        onClick={clearImage}
-                        className="inline-flex items-center gap-1 font-bold text-brand hover:underline"
+                        onClick={() => fileRef.current?.click()}
+                        className="mt-1 flex h-40 w-full flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed border-line bg-white text-[13px] font-normal text-ink/55 transition-colors hover:bg-pick"
                       >
-                        <X size={14} strokeWidth={2} />
-                        ลบ
+                        <ImagePlus size={22} strokeWidth={1.75} />
+                        แนบรูป JPEG / PNG
+                        <span className="text-[12px]">อัปโหลดตอนส่ง · ไม่เกิน 5 MB</span>
                       </button>
-                    </div>
+                    )}
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    className="mt-1 flex h-40 w-full flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed border-line bg-white text-[13px] font-normal text-ink/55 transition-colors hover:bg-pick"
-                  >
-                    <ImagePlus size={22} strokeWidth={1.75} />
-                    แนบรูป JPEG / PNG
-                    <span className="text-[12px]">พรีวิวอย่างเดียว (ยังไม่ส่ง LINE)</span>
-                  </button>
-                )}
+
+                  <fieldset className="grid gap-2">
+                    <legend className="text-[14px] font-bold leading-[1.4]">ความสำคัญ</legend>
+                    <div className="flex flex-wrap gap-4">
+                      {(priorities.length
+                        ? priorities
+                        : [
+                            { id: ANNOUNCEMENT_PRIORITY.normal, code: "normal", name: "ปกติ" },
+                            { id: ANNOUNCEMENT_PRIORITY.urgent, code: "urgent", name: "ด่วน" },
+                          ]
+                      ).map((item) => (
+                        <label key={item.id} className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
+                          <input
+                            type="radio"
+                            name="priority"
+                            checked={priorityId === item.id}
+                            onChange={() => setPriorityId(item.id)}
+                            className="h-4 w-4 accent-ink"
+                          />
+                          {item.name}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <div className="rounded-[8px] border border-frame bg-table px-4 py-3 text-[13px] font-normal leading-[1.5] text-ink/70">
+                    <div className="font-bold text-ink">ผู้รับ</div>
+                    ทุกคนที่แอดเพื่อน LINE OA
+                  </div>
+                </div>
               </div>
 
-              <fieldset className="grid gap-2">
-                <legend className="text-[14px] font-bold leading-[1.4]">ความสำคัญ</legend>
+              <fieldset className="grid gap-3 border-t border-frame pt-5">
+                <legend className="px-1 text-[14px] font-bold leading-[1.4]">เวลาส่ง</legend>
                 <div className="flex flex-wrap gap-4">
                   <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
                     <input
                       type="radio"
-                      name="priority"
-                      checked={priority === "normal"}
-                      onChange={() => setPriority("normal")}
+                      name="send-mode"
+                      checked={mode === "now"}
+                      onChange={() => setMode("now")}
                       className="h-4 w-4 accent-ink"
                     />
-                    ปกติ
+                    ส่งทันที
                   </label>
                   <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
                     <input
                       type="radio"
-                      name="priority"
-                      checked={priority === "urgent"}
-                      onChange={() => setPriority("urgent")}
+                      name="send-mode"
+                      checked={mode === "schedule"}
+                      onChange={() => setMode("schedule")}
                       className="h-4 w-4 accent-ink"
                     />
-                    ด่วน
+                    ตั้งเวลา
                   </label>
                 </div>
+                {mode === "schedule" && (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:max-w-xl">
+                    <label className="block text-[14px] font-bold leading-[1.4]">
+                      วันที่
+                      <DateField
+                        label="วันที่ส่ง"
+                        className="mt-1"
+                        value={scheduleDate}
+                        min={todayIso()}
+                        onChange={setScheduleDate}
+                      />
+                    </label>
+                    <label className="block text-[14px] font-bold leading-[1.4]">
+                      เวลา
+                      <input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(event) => setScheduleTime(event.target.value)}
+                        className={`${inputClass} mt-1`}
+                      />
+                    </label>
+                  </div>
+                )}
               </fieldset>
 
-              <div className="rounded-[8px] border border-frame bg-table px-4 py-3 text-[13px] font-normal leading-[1.5] text-ink/70">
-                <div className="font-bold text-ink">ผู้รับ</div>
-                ทุกคนที่แอดเพื่อน LINE OA
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame pt-5">
+                <p className={`text-[13px] ${remaining < 100 ? "font-bold text-danger" : "text-ink/50"}`}>
+                  ข้อความรวมใน LINE เหลือ {remaining.toLocaleString("th-TH")} ตัวอักษร
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <SecondaryButton type="button" disabled={!hasContent || busy} onClick={clearForm}>
+                    ล้าง
+                  </SecondaryButton>
+                  <SecondaryButton type="button" disabled={!hasContent || busy} onClick={() => setPreviewOpen(true)}>
+                    <Glyph icon={Eye} />
+                    พรีวิว
+                  </SecondaryButton>
+                  <SecondaryButton type="button" disabled={!canPublish || busy} onClick={() => void submit("draft")}>
+                    <Glyph icon={Save} />
+                    บันทึกร่าง
+                  </SecondaryButton>
+                  <PrimaryButton type="submit" disabled={!canPublish || busy}>
+                    <Glyph icon={mode === "schedule" ? Clock : Send} />
+                    {busy ? "กำลังส่ง…" : mode === "schedule" ? "ตั้งเวลาส่ง" : "ส่งประกาศ"}
+                  </PrimaryButton>
+                </div>
               </div>
-            </div>
+            </form>
           </div>
+        </CanAdd>
 
-          <fieldset className="grid gap-3 border-t border-frame pt-5">
-            <legend className="px-1 text-[14px] font-bold leading-[1.4]">เวลาส่ง</legend>
-            <div className="flex flex-wrap gap-4">
-              <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                <input
-                  type="radio"
-                  name="send-mode"
-                  checked={mode === "now"}
-                  onChange={() => setMode("now")}
-                  className="h-4 w-4 accent-ink"
-                />
-                ส่งทันที
-              </label>
-              <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] font-normal">
-                <input
-                  type="radio"
-                  name="send-mode"
-                  checked={mode === "schedule"}
-                  onChange={() => setMode("schedule")}
-                  className="h-4 w-4 accent-ink"
-                />
-                ตั้งเวลา
-              </label>
-            </div>
-            {mode === "schedule" && (
-              <div className="grid gap-4 sm:grid-cols-2 lg:max-w-xl">
-                <label className="block text-[14px] font-bold leading-[1.4]">
-                  วันที่
-                  <DateField
-                    label="วันที่ส่ง"
-                    className="mt-1"
-                    value={scheduleDate}
-                    min={todayIso()}
-                    onChange={setScheduleDate}
-                  />
-                </label>
-                <label className="block text-[14px] font-bold leading-[1.4]">
-                  เวลา
-                  <input
-                    type="time"
-                    value={scheduleTime}
-                    onChange={(event) => setScheduleTime(event.target.value)}
-                    className={`${inputClass} mt-1`}
-                  />
-                </label>
+        <div className="mb-0 flex flex-wrap items-end gap-2">
+          <StatusTab
+            label="ทั้งหมด"
+            active={filterStatusId === 0}
+            onClick={() => {
+              setFilterStatusId(0);
+              setPage(1);
+            }}
+          />
+          {(statuses.length
+            ? statuses.filter((item) => item.id !== ANNOUNCEMENT_STATUS.sending)
+            : [
+                { id: ANNOUNCEMENT_STATUS.draft, name: "ร่าง" },
+                { id: ANNOUNCEMENT_STATUS.scheduled, name: "ตั้งเวลา" },
+                { id: ANNOUNCEMENT_STATUS.sent, name: "ส่งแล้ว" },
+                { id: ANNOUNCEMENT_STATUS.failed, name: "ล้มเหลว" },
+                { id: ANNOUNCEMENT_STATUS.cancelled, name: "ยกเลิก" },
+              ]
+          ).map((item) => (
+            <StatusTab
+              key={item.id}
+              label={item.name}
+              active={filterStatusId === item.id}
+              onClick={() => {
+                setFilterStatusId(item.id);
+                setPage(1);
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="overflow-hidden rounded-b-[8px] rounded-tr-[8px] border border-frame">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+            <span className="inline-flex items-center gap-2">
+              <Megaphone size={18} strokeWidth={1.75} aria-hidden />
+              ประวัติประกาศ
+            </span>
+            <span className="text-[14px] font-normal">{loading ? "กำลังโหลด…" : `${total} รายการ`}</span>
+          </div>
+          <TableScroll>
+            <table className={tableClass}>
+              <thead className="bg-table">
+                <tr>
+                  <th className="px-5 py-3 font-bold">สร้างเมื่อ</th>
+                  <th className="px-5 py-3 font-bold">เวลาส่ง</th>
+                  <th className="min-w-[220px] px-5 py-3 font-bold">หัวข้อ / ข้อความ</th>
+                  <th className="px-5 py-3 font-bold">ประเภท</th>
+                  <th className="px-5 py-3 font-bold">ความสำคัญ</th>
+                  <th className="px-5 py-3 font-bold">ผู้ส่ง</th>
+                  <th className="px-5 py-3 font-bold">สถานะ</th>
+                  <th className="w-0 whitespace-nowrap px-5 py-3 font-bold">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!loading && items.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-6 text-ink/60">
+                      ยังไม่มีประกาศ
+                    </td>
+                  </tr>
+                )}
+                {items.map((item, index) => (
+                  <tr key={item.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                    <td className="px-5 py-3 align-top">{formatWhen(item.createdAt)}</td>
+                    <td className="px-5 py-3 align-top">
+                      {item.scheduledAt
+                        ? formatWhen(item.scheduledAt)
+                        : item.statusId === ANNOUNCEMENT_STATUS.draft
+                          ? "—"
+                          : item.sentAt
+                            ? formatWhen(item.sentAt)
+                            : "ทันที"}
+                    </td>
+                    <td className="max-w-[360px] px-5 py-3 align-top">
+                      <div className="font-bold">{item.title || "—"}</div>
+                      <div className="mt-1 whitespace-pre-wrap break-words text-ink/75">
+                        {item.message || (item.linkUrl ? item.linkUrl : "—")}
+                      </div>
+                      {item.imageName && (
+                        <div className="mt-2 inline-flex items-center gap-1 text-[12px] text-ink/55">
+                          <FileText size={12} strokeWidth={1.75} />
+                          {item.imageName}
+                        </div>
+                      )}
+                      {item.errorMessage && (
+                        <div className="mt-2 text-[12px] text-danger">{item.errorMessage}</div>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 align-top">{contentKind(item)}</td>
+                    <td className="px-5 py-3 align-top">
+                      <span className={item.priorityId === ANNOUNCEMENT_PRIORITY.urgent ? "font-bold text-danger" : ""}>
+                        {item.priority?.name ?? "—"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 align-top">{item.createdByName || "—"}</td>
+                    <td className="px-5 py-3 align-top text-ink/70">{item.status?.name ?? "—"}</td>
+                    <td className="w-0 whitespace-nowrap px-5 py-3 align-top">
+                      <div className="flex gap-2">
+                        {item.statusId === ANNOUNCEMENT_STATUS.draft && (
+                          <CanAdd resource="announcements">
+                            <PrimaryButton type="button" compact disabled={busy} onClick={() => sendDraft(item.id)}>
+                              ส่ง
+                            </PrimaryButton>
+                          </CanAdd>
+                        )}
+                        {item.statusId === ANNOUNCEMENT_STATUS.scheduled && (
+                          <CanDelete resource="announcements">
+                            <PrimaryButton type="button" compact disabled={busy} onClick={() => cancelScheduled(item.id)}>
+                              ยกเลิกคิว
+                            </PrimaryButton>
+                          </CanDelete>
+                        )}
+                        {item.statusId !== ANNOUNCEMENT_STATUS.draft &&
+                          item.statusId !== ANNOUNCEMENT_STATUS.scheduled && (
+                            <span className="text-ink/35">—</span>
+                          )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
+          {total > 0 && (
+            <Pagination
+              page={page}
+              pageCount={pageCount}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          )}
+        </div>
+
+        {previewOpen && (
+          <Dialog title="พรีวิวใน LINE" onClose={() => setPreviewOpen(false)}>
+            <div className="rounded-[8px] bg-[#747F8D] p-4">
+              <div className="ml-auto max-w-[280px] overflow-hidden rounded-[12px] bg-white shadow-sm">
+                {image && <img src={image.previewUrl} alt="" className="max-h-44 w-full object-cover" />}
+                <div className="space-y-2 px-3 py-3 text-[14px] leading-[1.45] text-ink">
+                  {priorityId === ANNOUNCEMENT_PRIORITY.urgent && (
+                    <div className="font-bold text-danger">[ด่วน]</div>
+                  )}
+                  {trimmedTitle && <div className="font-bold">{trimmedTitle}</div>}
+                  {trimmedMessage && <div className="whitespace-pre-wrap break-words">{trimmedMessage}</div>}
+                  {trimmedLink && (
+                    <a href={trimmedLink} className="break-all text-link underline" target="_blank" rel="noreferrer">
+                      {trimmedLink}
+                    </a>
+                  )}
+                  {!trimmedTitle && !trimmedMessage && !trimmedLink && !image && (
+                    <div className="text-ink/50">ยังไม่มีเนื้อหา</div>
+                  )}
+                </div>
               </div>
-            )}
-          </fieldset>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-frame pt-5">
-            <p className={`text-[13px] ${remaining < 100 ? "font-bold text-danger" : "text-ink/50"}`}>
-              ข้อความรวมใน LINE เหลือ {remaining.toLocaleString("th-TH")} ตัวอักษร
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <SecondaryButton type="button" disabled={!hasContent || busy} onClick={clearForm}>
-                ล้าง
-              </SecondaryButton>
-              <SecondaryButton type="button" disabled={!hasContent || busy} onClick={() => setPreviewOpen(true)}>
-                <Glyph icon={Eye} />
-                พรีวิว
-              </SecondaryButton>
-              <SecondaryButton type="button" disabled={!canPublish || busy} onClick={() => void submit("draft")}>
-                <Glyph icon={Save} />
-                บันทึกร่าง
-              </SecondaryButton>
-              <PrimaryButton type="submit" disabled={!canPublish || busy}>
-                <Glyph icon={mode === "schedule" ? Clock : Send} />
-                {busy ? "กำลังส่ง…" : mode === "schedule" ? "ตั้งเวลาส่ง" : "ส่งประกาศ"}
+            </div>
+            <div className="mt-5 flex justify-end">
+              <PrimaryButton type="button" onClick={() => setPreviewOpen(false)}>
+                ปิด
               </PrimaryButton>
             </div>
-          </div>
-        </form>
-      </div>
+          </Dialog>
+        )}
 
-      <div className="mb-0 flex flex-wrap items-end gap-2">
-        <StatusTab label="ทั้งหมด" active={filter === "all"} onClick={() => setFilter("all")} />
-        <StatusTab label="ร่าง" active={filter === "draft"} onClick={() => setFilter("draft")} />
-        <StatusTab label="ตั้งเวลา" active={filter === "scheduled"} onClick={() => setFilter("scheduled")} />
-        <StatusTab label="ส่งแล้ว" active={filter === "sent"} onClick={() => setFilter("sent")} />
-        <StatusTab label="ล้มเหลว" active={filter === "failed"} onClick={() => setFilter("failed")} />
-        <StatusTab label="ยกเลิก" active={filter === "cancelled"} onClick={() => setFilter("cancelled")} />
-      </div>
-
-      <div className="overflow-hidden rounded-b-[8px] rounded-tr-[8px] border border-frame">
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-          <span className="inline-flex items-center gap-2">
-            <Megaphone size={18} strokeWidth={1.75} aria-hidden />
-            ประวัติประกาศ
-          </span>
-          <span className="text-[14px] font-normal">
-            {loading ? "กำลังโหลด…" : `${filtered.length} รายการ`}
-          </span>
-        </div>
-        <TableScroll>
-          <table className={tableClass}>
-            <thead className="bg-table">
-              <tr>
-                <th className="px-5 py-3 font-bold">สร้างเมื่อ</th>
-                <th className="px-5 py-3 font-bold">เวลาส่ง</th>
-                <th className="min-w-[220px] px-5 py-3 font-bold">หัวข้อ / ข้อความ</th>
-                <th className="px-5 py-3 font-bold">ประเภท</th>
-                <th className="px-5 py-3 font-bold">ความสำคัญ</th>
-                <th className="px-5 py-3 font-bold">สถานะ</th>
-                <th className="w-0 whitespace-nowrap px-5 py-3 font-bold">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!loading && page.rows.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-5 py-6 text-ink/60">
-                    ยังไม่มีประกาศ
-                  </td>
-                </tr>
-              )}
-              {page.rows.map((item, index) => (
-                <tr key={item.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
-                  <td className="px-5 py-3 align-top">{formatWhen(item.createdAt)}</td>
-                  <td className="px-5 py-3 align-top">
-                    {item.scheduledAt
-                      ? formatWhen(item.scheduledAt)
-                      : item.status === "draft"
-                        ? "—"
-                        : item.sentAt
-                          ? formatWhen(item.sentAt)
-                          : "ทันที"}
-                  </td>
-                  <td className="max-w-[360px] px-5 py-3 align-top">
-                    <div className="font-bold">{item.title || "—"}</div>
-                    <div className="mt-1 whitespace-pre-wrap break-words text-ink/75">
-                      {item.message || (item.linkUrl ? item.linkUrl : "—")}
-                    </div>
-                    {item.imageName && (
-                      <div className="mt-2 inline-flex items-center gap-1 text-[12px] text-ink/55">
-                        <FileText size={12} strokeWidth={1.75} />
-                        {item.imageName}
-                      </div>
-                    )}
-                    {item.errorMessage && (
-                      <div className="mt-2 text-[12px] text-danger">{item.errorMessage}</div>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 align-top">{contentKind(item)}</td>
-                  <td className="px-5 py-3 align-top">
-                    <span className={item.priority === "urgent" ? "font-bold text-danger" : ""}>
-                      {priorityLabel(item.priority)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 align-top text-ink/70">{statusLabel(item.status)}</td>
-                  <td className="w-0 whitespace-nowrap px-5 py-3 align-top">
-                    {item.status === "scheduled" ? (
-                      <PrimaryButton type="button" compact disabled={busy} onClick={() => cancelScheduled(item.id)}>
-                        ยกเลิกคิว
-                      </PrimaryButton>
-                    ) : (
-                      <span className="text-ink/35">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableScroll>
-        {filtered.length > 0 && (
-          <Pagination
-            page={page.page}
-            pageCount={page.pageCount}
-            pageSize={page.pageSize}
-            total={page.total}
-            onPageChange={page.setPage}
-            onPageSizeChange={page.setPageSize}
+        {notice?.tone === "confirm" && (
+          <ConfirmAlert
+            message={notice.message}
+            onCancel={() => setNotice(null)}
+            onConfirm={notice.accept}
           />
         )}
+        {(notice?.tone === "success" || notice?.tone === "error") && (
+          <ResultAlert kind={notice.tone} message={notice.message} onClose={() => setNotice(null)} />
+        )}
       </div>
-
-      {previewOpen && (
-        <Dialog title="พรีวิวใน LINE" onClose={() => setPreviewOpen(false)}>
-          <div className="rounded-[8px] bg-[#747F8D] p-4">
-            <div className="ml-auto max-w-[280px] overflow-hidden rounded-[12px] bg-white shadow-sm">
-              {image && <img src={image.previewUrl} alt="" className="max-h-44 w-full object-cover" />}
-              <div className="space-y-2 px-3 py-3 text-[14px] leading-[1.45] text-ink">
-                {priority === "urgent" && <div className="font-bold text-danger">[ด่วน]</div>}
-                {trimmedTitle && <div className="font-bold">{trimmedTitle}</div>}
-                {trimmedMessage && <div className="whitespace-pre-wrap break-words">{trimmedMessage}</div>}
-                {trimmedLink && (
-                  <a href={trimmedLink} className="break-all text-link underline" target="_blank" rel="noreferrer">
-                    {trimmedLink}
-                  </a>
-                )}
-                {!trimmedTitle && !trimmedMessage && !trimmedLink && !image && (
-                  <div className="text-ink/50">ยังไม่มีเนื้อหา</div>
-                )}
-              </div>
-            </div>
-            <p className="mt-3 text-center text-[12px] text-white/80">
-              {mode === "schedule" ? `ตั้งส่ง ${scheduleDate} ${scheduleTime}` : "ส่งทันที"} · ผู้รับทั้ง OA
-            </p>
-          </div>
-          <div className="mt-5 flex justify-end">
-            <PrimaryButton type="button" onClick={() => setPreviewOpen(false)}>
-              ปิด
-            </PrimaryButton>
-          </div>
-        </Dialog>
-      )}
-
-      {notice?.tone === "confirm" && (
-        <ConfirmAlert
-          message={notice.message}
-          onCancel={() => setNotice(null)}
-          onConfirm={notice.accept}
-        />
-      )}
-      {(notice?.tone === "success" || notice?.tone === "error") && (
-        <ResultAlert kind={notice.tone} message={notice.message} onClose={() => setNotice(null)} />
-      )}
-    </div>
+    </CanRead>
   );
 }

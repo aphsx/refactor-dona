@@ -19,6 +19,7 @@ const RESOURCES: { resource: PermissionResource; label: string }[] = [
   { resource: "activities", label: "กิจกรรมแปลง" },
   { resource: "varieties", label: "พันธุ์ข้าว" },
   { resource: "productKinds", label: "ชนิดสินค้า" },
+  { resource: "announcements", label: "ประกาศ LINE" },
 ];
 
 const FLAGS: { flag: PermissionFlag; label: string }[] = [

@@ -390,7 +390,11 @@ export async function collectPages<T>(
   return items;
 }
 
-export type AnnouncementStatus = "draft" | "scheduled" | "sent" | "cancelled" | "failed";
+export type AnnouncementLookup = {
+  id: number;
+  code: string;
+  name: string;
+};
 
 export type Announcement = {
   id: string;
@@ -399,11 +403,14 @@ export type Announcement = {
   linkUrl: string;
   imageUrl: string;
   imageName: string;
-  priority: "normal" | "urgent";
-  status: AnnouncementStatus;
+  priorityId: number;
+  priority: AnnouncementLookup;
+  statusId: number;
+  status: AnnouncementLookup;
   scheduledAt: string | null;
   sentAt: string | null;
-  createdBy: string;
+  createdByAccountId: string;
+  createdByName: string;
   errorMessage: string;
   createdAt: string;
   updatedAt: string;
@@ -415,14 +422,45 @@ export type CreateAnnouncementInput = {
   linkUrl?: string;
   imageUrl?: string;
   imageName?: string;
-  priority?: "normal" | "urgent";
+  priorityId?: number;
   mode: "draft" | "now" | "schedule";
   scheduledAt?: string;
 };
 
-export async function listAnnouncements(status?: AnnouncementStatus) {
-  const q = status ? `?status=${encodeURIComponent(status)}` : "";
-  return apiListAll<Announcement>(`/announcements${q}`);
+export const ANNOUNCEMENT_STATUS = {
+  draft: 501,
+  scheduled: 502,
+  sending: 503,
+  sent: 504,
+  cancelled: 505,
+  failed: 506,
+} as const;
+
+export const ANNOUNCEMENT_PRIORITY = {
+  normal: 601,
+  urgent: 602,
+} as const;
+
+export async function listAnnouncementStatuses() {
+  const data = await apiRequest<{ items: AnnouncementLookup[] }>("/announcement-statuses");
+  return data.items ?? [];
+}
+
+export async function listAnnouncementPriorities() {
+  const data = await apiRequest<{ items: AnnouncementLookup[] }>("/announcement-priorities");
+  return data.items ?? [];
+}
+
+export async function listAnnouncementsPage(page = 1, pageSize = 20, statusId?: number) {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (statusId) params.set("statusId", String(statusId));
+  return apiRequest<{
+    items: Announcement[];
+    page: number;
+    pageSize: number;
+    total: number;
+    hasMore: boolean;
+  }>(`/announcements?${params}`);
 }
 
 export async function createAnnouncement(input: CreateAnnouncementInput) {
@@ -434,6 +472,27 @@ export async function createAnnouncement(input: CreateAnnouncementInput) {
 
 export async function cancelAnnouncement(id: string) {
   return apiRequest<Announcement>(`/announcements/${id}/cancel`, { method: "POST" });
+}
+
+export async function sendAnnouncementDraft(id: string) {
+  return apiRequest<Announcement>(`/announcements/${id}/send`, { method: "POST" });
+}
+
+export async function uploadAnnouncementImage(file: File) {
+  const token = getApiToken();
+  if (!token) throw new ApiError("ต้องเข้าสู่ระบบก่อน", 401);
+  const form = new FormData();
+  form.append("file", file);
+  const response = await fetch("/api/announcement-image", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new ApiError(typeof body?.error === "string" ? body.error : "อัปโหลดรูปไม่สำเร็จ", response.status);
+  }
+  return body as { imageUrl: string; imageName: string };
 }
 
 /** PostGIS geography (WGS84 spheroid). Falls back to local estimate if API fails. */

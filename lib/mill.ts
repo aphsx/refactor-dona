@@ -284,7 +284,8 @@ export type PermissionResource =
   | "plantings"
   | "activities"
   | "varieties"
-  | "productKinds";
+  | "productKinds"
+  | "announcements";
 export type PermissionFlag = "canRead" | "canAdd" | "canEdit" | "canDelete";
 
 export type Permission = {
