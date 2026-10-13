@@ -1,7 +1,7 @@
 /**
  * Client-side shrink for loan uploads (images + PDFs).
- * Output is always a smaller JPEG when possible — same Storage bucket as avatars
- * (`avatars/loan-documents/...`) which only allows image MIME types.
+ * Output is always a smaller JPEG when possible — Storage bucket `loan-documents`
+ * allows image MIME types only (max 8MB).
  */
 
 import imageCompression from "browser-image-compression";

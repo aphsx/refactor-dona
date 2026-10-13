@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiOrigin } from "@/lib/env";
 
 /**
- * Same public bucket as profile avatars — folder-separated:
- *   avatars/{farmerId}/profile-*.webp
- *   avatars/loan-documents/{applicationId}/{kindId}-*.jpg
+ * Public bucket for loan application documents:
+ *   loan-documents/{applicationId}/{kindId}-*.jpg
+ * (Profile avatars stay in the small `avatars` bucket — 100KB limit.)
  */
-const BUCKET = "avatars";
-const PATH_PREFIX = "loan-documents";
+const BUCKET = "loan-documents";
 const MAX_BYTES = 8_000_000;
 
 function supabaseConfig() {
@@ -44,7 +43,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "ไฟล์ใหญ่เกินไป (สูงสุด 8MB)" }, { status: 400 });
   }
 
-  // Client compresses PDF → JPEG; Storage avatars bucket allows image MIME only.
+  // Client compresses PDF → JPEG; Storage allows image MIME only.
   const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
   if (!allowed.has(file.type)) {
     return NextResponse.json(
@@ -54,7 +53,7 @@ export async function POST(request: NextRequest) {
   }
 
   const ext = file.type === "image/png" ? "png" : file.type === "image/jpeg" ? "jpg" : "webp";
-  const path = `${PATH_PREFIX}/${applicationId}/${kindId}-${Date.now()}.${ext}`;
+  const path = `${applicationId}/${kindId}-${Date.now()}.${ext}`;
 
   let supabase: { url: string; key: string };
   try {
@@ -82,9 +81,11 @@ export async function POST(request: NextRequest) {
     const detail = await upload.text().catch(() => "");
     let message = "อัปโหลดเอกสารไม่สำเร็จ";
     if (detail.includes("Bucket not found") || detail.includes("NoSuchBucket")) {
-      message = "ยังไม่มี bucket avatars ใน Supabase (ต้องเป็น public)";
+      message = "ยังไม่มี bucket loan-documents ใน Supabase (ต้องเป็น public)";
     } else if (detail.includes("row-level security") || detail.includes("AccessDenied")) {
-      message = "อัปโหลดไม่ได้ — ตรวจ storage policy ของ bucket avatars";
+      message = "อัปโหลดไม่ได้ — ตรวจ storage policy ของ bucket loan-documents";
+    } else if (detail.includes("EntityTooLarge") || detail.includes("Payload too large")) {
+      message = "ไฟล์ใหญ่เกินขีดจำกัดของ Storage";
     } else if (detail) {
       message = detail.slice(0, 300);
     }
