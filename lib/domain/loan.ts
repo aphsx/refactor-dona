@@ -20,7 +20,25 @@ export type LoanApplicationDocument = {
   code: string;
   name: string;
   attached: boolean;
+  /** Present when API sends it; otherwise inferred from kind id. */
+  required?: boolean;
 };
+
+/** Wireframe: 4 จำเป็น — บัตร / ทะเบียนบ้าน / โฉนด / ผู้ค้ำ (ทะเบียนสมรสไม่บังคับ) */
+export const LOAN_REQUIRED_DOCUMENT_KIND_IDS = new Set([1101, 1102, 1104, 1105]);
+
+export function isLoanDocumentRequired(doc: Pick<LoanApplicationDocument, "kindId" | "required">) {
+  if (typeof doc.required === "boolean") return doc.required;
+  return LOAN_REQUIRED_DOCUMENT_KIND_IDS.has(doc.kindId);
+}
+
+export function loanRequiredDocumentProgress(documents: LoanApplicationDocument[]) {
+  const required = documents.filter((doc) => isLoanDocumentRequired(doc));
+  return {
+    attached: required.filter((doc) => doc.attached).length,
+    total: required.length || LOAN_REQUIRED_DOCUMENT_KIND_IDS.size,
+  };
+}
 
 export type LoanApplication = {
   id: string;

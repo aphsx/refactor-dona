@@ -30,7 +30,7 @@ import {
   type LoanApplicationDocument,
   type LoanHistory,
 } from "@/lib/api";
-import { formatThaiDate } from "@/lib/domain";
+import { formatThaiDate, isLoanDocumentRequired, loanRequiredDocumentProgress } from "@/lib/domain";
 
 function statusTone(status: string) {
   if (status === "อนุมัติ" || status === "คำขอปกติ") return "text-brand";
@@ -229,7 +229,7 @@ export function LoanPendingScreen() {
                   </tr>
                 )}
                 {rows.map((row, index) => {
-                  const attached = row.documents.filter((doc) => doc.attached).length;
+                  const docs = loanRequiredDocumentProgress(row.documents);
                   return (
                     <tr
                       key={row.id}
@@ -243,7 +243,7 @@ export function LoanPendingScreen() {
                       <td className="px-5 py-3">{row.purpose || "—"}</td>
                       <td className="px-5 py-3">{formatDate(row.submittedOn)}</td>
                       <td className="px-5 py-3 tabular-nums">
-                        {attached}/{row.documents.length}
+                        {docs.attached}/{docs.total}
                       </td>
                       <td className={`px-5 py-3 font-bold ${statusTone(row.status?.name ?? "")}`}>
                         {row.status?.name ?? "—"}
@@ -294,13 +294,18 @@ function DocumentPanel({
         <p className="px-5 py-6 text-[14px] text-ink/60">เลือกรายการเพื่อจัดการเอกสาร</p>
       ) : (
         <ul className="divide-y divide-frame">
-          {application.documents.map((doc: LoanApplicationDocument) => (
+          {application.documents.map((doc: LoanApplicationDocument) => {
+            const required = isLoanDocumentRequired(doc);
+            return (
             <li key={doc.kindId} className="flex items-start gap-3 px-5 py-4">
               <span className="mt-0.5 text-ink/50">
                 <Glyph icon={FileText} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-[14px] font-bold leading-snug">{doc.name}</div>
+                <div className="text-[14px] font-bold leading-snug">
+                  {doc.name}
+                  {required && <span className="ml-1 font-bold text-danger">จำเป็น</span>}
+                </div>
                 <div className="mt-2 flex flex-wrap gap-3 text-[13px]">
                   {doc.attached ? (
                     <>
@@ -341,7 +346,8 @@ function DocumentPanel({
                 }}
               />
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
       {pendingDelete && application && (
