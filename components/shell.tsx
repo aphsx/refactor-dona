@@ -26,116 +26,116 @@ const SHOW_ANNOUNCE_NAV = true;
 const SHOW_LOANS_NAV = true;
 const HOME_PATH = SHOW_PLAN_NAV ? "/plan" : "/farmers";
 
-const KNOWN_APP_PATHS = new Set([
-  "/",
-  ...(SHOW_PLAN_NAV ? ["/plan", "/plan/members"] : []),
-  "/map",
-  "/map/manage",
-  "/groups",
-  "/groups/manage",
-  "/farmers",
-  "/farmers/manage",
-  ...(SHOW_MANAGE_NAV
-    ? ["/manage", "/manage/varieties", "/manage/name-prefixes", "/varieties/manage"]
-    : []),
-  ...(SHOW_PERMISSIONS_NAV ? ["/permissions", "/permissions/people"] : []),
-  ...(SHOW_ANNOUNCE_NAV ? ["/announce", "/announce/list"] : []),
-  ...(SHOW_LOANS_NAV ? ["/loans/pending", "/loans", "/loans/history"] : []),
-  "/dashboard",
-]);
-
-function isKnownAppPath(pathname: string) {
-  return KNOWN_APP_PATHS.has(pathname);
-}
-
 type NavChild = { href: string; label: string };
 type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavChild[] };
 
+function knownAppPaths(isAdmin: boolean) {
+  return new Set([
+    "/",
+    ...(SHOW_PLAN_NAV ? ["/plan", "/plan/members"] : []),
+    "/map",
+    "/map/manage",
+    "/groups",
+    "/groups/manage",
+    "/farmers",
+    "/farmers/manage",
+    ...(SHOW_MANAGE_NAV
+      ? ["/manage", "/manage/varieties", "/manage/name-prefixes", "/varieties/manage"]
+      : []),
+    ...(SHOW_PERMISSIONS_NAV && isAdmin ? ["/permissions", "/permissions/people"] : []),
+    ...(SHOW_ANNOUNCE_NAV ? ["/announce", "/announce/list"] : []),
+    ...(SHOW_LOANS_NAV ? ["/loans/pending", "/loans", "/loans/history"] : []),
+    "/dashboard",
+  ]);
+}
+
 /**
  * Nav order (top → bottom):
- * 1) คน/กลุ่ม  2) พื้นที่/แผน  3) สินเชื่อ  4) สื่อสาร  5) ข้อมูลหลัก  6) สิทธิ์
+ * 1) คน/กลุ่ม  2) พื้นที่/แผน  3) สินเชื่อ  4) สื่อสาร  5) ข้อมูลหลัก  6) สิทธิ์ (admin only)
  */
-const NAV: NavItem[] = [
-  {
-    href: "/farmers",
-    label: "เกษตรกร",
-    icon: Users,
-  },
-  {
-    href: "/groups",
-    label: "กลุ่ม",
-    icon: Layers,
-  },
-  {
-    label: "แผนที่แปลง",
-    icon: Map,
-    children: [
-      { href: "/map", label: "แผนที่แปลง" },
-      { href: "/map/manage", label: "จัดการแปลง" },
-    ],
-  },
-  ...(SHOW_PLAN_NAV
-    ? [
-        {
-          label: "แผนรอบปลูก",
-          icon: Sprout,
-          children: [
-            { href: "/plan", label: "แผนรวม" },
-            { href: "/plan/members", label: "แผนรายเกษตรกร" },
-          ],
-        },
-      ]
-    : []),
-  ...(SHOW_LOANS_NAV
-    ? [
-        {
-          label: "สินเชื่อ",
-          icon: CircleDollarSign,
-          children: [
-            { href: "/loans/pending", label: "รออนุมัติ" },
-            { href: "/loans", label: "สินเชื่อ" },
-            { href: "/loans/history", label: "ประวัติ" },
-          ],
-        },
-      ]
-    : []),
-  ...(SHOW_ANNOUNCE_NAV
-    ? [
-        {
-          label: "ประกาศ LINE",
-          icon: Megaphone,
-          children: [
-            { href: "/announce", label: "สร้าง" },
-            { href: "/announce/list", label: "รายการ" },
-          ],
-        },
-      ]
-    : []),
-  ...(SHOW_MANAGE_NAV
-    ? [
-        {
-          label: "ข้อมูลหลัก",
-          icon: Settings2,
-          children: [
-            { href: "/manage/name-prefixes", label: "คำนำหน้า" },
-            { href: "/manage/varieties", label: "พันธุ์ข้าว" },
-          ],
-        },
-      ]
-    : []),
-  ...(SHOW_PERMISSIONS_NAV
-    ? [
-        {
-          label: "สิทธิ์",
-          icon: Shield,
-          children: [
-            { href: "/permissions", label: "สิทธิ์ตามบทบาท" },
-            { href: "/permissions/people", label: "รายคน" },
-          ],
-        },
-      ]
-    : []),
-];
+function buildNav(isAdmin: boolean): NavItem[] {
+  return [
+    {
+      href: "/farmers",
+      label: "เกษตรกร",
+      icon: Users,
+    },
+    {
+      href: "/groups",
+      label: "กลุ่ม",
+      icon: Layers,
+    },
+    {
+      label: "แผนที่แปลง",
+      icon: Map,
+      children: [
+        { href: "/map", label: "แผนที่แปลง" },
+        { href: "/map/manage", label: "จัดการแปลง" },
+      ],
+    },
+    ...(SHOW_PLAN_NAV
+      ? [
+          {
+            label: "แผนรอบปลูก",
+            icon: Sprout,
+            children: [
+              { href: "/plan", label: "แผนรวม" },
+              { href: "/plan/members", label: "แผนรายเกษตรกร" },
+            ],
+          },
+        ]
+      : []),
+    ...(SHOW_LOANS_NAV
+      ? [
+          {
+            label: "สินเชื่อ",
+            icon: CircleDollarSign,
+            children: [
+              { href: "/loans/pending", label: "รออนุมัติ" },
+              { href: "/loans", label: "สินเชื่อ" },
+              { href: "/loans/history", label: "ประวัติ" },
+            ],
+          },
+        ]
+      : []),
+    ...(SHOW_ANNOUNCE_NAV
+      ? [
+          {
+            label: "ประกาศ LINE",
+            icon: Megaphone,
+            children: [
+              { href: "/announce", label: "สร้าง" },
+              { href: "/announce/list", label: "รายการ" },
+            ],
+          },
+        ]
+      : []),
+    ...(SHOW_MANAGE_NAV
+      ? [
+          {
+            label: "ข้อมูลหลัก",
+            icon: Settings2,
+            children: [
+              { href: "/manage/name-prefixes", label: "คำนำหน้า" },
+              { href: "/manage/varieties", label: "พันธุ์ข้าว" },
+            ],
+          },
+        ]
+      : []),
+    ...(SHOW_PERMISSIONS_NAV && isAdmin
+      ? [
+          {
+            label: "สิทธิ์",
+            icon: Shield,
+            children: [
+              { href: "/permissions", label: "สิทธิ์ตามบทบาท" },
+              { href: "/permissions/people", label: "รายคน" },
+            ],
+          },
+        ]
+      : []),
+  ];
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -156,7 +156,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!boot || !session) return;
     // Logged-in users on unknown/legacy URLs land on home.
-    if (!isKnownAppPath(pathname) || pathname === "/" || pathname === "/dashboard") {
+    // Non-admins hitting /permissions* also land on home.
+    const known = knownAppPaths(Boolean(session.isAdmin));
+    if (!known.has(pathname) || pathname === "/" || pathname === "/dashboard") {
       router.replace(HOME_PATH);
     }
   }, [boot, session, pathname, router]);
@@ -218,11 +220,14 @@ function ShellFrame({
   const [retrying, setRetrying] = useState(false);
   const displayName = session.displayName || session.username;
   const initials = displayName.slice(0, 2);
+  const isAdmin = Boolean(session.isAdmin);
+  const roleLabel = isAdmin ? "ผู้ดูแลระบบ" : "เจ้าหน้าที่";
+  const nav = buildNav(isAdmin);
 
   useEffect(() => {
-    const parent = NAV.find((item) => item.children?.some((child) => pathname === child.href));
+    const parent = buildNav(isAdmin).find((item) => item.children?.some((child) => pathname === child.href));
     if (parent) setOpenMenu(parent.label);
-  }, [pathname]);
+  }, [pathname, isAdmin]);
 
   useEffect(() => {
     if (!ready) return;
@@ -327,7 +332,7 @@ function ShellFrame({
               }}
               className="inline-flex items-center gap-1 text-[12px] font-bold text-sidebar"
             >
-              ผู้ดูแลองค์กร
+              {roleLabel}
               <ChevronDown size={14} strokeWidth={1.75} />
             </button>
             {roleOpen && (
@@ -336,7 +341,7 @@ function ShellFrame({
                 <div className="absolute right-0 z-50 mt-2 w-56 rounded-[8px] border border-frame bg-white px-4 py-3 text-left shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
                   <div className="text-[12px] font-bold">{displayName}</div>
                   <div className="mt-1 text-[12px] text-ink/70">@{session.username}</div>
-                  <div className="mt-1 text-[12px] text-ink/70">ผู้ดูแลองค์กร</div>
+                  <div className="mt-1 text-[12px] text-ink/70">{roleLabel}</div>
                   <button
                     type="button"
                     onClick={() => {
@@ -359,7 +364,7 @@ function ShellFrame({
       <div className="flex min-h-0 flex-1">
         <aside className={`flex shrink-0 flex-col border-r border-frame bg-white ${collapsed ? "w-[96px]" : "w-[316px]"}`}>
           <nav className="no-scrollbar min-h-0 flex-1 overflow-y-auto py-2">
-            {NAV.map((item) => {
+            {nav.map((item) => {
               const Icon = item.icon;
               const childActive = item.children?.some((child) => pathname === child.href) ?? false;
               const active = item.href ? (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)) : childActive;

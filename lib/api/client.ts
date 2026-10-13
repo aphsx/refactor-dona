@@ -32,6 +32,8 @@ export type AuthSession = {
   username: string;
   displayName: string;
   role: PermissionRole;
+  /** Mill admin can open สิทธิ์; regular operators cannot. */
+  isAdmin: boolean;
 };
 
 let actor: Actor = { role: "org" };
@@ -80,7 +82,8 @@ export function clearAuthSession() {
 
 export function restoreAuthSession() {
   const session = getAuthSession();
-  if (!session?.token) {
+  if (!session?.token || session.role !== "org" || typeof session.isAdmin !== "boolean") {
+    // Missing isAdmin = pre-admin-flag session; force re-login so JWT matches UI.
     clearAuthSession();
     return null;
   }
@@ -131,6 +134,7 @@ export async function apiLogin(username: string, password: string) {
     username: data.username,
     displayName: data.displayName || data.username,
     role: data.role,
+    isAdmin: Boolean(data.isAdmin),
   };
   setAuthSession(session);
   return session;
