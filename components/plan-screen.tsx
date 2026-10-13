@@ -61,7 +61,7 @@ type SeasonRow = Plot & {
 type HarvestQuery = { from: string; to: string; groupId: string; variety: string };
 type MemberQuery = {
   name: string;
-  tel: string;
+  nationalId: string;
   groupId: string;
   variety: string;
   harvestFrom: string;
@@ -70,7 +70,7 @@ type MemberQuery = {
 
 const emptyMemberQuery: MemberQuery = {
   name: "",
-  tel: "",
+  nationalId: "",
   groupId: "all",
   variety: "all",
   harvestFrom: "",
@@ -244,9 +244,9 @@ export function MemberSeasonScreen() {
   ];
 
   const planFilter = applied.variety !== "all" || applied.harvestFrom !== "" || applied.harvestTo !== "";
-  const server = useServerPage(`${searched}:${planFilter}:${applied.name}:${applied.tel}:${applied.groupId}:${revision}`, (pageNo, pageSize) => {
+  const server = useServerPage(`${searched}:${planFilter}:${applied.name}:${applied.nationalId}:${applied.groupId}:${revision}`, (pageNo, pageSize) => {
     if (!searched || planFilter) return Promise.resolve({ items: [] as Farmer[], total: 0 });
-    const q = [applied.name, applied.tel].filter((part) => part.trim()).join(" ");
+    const q = [applied.name, applied.nationalId].filter((part) => part.trim()).join(" ");
     return api.listFarmersPage({
       q,
       groupId: applied.groupId === "all" ? undefined : applied.groupId,
@@ -273,7 +273,12 @@ export function MemberSeasonScreen() {
         setScoped(
           farmersFromPlantings(matched).filter((farmer) => {
             if (!isWildcard(applied.name) && !matchesQuery(applied.name, farmerName(farmer))) return false;
-            if (!isWildcard(applied.tel) && !farmer.tel.replace(/\D/g, "").includes(applied.tel.replace(/\D/g, ""))) return false;
+            if (
+              !isWildcard(applied.nationalId) &&
+              !(farmer.nationalId ?? "").replace(/\D/g, "").includes(applied.nationalId.replace(/\D/g, ""))
+            ) {
+              return false;
+            }
             return true;
           }),
         );
@@ -324,12 +329,12 @@ export function MemberSeasonScreen() {
             />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
-            เบอร์โทร
+            เลขบัตรประชาชน
             <input
-              value={draft.tel}
-              inputMode="tel"
-              onChange={(event) => setDraft({ ...draft, tel: event.target.value })}
-              placeholder="081"
+              value={draft.nationalId}
+              inputMode="numeric"
+              onChange={(event) => setDraft({ ...draft, nationalId: event.target.value })}
+              placeholder="13 หลัก"
               className={`${inputClass} mt-1`}
             />
           </label>
@@ -397,7 +402,7 @@ export function MemberSeasonScreen() {
               <thead className="bg-table">
                 <tr>
                   <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="เลขบัตร" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="แผนเปิด" column="plans" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="แปลง" column="plots" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -418,7 +423,7 @@ export function MemberSeasonScreen() {
                       className={rowTone(index)}
                     >
                       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
-                      <td className="px-5 py-3">{farmer.tel}</td>
+                      <td className="px-5 py-3">{farmer.nationalId || "—"}</td>
                       <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "—"}</td>
                       <td className="px-5 py-3 font-bold">{planFilter ? (farmer.plotCount ?? 0) : "—"}</td>
                       <td className="px-5 py-3">{farmer.plotCount ?? "—"}</td>
@@ -442,7 +447,7 @@ export function MemberSeasonScreen() {
 }
 
 function memberSortValue(farmer: Farmer, key: string, groups: { id: string; name: string }[]) {
-  if (key === "tel") return farmer.tel;
+  if (key === "nationalId") return farmer.nationalId;
   if (key === "group") return farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "";
   if (key === "plans" || key === "plots") return farmer.plotCount ?? 0;
   return farmerName(farmer);
@@ -544,9 +549,11 @@ function farmersFromPlantings(items: Planting[]): Farmer[] {
     const [firstName, ...rest] = (item.farmerName ?? "").split(" ");
     seen.set(item.farmerId, {
       id: item.farmerId,
+      prefixId: null,
       firstName: firstName ?? "",
       lastName: rest.join(" "),
-      tel: item.farmerTel ?? "",
+      nationalId: item.farmerTel ?? "",
+      dateOfBirth: "",
       address: "",
       provinceId: 0,
       districtId: 0,

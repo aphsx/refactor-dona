@@ -1,4 +1,4 @@
-import type { VarietyItem } from "./catalog";
+import type { NamePrefixItem, VarietyItem } from "./catalog";
 import type { Farmer, FarmerPage } from "./farmer";
 import type { SupplierGroup } from "./group";
 import type { Plot, PlotPage } from "./plot";
@@ -16,6 +16,7 @@ export type OrgSnapshot = {
   plantings: Planting[];
   activities: PlotActivity[];
   varieties: VarietyItem[];
+  namePrefixes: NamePrefixItem[];
   permissions: Permission[];
   roleGrants: RoleGrant[];
 };

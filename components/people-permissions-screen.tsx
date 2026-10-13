@@ -6,7 +6,7 @@ import { useOrg } from "@/components/store";
 import { useServerPage } from "@/components/server-page";
 import { api } from "@/lib/api";
 import { ConfirmAlert, Glyph, PageHeader, Pagination, PrimaryButton, ResultAlert, SearchSelect, SecondaryButton, SortableTh, TableScroll, inputClass, orderBy, tableClass, useTableSort } from "@/components/ui";
-import { farmerName, personRole, roleTitle, type Farmer, type PermissionRole } from "@/lib/domain";
+import { farmerName, formatNationalId, personRole, roleTitle, type Farmer, type PermissionRole } from "@/lib/domain";
 
 const ROLE_OPTIONS: { value: PermissionRole; label: string }[] = [
   { value: "org", label: "องค์กร" },
@@ -30,7 +30,7 @@ export function PeoplePermissionsScreen() {
     name === "" ? farmerPage : null,
   );
   const ordered = orderBy(page.rows, listingSort.sort, (farmer, key) => {
-    if (key === "tel") return farmer.tel;
+    if (key === "nationalId") return farmer.nationalId;
     if (key === "group") return farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "";
     if (key === "role") return roleTitle(personRole(roleGrants, groups, farmer.id));
     if (key === "scope") return scopeLabel(personRole(roleGrants, groups, farmer.id), groups, farmer.id);
@@ -50,7 +50,7 @@ export function PeoplePermissionsScreen() {
           }}
         >
           <label className="block min-w-[240px] flex-1 text-[14px] font-bold leading-[1.4]">
-            ชื่อหรือเบอร์โทร
+            ชื่อหรือเลขบัตร
             <input value={draftName} onChange={(event) => setDraftName(event.target.value)} className={`${inputClass} mt-1`} />
           </label>
           <PrimaryButton type="submit">
@@ -76,7 +76,7 @@ export function PeoplePermissionsScreen() {
             <thead className="bg-table">
               <tr>
                 <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <SortableTh label="เลขบัตร" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 <SortableTh label="ยศ" column="role" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 <SortableTh label="จัดการได้" column="scope" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -148,7 +148,7 @@ function PersonRow({
   return (
     <tr className={stripe ? "bg-table" : "bg-white"}>
       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
-      <td className="px-5 py-3">{farmer.tel}</td>
+      <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
       <td className="px-5 py-3">{farmer.groupName || group?.name || "—"}</td>
       <td className="px-5 py-3">{roleTitle(current)}</td>
       <td className="px-5 py-3">{scopeLabel(current, groups, farmer.id)}</td>

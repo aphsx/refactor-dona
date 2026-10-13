@@ -2,16 +2,17 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { api, apiMessage, loadOrgSnapshot, setApiActor } from "@/lib/api";
-import type {
-  FarmerInput,
-  OrgSnapshot,
-  PermissionFlag,
-  PermissionResource,
-  PermissionRole,
-  Plot,
-  PlotActivityPayload,
-  PlotActivityType,
-  Variety,
+import {
+  canonicalNationalId,
+  type FarmerInput,
+  type OrgSnapshot,
+  type PermissionFlag,
+  type PermissionResource,
+  type PermissionRole,
+  type Plot,
+  type PlotActivityPayload,
+  type PlotActivityType,
+  type Variety,
 } from "@/lib/domain";
 
 type Store = OrgSnapshot & {
@@ -25,6 +26,9 @@ type Store = OrgSnapshot & {
   createVariety: (name: string) => Promise<string | null>;
   updateVariety: (varietyId: number, name: string) => Promise<string | null>;
   removeVariety: (varietyId: number) => Promise<string | null>;
+  createNamePrefix: (name: string) => Promise<string | null>;
+  updateNamePrefix: (prefixId: number, name: string) => Promise<string | null>;
+  removeNamePrefix: (prefixId: number) => Promise<string | null>;
   createFarmer: (input: FarmerInput) => Promise<string | null>;
   updateFarmer: (farmerId: string, input: FarmerInput) => Promise<string | null>;
   assignFarmer: (farmerId: string, groupId: string | null) => Promise<string | null>;
@@ -75,9 +79,22 @@ const empty: OrgSnapshot = {
   plantings: [],
   activities: [],
   varieties: [],
+  namePrefixes: [],
   permissions: [],
   roleGrants: [],
 };
+
+function asFarmerInput(input: FarmerInput): FarmerInput {
+  return {
+    ...input,
+    firstName: input.firstName.trim(),
+    lastName: input.lastName.trim(),
+    nationalId: canonicalNationalId(input.nationalId) ?? input.nationalId.trim(),
+    dateOfBirth: input.dateOfBirth.trim(),
+    farmerNumber: input.farmerNumber?.trim() || undefined,
+    address: input.address.trim(),
+  };
+}
 
 const StoreContext = createContext<Store | null>(null);
 
@@ -156,24 +173,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createVariety: (name) => mutate(() => api.createVariety(name.trim())),
     updateVariety: (varietyId, name) => mutate(() => api.updateVariety(varietyId, name.trim())),
     removeVariety: (varietyId) => mutate(() => api.deleteVariety(varietyId)),
-    createFarmer: (input) =>
-      mutate(() =>
-        api.createFarmer({
-          ...input,
-          firstName: input.firstName.trim(),
-          lastName: input.lastName.trim(),
-          address: input.address.trim(),
-        }),
-      ),
-    updateFarmer: (farmerId, input) =>
-      mutate(() =>
-        api.updateFarmer(farmerId, {
-          ...input,
-          firstName: input.firstName.trim(),
-          lastName: input.lastName.trim(),
-          address: input.address.trim(),
-        }),
-      ),
+    createNamePrefix: (name) => mutate(() => api.createNamePrefix(name.trim())),
+    updateNamePrefix: (prefixId, name) => mutate(() => api.updateNamePrefix(prefixId, name.trim())),
+    removeNamePrefix: (prefixId) => mutate(() => api.deleteNamePrefix(prefixId)),
+    createFarmer: (input) => mutate(() => api.createFarmer(asFarmerInput(input))),
+    updateFarmer: (farmerId, input) => mutate(() => api.updateFarmer(farmerId, asFarmerInput(input))),
     assignFarmer: (farmerId, groupId) => mutate(() => api.assignFarmerGroup(farmerId, groupId)),
     addPlot: async (farmerId, input) => {
       const name = input.name.trim();

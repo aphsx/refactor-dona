@@ -8,6 +8,7 @@ export type PermissionResource =
   | "plantings"
   | "activities"
   | "varieties"
+  | "namePrefixes"
   | "announcements";
 export type PermissionFlag = "canRead" | "canAdd" | "canEdit" | "canDelete";
 

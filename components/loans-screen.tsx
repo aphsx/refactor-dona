@@ -90,7 +90,7 @@ function SearchBar({
         }}
       >
         <label className="block min-w-[240px] flex-1 text-[14px] font-bold">
-          ชื่อหรือเบอร์
+          ชื่อหรือเลขบัตร
           <input
             value={draft}
             onChange={(event) => onDraft(event.target.value)}
@@ -190,7 +190,7 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
             <div className="grid gap-4 sm:grid-cols-2">
               <ReadField label="ชื่อ" value={farmer.firstName || "—"} />
               <ReadField label="นามสกุล" value={farmer.lastName || "—"} />
-              <ReadField label="เบอร์โทร" value={farmer.tel || "—"} />
+              <ReadField label="เลขบัตรประชาชน" value={farmer.nationalId || "—"} />
               <ReadField label="กลุ่ม" value={farmer.groupName || "—"} />
               <ReadField label="ที่อยู่" value={farmer.address || "—"} className="sm:col-span-2" />
               <ReadField label="ตำบล / อำเภอ / จังหวัด" value={placeLabel(farmer)} className="sm:col-span-2" />
@@ -519,7 +519,6 @@ export function LoanPendingScreen() {
               <thead className="bg-table">
                 <tr>
                   <th className="px-5 py-3 text-left font-bold">เกษตรกร</th>
-                  <th className="px-5 py-3 text-left font-bold">เบอร์</th>
                   <th className="px-5 py-3 text-left font-bold">เลขบัตร</th>
                   <th className="px-5 py-3 text-left font-bold">วงเงินที่ขอ</th>
                   <th className="px-5 py-3 text-left font-bold">วัตถุประสงค์</th>
@@ -532,7 +531,7 @@ export function LoanPendingScreen() {
               <tbody>
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-5 py-6 text-ink/60">
+                    <td colSpan={8} className="px-5 py-6 text-ink/60">
                       ยังไม่มีรายการ
                     </td>
                   </tr>
@@ -548,7 +547,6 @@ export function LoanPendingScreen() {
                       <td className="px-5 py-3">
                         <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
                       </td>
-                      <td className="px-5 py-3">{row.tel}</td>
                       <td className="px-5 py-3">{row.nationalId}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.requestedAmount)}</td>
                       <td className="px-5 py-3">{row.purpose || "—"}</td>
@@ -819,7 +817,6 @@ export function LoanAccountsScreen() {
                 <thead className="bg-table">
                   <tr>
                     <th className="px-5 py-3 text-left font-bold">ชื่อ</th>
-                    <th className="px-5 py-3 text-left font-bold">เบอร์</th>
                     <th className="px-5 py-3 text-left font-bold">เลขบัตรประชาชน</th>
                     <th className="px-5 py-3 text-left font-bold">วงเงิน</th>
                     <th className="px-5 py-3 text-left font-bold">ยอดคงเหลือ</th>
@@ -833,7 +830,7 @@ export function LoanAccountsScreen() {
                 <tbody>
                   {!loading && rows.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-5 py-6 text-ink/60">
+                      <td colSpan={9} className="px-5 py-6 text-ink/60">
                         ยังไม่มีรายการ
                       </td>
                     </tr>
@@ -847,7 +844,6 @@ export function LoanAccountsScreen() {
                       <td className="px-5 py-3">
                         <FarmerLink farmerId={row.farmerId} name={row.name} />
                       </td>
-                      <td className="px-5 py-3">{row.tel}</td>
                       <td className="px-5 py-3">{row.nationalId}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.creditLimit)}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.balance)}</td>
@@ -923,7 +919,6 @@ function AccountDetail({
             <FarmerLink farmerId={row.farmerId} name={row.name} />
           </div>
         </div>
-        <ReadField label="เบอร์" value={row.tel} />
         <ReadField label="เลขบัตรประชาชน" value={row.nationalId} />
         <ReadField label="สถานะ" value={statusName} />
       </DetailSection>
@@ -1083,7 +1078,6 @@ export function LoanHistoryScreen() {
                 <thead className="bg-table">
                   <tr>
                     <th className="px-5 py-3 text-left font-bold">เกษตรกร</th>
-                    <th className="px-5 py-3 text-left font-bold">เบอร์</th>
                     <th className="px-5 py-3 text-left font-bold">เลขบัตร</th>
                     <th className="px-5 py-3 text-left font-bold">วงเงิน</th>
                     <th className="px-5 py-3 text-left font-bold">วันที่อนุมัติ</th>
@@ -1094,7 +1088,7 @@ export function LoanHistoryScreen() {
                 <tbody>
                   {!loading && rows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-5 py-6 text-ink/60">
+                      <td colSpan={6} className="px-5 py-6 text-ink/60">
                         ยังไม่มีรายการ
                       </td>
                     </tr>
@@ -1108,7 +1102,6 @@ export function LoanHistoryScreen() {
                       <td className="px-5 py-3">
                         <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
                       </td>
-                      <td className="px-5 py-3">{row.tel}</td>
                       <td className="px-5 py-3">{row.nationalId}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.amount)}</td>
                       <td className="px-5 py-3">{formatDate(row.approvedOn)}</td>
@@ -1179,7 +1172,6 @@ function HistoryDetail({
             <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
           </div>
         </div>
-        <ReadField label="เบอร์" value={row.tel} />
         <ReadField label="เลขบัตร" value={row.nationalId} />
         <ReadField label="ผลลัพธ์" value={resultName} />
       </DetailSection>

@@ -16,8 +16,8 @@ import { daysUntil } from "@/lib/domain";
 
 /** Flip on when rolling out แผนรอบปลูก (/plan, /plan/members). */
 const SHOW_PLAN_NAV = false;
-/** Flip on when rolling out จัดการ (พันธุ์ข้าว). */
-const SHOW_MANAGE_NAV = false;
+/** Flip on when rolling out จัดการ (พันธุ์ข้าว / คำนำหน้า). */
+const SHOW_MANAGE_NAV = true;
 /** Flip on when rolling out จัดการสิทธิ์. */
 const SHOW_PERMISSIONS_NAV = true;
 /** Flip on when rolling out ประกาศ LINE OA. */
@@ -35,7 +35,9 @@ const KNOWN_APP_PATHS = new Set([
   "/groups/manage",
   "/farmers",
   "/farmers/manage",
-  ...(SHOW_MANAGE_NAV ? ["/manage", "/manage/varieties", "/varieties/manage"] : []),
+  ...(SHOW_MANAGE_NAV
+    ? ["/manage", "/manage/varieties", "/manage/name-prefixes", "/varieties/manage"]
+    : []),
   ...(SHOW_PERMISSIONS_NAV ? ["/permissions", "/permissions/people"] : []),
   ...(SHOW_ANNOUNCE_NAV ? ["/announce", "/announce/list"] : []),
   ...(SHOW_LOANS_NAV ? ["/loans/pending", "/loans", "/loans/history"] : []),
@@ -111,7 +113,10 @@ const NAV: NavItem[] = [
         {
           label: "จัดการ",
           icon: Settings2,
-          children: [{ href: "/manage/varieties", label: "พันธุ์ข้าว" }],
+          children: [
+            { href: "/manage/varieties", label: "พันธุ์ข้าว" },
+            { href: "/manage/name-prefixes", label: "คำนำหน้า" },
+          ],
         },
       ]
     : []),

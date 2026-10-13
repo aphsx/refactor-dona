@@ -4,6 +4,7 @@ import {
   isClosedRing,
   openRing,
   polygonAreaRai,
+  syncNamePrefixes,
   syncVarieties,
   ANNOUNCEMENT_STATUS,
   type Announcement,
@@ -15,6 +16,7 @@ import {
   type LoanApplication,
   type LoanApplicationDocument,
   type LoanHistory,
+  type NamePrefixItem,
   type OrgSnapshot,
   type Permission,
   type PermissionFlag,
@@ -143,9 +145,10 @@ function orgGrants(people: WirePerson[]): RoleGrant[] {
 }
 
 export async function loadOrgSnapshot(): Promise<OrgSnapshot> {
-  const [groups, varieties, permissions, people, farmerPage, plotPage] = await Promise.all([
+  const [groups, varieties, namePrefixes, permissions, people, farmerPage, plotPage] = await Promise.all([
       apiListAll<SupplierGroup>("/groups"),
       apiRequest<{ items: VarietyItem[] }>("/varieties").then((data) => data.items ?? []),
+      apiRequest<{ items: NamePrefixItem[] }>("/name-prefixes").then((data) => data.items ?? []),
       apiRequest<{ items: WirePermission[] }>("/permissions").then((data) => data.items ?? []),
       apiListAll<WirePerson>("/people"),
       api.listFarmersPage({ page: 1, pageSize: 20 }),
@@ -157,6 +160,7 @@ export async function loadOrgSnapshot(): Promise<OrgSnapshot> {
   const activities: WirePlotActivity[] = [];
 
   syncVarieties(varieties);
+  syncNamePrefixes(namePrefixes);
 
   return {
     groups,
@@ -167,6 +171,7 @@ export async function loadOrgSnapshot(): Promise<OrgSnapshot> {
     plantings: plantings.map(asPlanting),
     activities: activities.map(asPlotActivity),
     varieties,
+    namePrefixes,
     permissions: permissions.map(asPermission),
     roleGrants: orgGrants(people),
   };
@@ -186,6 +191,14 @@ export const api = {
     apiRequest<VarietyItem>(`/varieties/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
 
   deleteVariety: (id: number) => apiRequest<void>(`/varieties/${id}`, { method: "DELETE" }),
+
+  createNamePrefix: (name: string) =>
+    apiRequest<NamePrefixItem>("/name-prefixes", { method: "POST", body: JSON.stringify({ name }) }),
+
+  updateNamePrefix: (id: number, name: string) =>
+    apiRequest<NamePrefixItem>(`/name-prefixes/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+
+  deleteNamePrefix: (id: number) => apiRequest<void>(`/name-prefixes/${id}`, { method: "DELETE" }),
 
   createFarmer: (input: FarmerInput) => apiRequest<Farmer>("/farmers", { method: "POST", body: JSON.stringify(input) }),
 

@@ -18,6 +18,7 @@ const RESOURCES: { resource: PermissionResource; label: string }[] = [
   { resource: "plantings", label: "แผนปลูก" },
   { resource: "activities", label: "กิจกรรมแปลง" },
   { resource: "varieties", label: "พันธุ์ข้าว" },
+  { resource: "namePrefixes", label: "คำนำหน้า" },
   { resource: "announcements", label: "ประกาศ LINE" },
 ];
 

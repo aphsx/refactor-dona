@@ -12,7 +12,7 @@ import { DateField, Dialog, DirtyUndoButton, FarmerSelect, Glyph, PageHeader, Pa
 import { api, collectPages, measureRingAreaRai } from "@/lib/api";
 import { useServerPage } from "@/components/server-page";
 import type { FieldMapHandle } from "@/components/field-map";
-import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, roleTitle, varietyName, type Farmer, type Planting, type Plot, type PlotActivity, type SupplierGroup, type Variety } from "@/lib/domain";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultNamePrefixId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatNationalId, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, roleTitle, varietyName, type Farmer, type Planting, type Plot, type PlotActivity, type SupplierGroup, type Variety } from "@/lib/domain";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -318,7 +318,7 @@ export function MemberManageScreen() {
             }}
           >
             <label className="block text-[14px] font-bold leading-[1.4]">
-              ชื่อหรือเบอร์โทร
+              ชื่อหรือเลขบัตร
               <input value={draftName} onChange={(event) => setDraftName(event.target.value)} className={`${inputClass} mt-1`} />
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
@@ -382,7 +382,7 @@ export function MemberManageScreen() {
               <thead className="bg-table">
                 <tr>
                   <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="เลขบัตร" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="ตำแหน่ง" column="role" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -401,7 +401,7 @@ export function MemberManageScreen() {
                   return (
                     <tr key={farmer.id} onClick={(event) => openRow(event, () => openMember(farmer.id))} className={rowTone(index)}>
                       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
-                      <td className="px-5 py-3">{farmer.tel}</td>
+                      <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
                       <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "ไม่มีกลุ่ม"}</td>
                       <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
                       <td className="px-5 py-3 text-right">
@@ -562,7 +562,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
   const listingSort = useTableSort(group.id);
   const ordered = orderBy(members, listingSort.sort, (farmer, key) => {
     if (key === "name") return farmerName(farmer);
-    if (key === "tel") return farmer.tel;
+    if (key === "nationalId") return farmer.nationalId;
     return farmerVarieties(plots, plantings, farmer.id);
   });
   const page = usePagination(ordered, group.id);
@@ -650,7 +650,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
         <thead className="bg-table">
           <tr>
             <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="เบอร์โทร" column="tel" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="เลขบัตร" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
@@ -672,7 +672,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
                 className={rowTone(index)}
               >
                 <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
-                <td className="px-5 py-3">{farmer.tel}</td>
+                <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
                 <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
                 <td className="px-5 py-3 text-right">
                   {leadsGroup ? (
@@ -724,11 +724,14 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
 }
 
 function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void }) {
-  const { groups, updateFarmer } = useOrg();
+  const { groups, namePrefixes, updateFarmer } = useOrg();
   const [editing, setEditing] = useState(false);
+  const [prefixId, setPrefixId] = useState(farmer.prefixId ?? defaultNamePrefixId(namePrefixes));
   const [firstName, setFirstName] = useState(farmer.firstName);
   const [lastName, setLastName] = useState(farmer.lastName);
-  const [tel, setTel] = useState(farmer.tel);
+  const [nationalId, setNationalId] = useState(farmer.nationalId);
+  const [dateOfBirth, setDateOfBirth] = useState(farmer.dateOfBirth);
+  const [farmerNumber, setFarmerNumber] = useState(farmer.farmerNumber ?? "");
   const [address, setAddress] = useState(farmer.address);
   const [subdistrictId, setSubdistrictId] = useState(farmer.subdistrictId);
   const [districtId, setDistrictId] = useState(farmer.districtId);
@@ -742,20 +745,40 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
 
   useEffect(() => {
     setEditing(false);
+    setPrefixId(farmer.prefixId ?? defaultNamePrefixId(namePrefixes));
     setFirstName(farmer.firstName);
     setLastName(farmer.lastName);
-    setTel(farmer.tel);
+    setNationalId(farmer.nationalId);
+    setDateOfBirth(farmer.dateOfBirth);
+    setFarmerNumber(farmer.farmerNumber ?? "");
     setAddress(farmer.address);
     setSubdistrictId(farmer.subdistrictId);
     setDistrictId(farmer.districtId);
     setProvinceId(farmer.provinceId);
     setGroupId(farmer.groupId ?? "");
-  }, [farmer.id, farmer.firstName, farmer.lastName, farmer.tel, farmer.address, farmer.subdistrictId, farmer.districtId, farmer.provinceId, farmer.groupId]);
+  }, [
+    farmer.id,
+    farmer.prefixId,
+    farmer.firstName,
+    farmer.lastName,
+    farmer.nationalId,
+    farmer.dateOfBirth,
+    farmer.farmerNumber,
+    farmer.address,
+    farmer.subdistrictId,
+    farmer.districtId,
+    farmer.provinceId,
+    farmer.groupId,
+    namePrefixes,
+  ]);
 
   const dirty =
+    prefixId !== (farmer.prefixId ?? defaultNamePrefixId(namePrefixes)) ||
     firstName !== farmer.firstName ||
     lastName !== farmer.lastName ||
-    tel !== farmer.tel ||
+    nationalId !== farmer.nationalId ||
+    dateOfBirth !== farmer.dateOfBirth ||
+    farmerNumber !== (farmer.farmerNumber ?? "") ||
     address !== farmer.address ||
     subdistrictId !== farmer.subdistrictId ||
     districtId !== farmer.districtId ||
@@ -763,9 +786,12 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     (groupId || null) !== farmer.groupId;
 
   function undo() {
+    setPrefixId(farmer.prefixId ?? defaultNamePrefixId(namePrefixes));
     setFirstName(farmer.firstName);
     setLastName(farmer.lastName);
-    setTel(farmer.tel);
+    setNationalId(farmer.nationalId);
+    setDateOfBirth(farmer.dateOfBirth);
+    setFarmerNumber(farmer.farmerNumber ?? "");
     setAddress(farmer.address);
     setSubdistrictId(farmer.subdistrictId);
     setDistrictId(farmer.districtId);
@@ -801,7 +827,19 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
               accept: async () =>
                 setNotice(
                   await reported(
-                    updateFarmer(farmer.id, { firstName, lastName, tel, address, provinceId, districtId, subdistrictId, groupId: nextGroup }),
+                    updateFarmer(farmer.id, {
+                      prefixId,
+                      firstName,
+                      lastName,
+                      nationalId,
+                      dateOfBirth,
+                      farmerNumber: farmerNumber || undefined,
+                      address,
+                      provinceId,
+                      districtId,
+                      subdistrictId,
+                      groupId: nextGroup,
+                    }),
                     moving ? "ย้ายกลุ่มแล้ว" : "บันทึกเกษตรกรแล้ว",
                     () => setEditing(false),
                   ),
@@ -809,6 +847,21 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             });
           }}
         >
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            คำนำหน้า
+            <SearchSelect
+              label="คำนำหน้า"
+              className="mt-1"
+              value={String(prefixId)}
+              disabled={!editing}
+              onChange={(next) => setPrefixId(Number(next) || defaultNamePrefixId(namePrefixes))}
+              options={namePrefixes.map((item) => ({ value: String(item.id), label: item.name }))}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            เลขเกษตรกร
+            <input value={farmerNumber} disabled={!editing} onChange={(event) => setFarmerNumber(event.target.value)} className={fieldClass} placeholder="ไม่บังคับ" />
+          </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             ชื่อ
             <input value={firstName} disabled={!editing} onChange={(event) => setFirstName(event.target.value)} className={fieldClass} />
@@ -818,8 +871,25 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             <input value={lastName} disabled={!editing} onChange={(event) => setLastName(event.target.value)} className={fieldClass} />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
-            เบอร์โทร
-            <input value={tel} inputMode="tel" autoComplete="tel" placeholder="0812345678" disabled={!editing} onChange={(event) => setTel(event.target.value)} className={fieldClass} />
+            เลขบัตรประชาชน
+            <input
+              value={nationalId}
+              inputMode="numeric"
+              placeholder="13 หลัก"
+              disabled={!editing}
+              onChange={(event) => setNationalId(event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            วันเกิด
+            <input
+              type="date"
+              value={dateOfBirth}
+              disabled={!editing}
+              onChange={(event) => setDateOfBirth(event.target.value)}
+              className={fieldClass}
+            />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             ที่อยู่
@@ -1679,10 +1749,13 @@ function RequiredMark() {
 }
 
 export function AddFarmer({ onClose }: { onClose: () => void }) {
-  const { groups, createFarmer } = useOrg();
+  const { groups, namePrefixes, createFarmer } = useOrg();
+  const [prefixId, setPrefixId] = useState(() => defaultNamePrefixId(namePrefixes));
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [tel, setTel] = useState("");
+  const [nationalId, setNationalId] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [farmerNumber, setFarmerNumber] = useState("");
   const [address, setAddress] = useState("");
   const [provinceId, setProvinceId] = useState(0);
   const [districtId, setDistrictId] = useState(0);
@@ -1698,9 +1771,12 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
           event.preventDefault();
           void (async () => {
             const message = await createFarmer({
+              prefixId,
               firstName,
               lastName,
-              tel,
+              nationalId,
+              dateOfBirth,
+              farmerNumber: farmerNumber || undefined,
               address,
               provinceId,
               districtId,
@@ -1716,6 +1792,21 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
         }}
       >
         <label className="block text-[14px] font-bold leading-[1.4]">
+          คำนำหน้า
+          <RequiredMark />
+          <SearchSelect
+            label="คำนำหน้า"
+            className="mt-1"
+            value={String(prefixId)}
+            onChange={(next) => setPrefixId(Number(next) || defaultNamePrefixId(namePrefixes))}
+            options={namePrefixes.map((item) => ({ value: String(item.id), label: item.name }))}
+          />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          เลขเกษตรกร
+          <input value={farmerNumber} onChange={(event) => setFarmerNumber(event.target.value)} className={`${inputClass} mt-1`} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
           ชื่อ
           <RequiredMark />
           <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className={`${inputClass} mt-1`} />
@@ -1726,9 +1817,25 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
           <input value={lastName} onChange={(event) => setLastName(event.target.value)} className={`${inputClass} mt-1`} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
-          เบอร์โทร
+          เลขบัตรประชาชน
           <RequiredMark />
-          <input value={tel} inputMode="tel" autoComplete="tel" placeholder="0812345678" onChange={(event) => setTel(event.target.value)} className={`${inputClass} mt-1`} />
+          <input
+            value={nationalId}
+            inputMode="numeric"
+            placeholder="13 หลัก"
+            onChange={(event) => setNationalId(event.target.value)}
+            className={`${inputClass} mt-1`}
+          />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          วันเกิด
+          <RequiredMark />
+          <input
+            type="date"
+            value={dateOfBirth}
+            onChange={(event) => setDateOfBirth(event.target.value)}
+            className={`${inputClass} mt-1`}
+          />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           ที่อยู่

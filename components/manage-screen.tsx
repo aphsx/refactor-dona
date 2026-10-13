@@ -24,7 +24,7 @@ import {
   usePagination,
   useTableSort,
 } from "@/components/ui";
-import type { VarietyItem } from "@/lib/domain";
+import type { NamePrefixItem, VarietyItem } from "@/lib/domain";
 
 type Notice =
   | { tone: "confirm"; message: string; accept: () => void | Promise<void> }
@@ -282,6 +282,255 @@ function CreateVariety({
         >
           <label className="block text-[14px] font-bold leading-[1.4]">
             ชื่อพันธุ์
+            <input value={name} onChange={(event) => setName(event.target.value)} className={`${inputClass} mt-1`} />
+          </label>
+          <div className="flex justify-end gap-3">
+            <SecondaryButton onClick={onClose}>
+              <Glyph icon={X} />
+              ยกเลิก
+            </SecondaryButton>
+            <PrimaryButton type="submit">
+              <Glyph icon={Save} />
+              บันทึก
+            </PrimaryButton>
+          </div>
+        </form>
+      </Dialog>
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+    </>
+  );
+}
+
+/** Master-data: name prefixes — inline edit/delete, no detail page. */
+export function NamePrefixesManageScreen() {
+  const { namePrefixes, createNamePrefix, updateNamePrefix, removeNamePrefix } = useOrg();
+  const [draftName, setDraftName] = useState("");
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
+
+  const rows = useMemo(() => namePrefixes.filter((item) => matchesQuery(name, item.name)), [namePrefixes, name]);
+  const listingSort = useTableSort(name);
+  const ordered = orderBy(rows, listingSort.sort, (item, key) => {
+    if (key === "id") return item.id;
+    return item.name;
+  });
+  const page = usePagination(ordered, name);
+
+  function startEdit(item: NamePrefixItem) {
+    setEditingId(item.id);
+    setEditName(item.name);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditName("");
+  }
+
+  return (
+    <div className="h-full overflow-y-auto px-7 py-6">
+      <PageHeader current="คำนำหน้า" />
+      <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
+        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหาคำนำหน้า</div>
+        <form
+          className="grid gap-4 px-6 py-5 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setName(draftName);
+          }}
+        >
+          <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+            ชื่อคำนำหน้า
+            <SuggestInput
+              label="ชื่อคำนำหน้า"
+              className="mt-1"
+              value={draftName}
+              onChange={setDraftName}
+              suggestions={[...namePrefixes].sort((a, b) => a.name.localeCompare(b.name, "th")).map((item) => item.name)}
+            />
+          </label>
+          <div className="flex flex-wrap gap-3 sm:col-span-2">
+            <PrimaryButton type="submit">
+              <Glyph icon={Search} />
+              ค้นหา
+            </PrimaryButton>
+            <PrimaryButton
+              type="button"
+              onClick={() => {
+                setDraftName("");
+                setName("");
+              }}
+            >
+              <Glyph icon={RotateCcw} />
+              ล้าง
+            </PrimaryButton>
+            <CanAdd resource="namePrefixes">
+              <SecondaryButton onClick={() => setCreating(true)}>
+                <Glyph icon={Plus} />
+                เพิ่มคำนำหน้า
+              </SecondaryButton>
+            </CanAdd>
+          </div>
+        </form>
+      </div>
+
+      <div className="overflow-hidden rounded-[8px] border border-frame">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+          รายการคำนำหน้า
+          <span className="text-[14px] font-normal">{namePrefixes.length} รายการ</span>
+        </div>
+        <TableScroll>
+          <table className={tableClass}>
+            <thead className="bg-table">
+              <tr>
+                <SortableTh label="รหัส" column="id" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <SortableTh label="ชื่อคำนำหน้า" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <th className="w-0 whitespace-nowrap px-5 py-3 font-bold">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {page.rows.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-5 py-6 text-ink/60">
+                    ไม่พบคำนำหน้า
+                  </td>
+                </tr>
+              )}
+              {page.rows.map((item, index) => {
+                const editing = editingId === item.id;
+                return (
+                  <tr key={item.id} className={index % 2 === 1 ? "bg-table" : "bg-white"}>
+                    <td className="px-5 py-3">{item.id}</td>
+                    <td className="px-5 py-3">
+                      {editing ? (
+                        <input
+                          value={editName}
+                          onChange={(event) => setEditName(event.target.value)}
+                          className={inputClass}
+                          autoFocus
+                        />
+                      ) : (
+                        <span className="font-bold">{item.name}</span>
+                      )}
+                    </td>
+                    <td className="w-0 whitespace-nowrap px-5 py-3">
+                      <div className="flex gap-2">
+                        <CanEdit resource="namePrefixes">
+                          {editing ? (
+                            <>
+                              <DirtyUndoButton
+                                compact
+                                dirty={editName !== item.name}
+                                onClick={() => {
+                                  if (editName !== item.name) setEditName(item.name);
+                                  else cancelEdit();
+                                }}
+                              />
+                              <PrimaryButton
+                                type="button"
+                                compact
+                                onClick={() => {
+                                  if (!editName.trim()) {
+                                    setNotice({ tone: "error", message: "กรอกชื่อคำนำหน้า" });
+                                    return;
+                                  }
+                                  setNotice({
+                                    tone: "confirm",
+                                    message: "ยืนยันบันทึกคำนำหน้า",
+                                    accept: async () =>
+                                      setNotice(
+                                        await reported(updateNamePrefix(item.id, editName), "บันทึกคำนำหน้าแล้ว", cancelEdit),
+                                      ),
+                                  });
+                                }}
+                              >
+                                <Glyph icon={Save} />
+                                บันทึก
+                              </PrimaryButton>
+                            </>
+                          ) : (
+                            <SecondaryButton type="button" className="h-9" onClick={() => startEdit(item)}>
+                              <Glyph icon={Pencil} />
+                              แก้ไข
+                            </SecondaryButton>
+                          )}
+                        </CanEdit>
+                        <CanDelete resource="namePrefixes">
+                          <SecondaryButton
+                            type="button"
+                            className="h-9"
+                            onClick={() =>
+                              setNotice({
+                                tone: "confirm",
+                                message: `ยืนยันลบคำนำหน้า ${item.name}`,
+                                accept: async () =>
+                                  setNotice(
+                                    await reported(removeNamePrefix(item.id), "ลบคำนำหน้าแล้ว", () => {
+                                      if (editingId === item.id) cancelEdit();
+                                    }),
+                                  ),
+                              })
+                            }
+                          >
+                            <Glyph icon={Trash2} />
+                            ลบ
+                          </SecondaryButton>
+                        </CanDelete>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </TableScroll>
+        <Pagination
+          page={page.page}
+          pageCount={page.pageCount}
+          pageSize={page.pageSize}
+          total={page.total}
+          onPageChange={page.setPage}
+          onPageSizeChange={page.setPageSize}
+        />
+      </div>
+
+      {creating && <CreateNamePrefix onClose={() => setCreating(false)} onCreate={createNamePrefix} />}
+      <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
+    </div>
+  );
+}
+
+function CreateNamePrefix({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (name: string) => Promise<string | null>;
+}) {
+  const [name, setName] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
+  return (
+    <>
+      <Dialog title="เพิ่มคำนำหน้า" onClose={onClose}>
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!name.trim()) {
+              setNotice({ tone: "error", message: "กรอกชื่อคำนำหน้า" });
+              return;
+            }
+            setNotice({
+              tone: "confirm",
+              message: "ยืนยันเพิ่มคำนำหน้า",
+              accept: async () => setNotice(await reported(onCreate(name), "เพิ่มคำนำหน้าแล้ว", onClose)),
+            });
+          }}
+        >
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            ชื่อคำนำหน้า
             <input value={name} onChange={(event) => setName(event.target.value)} className={`${inputClass} mt-1`} />
           </label>
           <div className="flex justify-end gap-3">

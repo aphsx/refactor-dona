@@ -139,9 +139,11 @@ export function MapScreen() {
     return source.map((item) => {
       const farmer: Farmer = {
         id: item.farmerId,
+        prefixId: null,
         firstName: item.ownerName ?? "",
         lastName: "",
-        tel: item.ownerTel ?? "",
+        nationalId: item.ownerTel ?? "",
+        dateOfBirth: "",
         address: "",
         provinceId: 0,
         districtId: 0,
@@ -179,7 +181,7 @@ export function MapScreen() {
 
   const scoped = useMemo(() => {
     // Group is already applied by GET /plots/boundaries?groupId=…
-    return rows.filter((row) => matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.tel}`));
+    return rows.filter((row) => matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.nationalId}`));
   }, [rows, query]);
 
   useEffect(() => {
@@ -268,7 +270,7 @@ export function MapScreen() {
         farmerId: selected.plot.farmerId,
         name: selected.plot.name,
         ownerName: prev?.ownerName ?? selected.farmer.firstName,
-        ownerTel: prev?.ownerTel ?? selected.farmer.tel,
+        ownerTel: prev?.ownerTel ?? selected.farmer.nationalId,
         groupId: prev?.groupId ?? selected.farmer.groupId,
         groupName: prev?.groupName ?? selected.farmer.groupName,
         polygon: draft,
@@ -373,7 +375,7 @@ export function MapScreen() {
                 // ให้คลิกรายการด้านล่างทันก่อนปิด
                 window.setTimeout(() => setSuggestOpen(false), 120);
               }}
-              placeholder="ค้นชื่อแปลง เกษตรกร หรือเบอร์"
+              placeholder="ค้นชื่อแปลง เกษตรกร หรือเลขบัตร"
               aria-label="ค้นแปลง"
               className="h-10 w-full rounded-[4px] border border-line bg-white pl-9 pr-3 text-[14px] placeholder:text-ink/20"
             />
@@ -390,7 +392,7 @@ export function MapScreen() {
                       <span className="text-[14px] font-bold">{row.plot.name}</span>
                       <span className="text-[12px] text-ink/60">
                         {farmerName(row.farmer)}
-                        {row.farmer.tel ? ` · ${row.farmer.tel}` : ""}
+                        {row.farmer.nationalId ? ` · ${row.farmer.nationalId}` : ""}
                       </span>
                     </button>
                   </li>

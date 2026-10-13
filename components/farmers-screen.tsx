@@ -10,7 +10,7 @@ import { useOrg } from "@/components/store";
 import { useServerPage } from "@/components/server-page";
 import { Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, TableScroll, openRow, rowTone, tableClass } from "@/components/ui";
 import { api } from "@/lib/api";
-import { farmerName, personRole, roleTitle } from "@/lib/domain";
+import { farmerName, formatNationalId, personRole, roleTitle } from "@/lib/domain";
 
 export function FarmersScreen() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export function FarmersScreen() {
           }}
         >
           <label className="block min-w-[240px] flex-1 text-[14px] font-bold">
-            ชื่อหรือเบอร์
+            ชื่อหรือเลขบัตร
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -70,7 +70,7 @@ export function FarmersScreen() {
             <thead className="bg-table">
               <tr>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">เกษตรกร</th>
-                <th className="px-5 py-3 text-left text-[14px] font-bold">เบอร์โทร</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">เลขบัตร</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">กลุ่ม</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">ตำแหน่ง</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">แปลง</th>
@@ -92,7 +92,7 @@ export function FarmersScreen() {
                   className={rowTone(index)}
                 >
                   <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
-                  <td className="px-5 py-3">{farmer.tel}</td>
+                  <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
                   <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "—"}</td>
                   <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
                   <td className="px-5 py-3">{farmer.plotCount ?? 0}</td>
