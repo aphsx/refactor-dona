@@ -27,8 +27,16 @@ export function listLoanAccountsPage(query: { q?: string; page?: number; pageSiz
   return apiRequest<LoanPage<LoanAccount>>(`/loans/accounts?${loanListParams(query)}`);
 }
 
+export function getLoanAccount(id: string) {
+  return apiRequest<LoanAccount>(`/loans/accounts/${encodeURIComponent(id)}`);
+}
+
 export function listLoanApplicationsPage(query: { q?: string; page?: number; pageSize?: number } = {}) {
   return apiRequest<LoanPage<LoanApplication>>(`/loans/applications?${loanListParams(query)}`);
+}
+
+export function getLoanApplication(id: string) {
+  return apiRequest<LoanApplication>(`/loans/applications/${encodeURIComponent(id)}`);
 }
 
 export function listLoanHistoryPage(query: { q?: string; page?: number; pageSize?: number } = {}) {
