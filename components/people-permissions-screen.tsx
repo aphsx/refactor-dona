@@ -40,6 +40,7 @@ export function PeoplePermissionsScreen() {
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
       <PageHeader current="รายคน" />
+      <p className="mb-4 text-[13px] text-ink/60">เฉพาะผู้ดูแลระบบ (admin) เท่านั้นที่มอบ/ถอดบทบาทได้</p>
       <div className="mb-6 overflow-hidden rounded-[8px] border border-frame">
         <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหา</div>
         <form
