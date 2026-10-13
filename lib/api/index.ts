@@ -5,8 +5,16 @@ import {
   openRing,
   polygonAreaRai,
   syncVarieties,
+  ANNOUNCEMENT_STATUS,
+  type Announcement,
+  type AnnouncementLookup,
+  type CreateAnnouncementInput,
   type Farmer,
   type FarmerInput,
+  type LoanAccount,
+  type LoanApplication,
+  type LoanApplicationDocument,
+  type LoanHistory,
   type OrgSnapshot,
   type Permission,
   type PermissionFlag,
@@ -22,6 +30,19 @@ import {
   type SupplierGroup,
   type Variety,
   type VarietyItem,
+} from "@/lib/domain";
+
+export {
+  ANNOUNCEMENT_STATUS,
+  type Announcement,
+  type AnnouncementImageLayout,
+  type AnnouncementLookup,
+  type CreateAnnouncementInput,
+  type LoanAccount,
+  type LoanApplication,
+  type LoanApplicationDocument,
+  type LoanHistory,
+  type LoanLookup,
 } from "@/lib/domain";
 
 export {
@@ -344,104 +365,24 @@ export async function collectPages<T>(
   return items;
 }
 
-export type AnnouncementLookup = {
-  id: number;
-  code: string;
-  name: string;
-};
 
-/** รูปประกาศ Flex bubble: standard = mega, full = giga (full chat width). */
-export type AnnouncementImageLayout = "standard" | "full";
 
-export type Announcement = {
-  id: string;
-  title: string;
-  message: string;
-  linkUrl: string;
-  imageUrl: string;
-  imageName: string;
-  buttonLabel: string;
-  imageLayout: AnnouncementImageLayout;
-  statusId: number;
-  status: AnnouncementLookup;
-  scheduledAt: string | null;
-  sentAt: string | null;
-  createdByAccountId: string;
-  createdByName: string;
-  errorMessage: string;
-  createdAt: string;
-  updatedAt: string;
-};
+export {
+  listAnnouncementStatuses,
+  listAnnouncementsPage,
+  createAnnouncement,
+  cancelAnnouncement,
+  sendAnnouncementDraft,
+  uploadAnnouncementImage,
+} from "@/lib/api/announcements";
 
-export type CreateAnnouncementInput = {
-  title?: string;
-  message?: string;
-  linkUrl?: string;
-  imageUrl?: string;
-  imageName?: string;
-  buttonLabel?: string;
-  imageLayout?: AnnouncementImageLayout;
-  mode: "draft" | "now" | "schedule";
-  scheduledAt?: string;
-};
-
-export const ANNOUNCEMENT_STATUS = {
-  draft: 501,
-  scheduled: 502,
-  sending: 503,
-  sent: 504,
-  cancelled: 505,
-  failed: 506,
-} as const;
-
-export async function listAnnouncementStatuses() {
-  const data = await apiRequest<{ items: AnnouncementLookup[] }>("/announcement-statuses");
-  return data.items ?? [];
-}
-
-export async function listAnnouncementsPage(page = 1, pageSize = 20, statusId?: number) {
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-  if (statusId) params.set("statusId", String(statusId));
-  return apiRequest<{
-    items: Announcement[];
-    page: number;
-    pageSize: number;
-    total: number;
-    hasMore: boolean;
-  }>(`/announcements?${params}`);
-}
-
-export async function createAnnouncement(input: CreateAnnouncementInput) {
-  return apiRequest<Announcement>("/announcements", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
-export async function cancelAnnouncement(id: string) {
-  return apiRequest<Announcement>(`/announcements/${id}/cancel`, { method: "POST" });
-}
-
-export async function sendAnnouncementDraft(id: string) {
-  return apiRequest<Announcement>(`/announcements/${id}/send`, { method: "POST" });
-}
-
-export async function uploadAnnouncementImage(file: File) {
-  const token = getApiToken();
-  if (!token) throw new ApiError("ต้องเข้าสู่ระบบก่อน", 401);
-  const form = new FormData();
-  form.append("file", file);
-  const response = await fetch("/api/announcement-image", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: form,
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(typeof body?.error === "string" ? body.error : "อัปโหลดรูปไม่สำเร็จ", response.status);
-  }
-  return body as { imageUrl: string; imageName: string };
-}
+export {
+  listLoanAccountsPage,
+  listLoanApplicationsPage,
+  listLoanHistoryPage,
+  getLoanHistory,
+  setLoanApplicationDocumentAttached,
+} from "@/lib/api/loans";
 
 /** PostGIS geography (WGS84 spheroid). Falls back to local estimate if API fails. */
 export async function measureRingAreaRai(points: [number, number][]) {
