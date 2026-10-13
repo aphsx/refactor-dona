@@ -142,6 +142,7 @@ export function MapScreen() {
         prefixId: null,
         firstName: item.ownerName ?? "",
         lastName: "",
+        fullName: item.ownerName ?? "",
         nationalId: item.ownerTel ?? "",
         dateOfBirth: "",
         address: "",
@@ -375,7 +376,7 @@ export function MapScreen() {
                 // ให้คลิกรายการด้านล่างทันก่อนปิด
                 window.setTimeout(() => setSuggestOpen(false), 120);
               }}
-              placeholder="ค้นชื่อแปลง เกษตรกร หรือเลขบัตร"
+              placeholder="ค้นชื่อแปลง เกษตรกร หรือเลขบัตรประชาชน"
               aria-label="ค้นแปลง"
               className="h-10 w-full rounded-[4px] border border-line bg-white pl-9 pr-3 text-[14px] placeholder:text-ink/20"
             />

@@ -50,7 +50,7 @@ export function PeoplePermissionsScreen() {
           }}
         >
           <label className="block min-w-[240px] flex-1 text-[14px] font-bold leading-[1.4]">
-            ชื่อหรือเลขบัตร
+            ชื่อหรือเลขบัตรประชาชน
             <input value={draftName} onChange={(event) => setDraftName(event.target.value)} className={`${inputClass} mt-1`} />
           </label>
           <PrimaryButton type="submit">
@@ -76,7 +76,7 @@ export function PeoplePermissionsScreen() {
             <thead className="bg-table">
               <tr>
                 <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                <SortableTh label="เลขบัตร" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                <SortableTh label="เลขบัตรประชาชน" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 <SortableTh label="ยศ" column="role" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 <SortableTh label="จัดการได้" column="scope" sort={listingSort.sort} onSort={listingSort.toggleSort} />

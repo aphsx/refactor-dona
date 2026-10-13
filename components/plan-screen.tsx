@@ -402,7 +402,7 @@ export function MemberSeasonScreen() {
               <thead className="bg-table">
                 <tr>
                   <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="เลขบัตร" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="เลขบัตรประชาชน" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="แผนเปิด" column="plans" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="แปลง" column="plots" sort={listingSort.sort} onSort={listingSort.toggleSort} />
@@ -552,6 +552,7 @@ function farmersFromPlantings(items: Planting[]): Farmer[] {
       prefixId: null,
       firstName: firstName ?? "",
       lastName: rest.join(" "),
+      fullName: item.farmerName ?? "",
       nationalId: item.farmerTel ?? "",
       dateOfBirth: "",
       address: "",

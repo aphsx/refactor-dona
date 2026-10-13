@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pencil, Plus, RotateCcw, Save, Search, Trash2, UserMinus, UserPlus, X } from "lucide-react";
+import { Pencil, Plus, RotateCcw, Save, Search, Trash2, UserPlus, X } from "lucide-react";
 import { PlantingActivityPanel } from "@/components/activities-screen";
 import { CanAdd, CanDelete, CanEdit } from "@/components/can";
 import { PlanEditor } from "@/components/plan-editor";
@@ -12,7 +12,7 @@ import { DateField, Dialog, DirtyUndoButton, FarmerSelect, Glyph, PageHeader, Pa
 import { api, collectPages, measureRingAreaRai } from "@/lib/api";
 import { useServerPage } from "@/components/server-page";
 import type { FieldMapHandle } from "@/components/field-map";
-import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultNamePrefixId, defaultVarietyId, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatNationalId, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, personRole, plantingAreaSummary, plantingsOf, roleTitle, varietyName, type Farmer, type Planting, type Plot, type PlotActivity, type SupplierGroup, type Variety } from "@/lib/domain";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultNamePrefixId, defaultVarietyId, farmerFullName, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatNationalId, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingAreaSummary, plantingsOf, validateFarmerInput, varietyName, type Farmer, type Planting, type Plot, type PlotActivity, type SupplierGroup, type Variety } from "@/lib/domain";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -219,7 +219,7 @@ export function GroupManageScreen() {
 }
 
 export function MemberManageScreen() {
-  const { groups, roleGrants, assignFarmer, revision, farmerPage } = useOrg();
+  const { groups, assignFarmer, revision, farmerPage } = useOrg();
   const router = useRouter();
   const requestedId = useSearchParams().get("farmer");
   const requested = requestedId;
@@ -318,7 +318,7 @@ export function MemberManageScreen() {
             }}
           >
             <label className="block text-[14px] font-bold leading-[1.4]">
-              ชื่อหรือเลขบัตร
+              ชื่อหรือเลขบัตรประชาชน
               <input value={draftName} onChange={(event) => setDraftName(event.target.value)} className={`${inputClass} mt-1`} />
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
@@ -381,51 +381,28 @@ export function MemberManageScreen() {
             <table className={tableClass}>
               <thead className="bg-table">
                 <tr>
-                  <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="เลขบัตร" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="ชื่อ-นามสกุล" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="เลขบัตรประชาชน" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+                  <SortableTh label="เลขเกษตรกร" column="farmerNumber" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                   <SortableTh label="กลุ่ม" column="group" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="ตำแหน่ง" column="role" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-                  <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
                 </tr>
               </thead>
               <tbody>
                 {page.rows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-6 text-ink/60">
+                    <td colSpan={4} className="px-5 py-6 text-ink/60">
                       ไม่พบเกษตรกร
                     </td>
                   </tr>
                 )}
-                {page.rows.map((farmer, index) => {
-                  const leads = groups.some((group) => group.leaderId === farmer.id);
-                  return (
+                {page.rows.map((farmer, index) => (
                     <tr key={farmer.id} onClick={(event) => openRow(event, () => openMember(farmer.id))} className={rowTone(index)}>
-                      <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
+                      <td className="px-5 py-3 font-bold">{farmerFullName(farmer)}</td>
                       <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
+                      <td className="px-5 py-3">{farmer.farmerNumber || "—"}</td>
                       <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "ไม่มีกลุ่ม"}</td>
-                      <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
-                      <td className="px-5 py-3 text-right">
-                        {!leads && (
-                          <CanEdit resource="farmers">
-                            <SecondaryButton
-                              className="h-9"
-                              onClick={() =>
-                                setNotice({
-                                  tone: "confirm",
-                                  message: `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`,
-                                  accept: async () => setNotice(await reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
-                                })
-                              }
-                            >
-                              <Glyph icon={UserMinus} />
-                              ออกจากกลุ่ม
-                            </SecondaryButton>
-                          </CanEdit>
-                        )}
-                      </td>
                     </tr>
-                  );
-                })}
+                  ))}
               </tbody>
             </table>
             </TableScroll>
@@ -561,8 +538,9 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
   }, [group.id, revision]);
   const listingSort = useTableSort(group.id);
   const ordered = orderBy(members, listingSort.sort, (farmer, key) => {
-    if (key === "name") return farmerName(farmer);
+    if (key === "name") return farmerFullName(farmer);
     if (key === "nationalId") return farmer.nationalId;
+    if (key === "farmerNumber") return farmer.farmerNumber ?? "";
     return farmerVarieties(plots, plantings, farmer.id);
   });
   const page = usePagination(ordered, group.id);
@@ -649,10 +627,10 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
 <table className={tableClass}>
         <thead className="bg-table">
           <tr>
-            <SortableTh label="เกษตรกร" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="เลขบัตร" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="ชื่อ-นามสกุล" column="name" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="เลขบัตรประชาชน" column="nationalId" sort={listingSort.sort} onSort={listingSort.toggleSort} />
+            <SortableTh label="เลขเกษตรกร" column="farmerNumber" sort={listingSort.sort} onSort={listingSort.toggleSort} />
             <SortableTh label="พันธุ์" column="variety" sort={listingSort.sort} onSort={listingSort.toggleSort} />
-            <SortableTh label="" sort={listingSort.sort} onSort={listingSort.toggleSort} />
           </tr>
         </thead>
         <tbody>
@@ -663,41 +641,23 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
               </td>
             </tr>
           )}
-          {page.rows.map((farmer, index) => {
-            const leadsGroup = group.leaderId === farmer.id;
-            return (
+          {page.rows.map((farmer, index) => (
               <tr
                 key={farmer.id}
                 onClick={(event) => openRow(event, () => router.push(`/farmers?farmer=${farmer.id}`))}
                 className={rowTone(index)}
               >
-                <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
-                <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
-                <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
-                <td className="px-5 py-3 text-right">
-                  {leadsGroup ? (
-                    <span className="text-[12px] font-bold text-ink/50">หัวหน้ากลุ่ม</span>
-                  ) : (
-                    <CanEdit resource="farmers">
-                      <SecondaryButton
-                        className="h-9"
-                        onClick={() =>
-                          setNotice({
-                            tone: "confirm",
-                            message: `ยืนยันให้ ${farmerName(farmer)} ออกจากกลุ่ม`,
-                            accept: async () => setNotice(await reported(assignFarmer(farmer.id, null), "ออกจากกลุ่มแล้ว")),
-                          })
-                        }
-                      >
-                        <Glyph icon={UserMinus} />
-                        ออกจากกลุ่ม
-                      </SecondaryButton>
-                    </CanEdit>
-                  )}
+                <td className="px-5 py-3 font-bold">
+                  {farmerFullName(farmer)}
+                  {group.leaderId === farmer.id ? (
+                    <span className="ml-2 text-[12px] font-bold text-ink/50">หัวหน้ากลุ่ม</span>
+                  ) : null}
                 </td>
+                <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
+                <td className="px-5 py-3">{farmer.farmerNumber || "—"}</td>
+                <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
               </tr>
-            );
-          })}
+            ))}
         </tbody>
       </table>
 </TableScroll>
@@ -814,6 +774,24 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
           event.preventDefault();
           if (!editing) return;
             const nextGroup = groupId || null;
+            const input = {
+              prefixId,
+              firstName,
+              lastName,
+              nationalId,
+              dateOfBirth,
+              farmerNumber: farmerNumber || undefined,
+              address,
+              provinceId,
+              districtId,
+              subdistrictId,
+              groupId: nextGroup,
+            };
+            const invalid = validateFarmerInput(input);
+            if (invalid) {
+              setNotice({ tone: "error", message: invalid });
+              return;
+            }
             const moving = nextGroup !== farmer.groupId;
             const target = groups.find((item) => item.id === nextGroup);
             const message = moving
@@ -827,19 +805,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
               accept: async () =>
                 setNotice(
                   await reported(
-                    updateFarmer(farmer.id, {
-                      prefixId,
-                      firstName,
-                      lastName,
-                      nationalId,
-                      dateOfBirth,
-                      farmerNumber: farmerNumber || undefined,
-                      address,
-                      provinceId,
-                      districtId,
-                      subdistrictId,
-                      groupId: nextGroup,
-                    }),
+                    updateFarmer(farmer.id, input),
                     moving ? "ย้ายกลุ่มแล้ว" : "บันทึกเกษตรกรแล้ว",
                     () => setEditing(false),
                   ),
@@ -849,6 +815,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
         >
           <label className="block text-[14px] font-bold leading-[1.4]">
             คำนำหน้า
+            <RequiredMark />
             <SearchSelect
               label="คำนำหน้า"
               className="mt-1"
@@ -860,18 +827,29 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             เลขเกษตรกร
-            <input value={farmerNumber} disabled={!editing} onChange={(event) => setFarmerNumber(event.target.value)} className={fieldClass} placeholder="ไม่บังคับ" />
+            <input value={farmerNumber} disabled={!editing} onChange={(event) => setFarmerNumber(event.target.value)} className={fieldClass} />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             ชื่อ
+            <RequiredMark />
             <input value={firstName} disabled={!editing} onChange={(event) => setFirstName(event.target.value)} className={fieldClass} />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             นามสกุล
+            <RequiredMark />
             <input value={lastName} disabled={!editing} onChange={(event) => setLastName(event.target.value)} className={fieldClass} />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+            ชื่อ-นามสกุล
+            <input
+              value={editing ? farmerFullName({ firstName, lastName }) : farmerFullName(farmer)}
+              disabled
+              className={fieldClass}
+            />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
             เลขบัตรประชาชน
+            <RequiredMark />
             <input
               value={nationalId}
               inputMode="numeric"
@@ -882,7 +860,8 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
-            วันเกิด
+            วันเดือนปีเกิด
+            <RequiredMark />
             <input
               type="date"
               value={dateOfBirth}
@@ -901,6 +880,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             districtId={districtId}
             subdistrictId={subdistrictId}
             disabled={!editing}
+            required
             onChange={(place) => {
               setProvinceId(place.provinceId);
               setDistrictId(place.districtId);
@@ -1770,7 +1750,7 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
         onSubmit={(event) => {
           event.preventDefault();
           void (async () => {
-            const message = await createFarmer({
+            const input = {
               prefixId,
               firstName,
               lastName,
@@ -1782,7 +1762,13 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
               districtId,
               subdistrictId,
               groupId: groupId || null,
-            });
+            };
+            const invalid = validateFarmerInput(input);
+            if (invalid) {
+              setError(invalid);
+              return;
+            }
+            const message = await createFarmer(input);
             if (message) {
               setError(message);
               return;
@@ -1816,6 +1802,10 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
           <RequiredMark />
           <input value={lastName} onChange={(event) => setLastName(event.target.value)} className={`${inputClass} mt-1`} />
         </label>
+        <label className="block text-[14px] font-bold leading-[1.4] sm:col-span-2">
+          ชื่อ-นามสกุล
+          <input value={farmerFullName({ firstName, lastName })} disabled className={`${inputClass} mt-1 disabled:bg-[#E7E7E7]`} />
+        </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           เลขบัตรประชาชน
           <RequiredMark />
@@ -1828,7 +1818,7 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
           />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
-          วันเกิด
+          วันเดือนปีเกิด
           <RequiredMark />
           <input
             type="date"
@@ -1846,6 +1836,7 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
           provinceId={provinceId}
           districtId={districtId}
           subdistrictId={subdistrictId}
+          required
           onChange={(place) => {
             setProvinceId(place.provinceId);
             setDistrictId(place.districtId);

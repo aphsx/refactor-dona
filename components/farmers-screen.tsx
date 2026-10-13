@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Plus, RotateCcw, Search } from "lucide-react";
@@ -10,11 +9,11 @@ import { useOrg } from "@/components/store";
 import { useServerPage } from "@/components/server-page";
 import { Glyph, PageHeader, Pagination, PrimaryButton, SecondaryButton, TableScroll, openRow, rowTone, tableClass } from "@/components/ui";
 import { api } from "@/lib/api";
-import { farmerName, formatNationalId, personRole, roleTitle } from "@/lib/domain";
+import { farmerFullName, formatNationalId } from "@/lib/domain";
 
 export function FarmersScreen() {
   const router = useRouter();
-  const { groups, roleGrants, revision, farmerPage } = useOrg();
+  const { groups, revision, farmerPage } = useOrg();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
@@ -37,7 +36,7 @@ export function FarmersScreen() {
           }}
         >
           <label className="block min-w-[240px] flex-1 text-[14px] font-bold">
-            ชื่อหรือเลขบัตร
+            ชื่อหรือเลขบัตรประชาชน
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -69,18 +68,16 @@ export function FarmersScreen() {
           <table className={tableClass}>
             <thead className="bg-table">
               <tr>
-                <th className="px-5 py-3 text-left text-[14px] font-bold">เกษตรกร</th>
-                <th className="px-5 py-3 text-left text-[14px] font-bold">เลขบัตร</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">ชื่อ-นามสกุล</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">เลขบัตรประชาชน</th>
+                <th className="px-5 py-3 text-left text-[14px] font-bold">เลขเกษตรกร</th>
                 <th className="px-5 py-3 text-left text-[14px] font-bold">กลุ่ม</th>
-                <th className="px-5 py-3 text-left text-[14px] font-bold">ตำแหน่ง</th>
-                <th className="px-5 py-3 text-left text-[14px] font-bold">แปลง</th>
-                <th />
               </tr>
             </thead>
             <tbody>
               {page.rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-6 text-ink/60">
+                  <td colSpan={4} className="px-5 py-6 text-ink/60">
                     ไม่พบเกษตรกร
                   </td>
                 </tr>
@@ -91,16 +88,10 @@ export function FarmersScreen() {
                   onClick={(event) => openRow(event, () => router.push(`/farmers?farmer=${farmer.id}`))}
                   className={rowTone(index)}
                 >
-                  <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
+                  <td className="px-5 py-3 font-bold">{farmerFullName(farmer)}</td>
                   <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
+                  <td className="px-5 py-3">{farmer.farmerNumber || "—"}</td>
                   <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "—"}</td>
-                  <td className="px-5 py-3">{roleTitle(personRole(roleGrants, groups, farmer.id))}</td>
-                  <td className="px-5 py-3">{farmer.plotCount ?? 0}</td>
-                  <td className="px-5 py-3">
-                    <Link href={`/map?farmer=${farmer.id}`} className="font-bold text-link underline">
-                      ดูแปลง
-                    </Link>
-                  </td>
                 </tr>
               ))}
             </tbody>

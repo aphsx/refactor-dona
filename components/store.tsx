@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { api, apiMessage, loadOrgSnapshot, setApiActor } from "@/lib/api";
 import {
   canonicalNationalId,
+  validateFarmerInput,
   type FarmerInput,
   type OrgSnapshot,
   type PermissionFlag,
@@ -176,8 +177,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     createNamePrefix: (name) => mutate(() => api.createNamePrefix(name.trim())),
     updateNamePrefix: (prefixId, name) => mutate(() => api.updateNamePrefix(prefixId, name.trim())),
     removeNamePrefix: (prefixId) => mutate(() => api.deleteNamePrefix(prefixId)),
-    createFarmer: (input) => mutate(() => api.createFarmer(asFarmerInput(input))),
-    updateFarmer: (farmerId, input) => mutate(() => api.updateFarmer(farmerId, asFarmerInput(input))),
+    createFarmer: (input) => {
+      const normalized = asFarmerInput(input);
+      const invalid = validateFarmerInput(normalized);
+      if (invalid) return Promise.resolve(invalid);
+      return mutate(() => api.createFarmer(normalized));
+    },
+    updateFarmer: (farmerId, input) => {
+      const normalized = asFarmerInput(input);
+      const invalid = validateFarmerInput(normalized);
+      if (invalid) return Promise.resolve(invalid);
+      return mutate(() => api.updateFarmer(farmerId, normalized));
+    },
     assignFarmer: (farmerId, groupId) => mutate(() => api.assignFarmerGroup(farmerId, groupId)),
     addPlot: async (farmerId, input) => {
       const name = input.name.trim();

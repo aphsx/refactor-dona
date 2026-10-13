@@ -90,7 +90,7 @@ function SearchBar({
         }}
       >
         <label className="block min-w-[240px] flex-1 text-[14px] font-bold">
-          ชื่อหรือเลขบัตร
+          ชื่อหรือเลขบัตรประชาชน
           <input
             value={draft}
             onChange={(event) => onDraft(event.target.value)}
@@ -519,7 +519,7 @@ export function LoanPendingScreen() {
               <thead className="bg-table">
                 <tr>
                   <th className="px-5 py-3 text-left font-bold">เกษตรกร</th>
-                  <th className="px-5 py-3 text-left font-bold">เลขบัตร</th>
+                  <th className="px-5 py-3 text-left font-bold">เลขบัตรประชาชน</th>
                   <th className="px-5 py-3 text-left font-bold">วงเงินที่ขอ</th>
                   <th className="px-5 py-3 text-left font-bold">วัตถุประสงค์</th>
                   <th className="px-5 py-3 text-left font-bold">วันที่ยื่น</th>
@@ -1078,7 +1078,7 @@ export function LoanHistoryScreen() {
                 <thead className="bg-table">
                   <tr>
                     <th className="px-5 py-3 text-left font-bold">เกษตรกร</th>
-                    <th className="px-5 py-3 text-left font-bold">เลขบัตร</th>
+                    <th className="px-5 py-3 text-left font-bold">เลขบัตรประชาชน</th>
                     <th className="px-5 py-3 text-left font-bold">วงเงิน</th>
                     <th className="px-5 py-3 text-left font-bold">วันที่อนุมัติ</th>
                     <th className="px-5 py-3 text-left font-bold">วันที่โอน</th>
@@ -1172,7 +1172,7 @@ function HistoryDetail({
             <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
           </div>
         </div>
-        <ReadField label="เลขบัตร" value={row.nationalId} />
+        <ReadField label="เลขบัตรประชาชน" value={row.nationalId} />
         <ReadField label="ผลลัพธ์" value={resultName} />
       </DetailSection>
       <DetailSection title="รายละเอียดสินเชื่อ">
