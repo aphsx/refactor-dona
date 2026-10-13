@@ -304,7 +304,7 @@ function DocumentPanel({
               <div className="min-w-0 flex-1">
                 <div className="text-[14px] font-bold leading-snug">
                   {doc.name}
-                  {required && <span className="ml-1 font-bold text-danger">จำเป็น</span>}
+                  {required && <span className="ml-0.5 text-danger">*</span>}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-3 text-[13px]">
                   {doc.attached ? (
