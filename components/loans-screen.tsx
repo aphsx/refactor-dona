@@ -153,6 +153,8 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mapOpen, setMapOpen] = useState(false);
+  const { hasPlots, ready: plotsReady } = useFarmerHasPlots(farmerId);
+  const mapDisabled = !plotsReady || !hasPlots;
 
   useEffect(() => {
     let alive = true;
@@ -193,7 +195,13 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
               <ReadField label="ตำบล / อำเภอ / จังหวัด" value={placeLabel(farmer)} className="sm:col-span-2" />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <PrimaryButton type="button" className="h-9" onClick={() => setMapOpen(true)}>
+              <PrimaryButton
+                type="button"
+                className="h-9"
+                disabled={mapDisabled}
+                title={mapDisabled && plotsReady ? "ยังไม่มีแปลง" : undefined}
+                onClick={() => setMapOpen(true)}
+              >
                 <Glyph icon={Map} />
                 แผนที่แปลง
               </PrimaryButton>
@@ -201,7 +209,7 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
           </>
         )}
       </Dialog>
-      {mapOpen && <MapPeekDialog farmerId={farmerId} onClose={() => setMapOpen(false)} />}
+      {mapOpen && hasPlots && <MapPeekDialog farmerId={farmerId} onClose={() => setMapOpen(false)} />}
     </>
   );
 }
@@ -231,8 +239,9 @@ function MapPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: () =>
           muted: false,
           polygon: item.polygon,
         }));
+        // No auto-select — FieldMap fits all unmuted plots (farmer filter view).
         setPlots(next);
-        setSelectedId(next[0]?.id ?? null);
+        setSelectedId(null);
       })
       .catch((err) => {
         if (!alive) return;
@@ -260,13 +269,15 @@ function MapPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: () =>
       {!loading && !error && plots.length > 0 && (
         <div className="flex h-[min(720px,calc(100vh-10rem))] flex-col">
           <p className="mb-3 shrink-0 text-[14px]">
-            {selected ? `${selected.name} · เลือกจาก ${plots.length} แปลง` : `${plots.length} แปลงที่มีขอบเขต`}
+            {selected
+              ? `${selected.name} · จากทั้งหมด ${plots.length} แปลง`
+              : `${plots.length} แปลงของเกษตรกรรายนี้`}
           </p>
           <div className="min-h-0 flex-1 overflow-hidden">
             <FieldMap
               plots={plots}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={(id) => setSelectedId((current) => (current === id ? null : id))}
               bottomInset={48}
             />
           </div>
@@ -274,6 +285,40 @@ function MapPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: () =>
       )}
     </Dialog>
   );
+}
+
+const linkCursorClass = "cursor-pointer";
+
+function useFarmerHasPlots(farmerId: string | null) {
+  const [hasPlots, setHasPlots] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!farmerId) {
+      setHasPlots(false);
+      setReady(true);
+      return;
+    }
+    let alive = true;
+    setReady(false);
+    void api
+      .listPlotsPage({ farmerId, page: 1, pageSize: 1 })
+      .then((page) => {
+        if (!alive) return;
+        setHasPlots((page.total ?? 0) > 0);
+      })
+      .catch(() => {
+        if (alive) setHasPlots(false);
+      })
+      .finally(() => {
+        if (alive) setReady(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [farmerId]);
+
+  return { hasPlots, ready };
 }
 
 function MapLink({
@@ -286,16 +331,33 @@ function MapLink({
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const { hasPlots, ready } = useFarmerHasPlots(farmerId);
+  const disabled = !farmerId || !ready || !hasPlots;
+
   if (!farmerId) {
     return <span className="text-ink/40">{children ?? "แผนที่"}</span>;
   }
+
   return (
     <>
       <button
         type="button"
-        className={className ?? "inline-flex items-center gap-1 font-bold text-link underline"}
+        disabled={disabled}
+        title={disabled && ready ? "ยังไม่มีแปลง" : undefined}
+        className={
+          className
+            ? `${className} ${
+                disabled
+                  ? "cursor-not-allowed opacity-50 hover:bg-white disabled:pointer-events-none disabled:border-[#D0D0D0] disabled:text-[#B0B0B0]"
+                  : linkCursorClass
+              }`
+            : disabled
+              ? "inline-flex items-center gap-1 font-bold text-ink/40 cursor-not-allowed"
+              : `inline-flex items-center gap-1 font-bold text-link underline ${linkCursorClass}`
+        }
         onClick={(event) => {
           event.stopPropagation();
+          if (disabled) return;
           setOpen(true);
         }}
       >
@@ -306,7 +368,7 @@ function MapLink({
           </>
         )}
       </button>
-      {open && <MapPeekDialog farmerId={farmerId} onClose={() => setOpen(false)} />}
+      {open && !disabled && <MapPeekDialog farmerId={farmerId} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -328,7 +390,11 @@ function FarmerLink({
     <>
       <button
         type="button"
-        className={className ?? "font-bold text-link underline"}
+        className={
+          className
+            ? `${className} ${linkCursorClass}`
+            : `font-bold text-link underline ${linkCursorClass}`
+        }
         onClick={(event) => {
           event.stopPropagation();
           setOpen(true);

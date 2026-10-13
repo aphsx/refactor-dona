@@ -24,7 +24,7 @@ export type LoanApplicationDocument = {
   required?: boolean;
 };
 
-/** Wireframe: 4 จำเป็น — บัตร / ทะเบียนบ้าน / โฉนด / ผู้ค้ำ (ทะเบียนสมรสไม่บังคับ) */
+/** Wireframe: 4 จำเป็น — บัตร / ทะเบียนบ้าน / โฉนด / บัตรผู้ค้ำ (ทะเบียนสมรสไม่บังคับ) */
 export const LOAN_REQUIRED_DOCUMENT_KIND_IDS = new Set([1101, 1102, 1104, 1105]);
 
 export function isLoanDocumentRequired(doc: Pick<LoanApplicationDocument, "kindId" | "required">) {
