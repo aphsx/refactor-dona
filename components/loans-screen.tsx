@@ -53,14 +53,21 @@ function SearchBar({
   onDraft,
   onSearch,
   onClear,
+  underTab = false,
 }: {
   draft: string;
   onDraft: (value: string) => void;
   onSearch: () => void;
   onClear: () => void;
+  /** Under StatusTab — no top-left radius so it joins the tab. */
+  underTab?: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-[8px] border border-frame">
+    <div
+      className={`overflow-hidden border border-frame ${
+        underTab ? "rounded-b-[8px] rounded-tr-[8px]" : "rounded-[8px]"
+      }`}
+    >
       <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหา</div>
       <form
         className="flex flex-wrap items-end gap-3 px-6 py-5"
@@ -459,20 +466,23 @@ export function LoanAccountsScreen() {
       </div>
       {error && tab === "listing" && <p className="mb-4 text-[14px] text-danger">{error}</p>}
       {tab === "listing" && (
-        <div className="space-y-6">
-          <SearchBar
-            draft={draft}
-            onDraft={setDraft}
-            onSearch={() => {
-              setPage(1);
-              setQuery(draft.trim());
-            }}
-            onClear={() => {
-              setDraft("");
-              setPage(1);
-              setQuery("");
-            }}
-          />
+        <>
+          <div className="mb-6">
+            <SearchBar
+              underTab
+              draft={draft}
+              onDraft={setDraft}
+              onSearch={() => {
+                setPage(1);
+                setQuery(draft.trim());
+              }}
+              onClear={() => {
+                setDraft("");
+                setPage(1);
+                setQuery("");
+              }}
+            />
+          </div>
           <div className="overflow-hidden rounded-[8px] border border-frame">
             <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
               รายการสินเชื่อ
@@ -539,7 +549,7 @@ export function LoanAccountsScreen() {
               }}
             />
           </div>
-        </div>
+        </>
       )}
       {tab === "detail" && (
         <AccountDetail row={detail} loading={detailLoading} error={error} />
@@ -687,20 +697,23 @@ export function LoanHistoryScreen() {
       </div>
       {error && tab === "listing" && <p className="mb-4 text-[14px] text-danger">{error}</p>}
       {tab === "listing" && (
-        <div className="space-y-6">
-          <SearchBar
-            draft={draft}
-            onDraft={setDraft}
-            onSearch={() => {
-              setPage(1);
-              setQuery(draft.trim());
-            }}
-            onClear={() => {
-              setDraft("");
-              setPage(1);
-              setQuery("");
-            }}
-          />
+        <>
+          <div className="mb-6">
+            <SearchBar
+              underTab
+              draft={draft}
+              onDraft={setDraft}
+              onSearch={() => {
+                setPage(1);
+                setQuery(draft.trim());
+              }}
+              onClear={() => {
+                setDraft("");
+                setPage(1);
+                setQuery("");
+              }}
+            />
+          </div>
           <div className="overflow-hidden rounded-[8px] border border-frame">
             <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
               รายการประวัติ
@@ -759,7 +772,7 @@ export function LoanHistoryScreen() {
               }}
             />
           </div>
-        </div>
+        </>
       )}
       {tab === "detail" && <HistoryDetail row={detail} loading={detailLoading} error={error} />}
     </div>
