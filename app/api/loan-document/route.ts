@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiOrigin } from "@/lib/env";
 
-/** Separate from `avatars` / announcement-images — public bucket for loan files. */
-const BUCKET = "loan-documents";
+/**
+ * Same public bucket as profile avatars — folder-separated:
+ *   avatars/{farmerId}/profile-*.webp
+ *   avatars/loan-documents/{applicationId}/{kindId}-*.jpg
+ */
+const BUCKET = "avatars";
+const PATH_PREFIX = "loan-documents";
 const MAX_BYTES = 8_000_000;
 
 function supabaseConfig() {
@@ -39,25 +44,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "ไฟล์ใหญ่เกินไป (สูงสุด 8MB)" }, { status: 400 });
   }
 
-  const allowed = new Set([
-    "application/pdf",
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-  ]);
+  // Client compresses PDF → JPEG; Storage avatars bucket allows image MIME only.
+  const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
   if (!allowed.has(file.type)) {
-    return NextResponse.json({ error: "รองรับเฉพาะ PDF / JPEG / PNG / WebP" }, { status: 400 });
+    return NextResponse.json(
+      { error: "รองรับเฉพาะรูป JPEG / PNG / WebP (PDF จะถูกแปลงเป็นรูปก่อนอัปโหลด)" },
+      { status: 400 },
+    );
   }
 
-  const ext =
-    file.type === "application/pdf"
-      ? "pdf"
-      : file.type === "image/png"
-        ? "png"
-        : file.type === "image/jpeg"
-          ? "jpg"
-          : "webp";
-  const path = `${applicationId}/${kindId}-${Date.now()}.${ext}`;
+  const ext = file.type === "image/png" ? "png" : file.type === "image/jpeg" ? "jpg" : "webp";
+  const path = `${PATH_PREFIX}/${applicationId}/${kindId}-${Date.now()}.${ext}`;
 
   let supabase: { url: string; key: string };
   try {
@@ -85,9 +82,9 @@ export async function POST(request: NextRequest) {
     const detail = await upload.text().catch(() => "");
     let message = "อัปโหลดเอกสารไม่สำเร็จ";
     if (detail.includes("Bucket not found") || detail.includes("NoSuchBucket")) {
-      message = "ยังไม่มี bucket loan-documents ใน Supabase (ต้องเป็น public)";
+      message = "ยังไม่มี bucket avatars ใน Supabase (ต้องเป็น public)";
     } else if (detail.includes("row-level security") || detail.includes("AccessDenied")) {
-      message = "อัปโหลดไม่ได้ — ตรวจ storage policy ของ bucket loan-documents";
+      message = "อัปโหลดไม่ได้ — ตรวจ storage policy ของ bucket avatars";
     } else if (detail) {
       message = detail.slice(0, 300);
     }

@@ -8,9 +8,11 @@
     "measure:usage": "node scripts/measure-registration-usage.mjs"
   },
   "dependencies": {
+    "browser-image-compression": "^2.0.2",
     "lucide-react": "^1.49.0",
     "maplibre-gl": "^6.11.2",
     "next": "^15.5.4",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-map-gl": "^8.1.3",

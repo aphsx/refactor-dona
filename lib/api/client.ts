@@ -156,5 +156,6 @@ export async function apiListAll<T>(path: string): Promise<T[]> {
 
 export function apiMessage(error: unknown) {
   if (error instanceof ApiError) return error.message;
+  if (error instanceof Error && error.message.trim()) return error.message;
   return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้";
 }

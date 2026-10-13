@@ -608,7 +608,7 @@ function DocumentPanel({
     <aside className="w-full shrink-0 overflow-hidden rounded-[8px] border border-frame xl:w-[320px]">
       <div className="bg-bar px-5 py-4 text-[16px] font-bold text-white">เอกสารประกอบ</div>
       <div className="border-b border-frame px-5 py-3 text-[13px] text-ink/70">
-        แนบ PDF หรือรูป (บีบให้เล็กลงแต่ยังชัด)
+        แนบ PDF หรือรูป — บีบขนาดอัตโนมัติก่อนอัปโหลด
       </div>
       {!application ? (
         <p className="px-5 py-6 text-[14px] text-ink/60">เลือกรายการเพื่อจัดการเอกสาร</p>
