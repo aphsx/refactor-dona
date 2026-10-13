@@ -160,7 +160,11 @@ export function Dialog({
   wide?: boolean;
   soft?: boolean;
 }) {
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  // Portal past page overflow (e.g. h-full overflow-y-auto) so the overlay is not clipped.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className={`w-full overflow-hidden rounded-[8px] shadow-[0_8px_24px_rgba(0,0,0,0.18)] ${soft ? "bg-sub" : "bg-white"} ${wide ? "max-w-[960px]" : "max-w-[560px]"}`}>
         <div className={`flex items-center justify-between px-6 py-4 text-[16px] font-bold text-white ${soft ? "bg-brand" : "bg-bar"}`}>
@@ -176,7 +180,8 @@ export function Dialog({
         </div>
         <div className={`p-6 ${soft || wide ? "max-h-[calc(100vh-8rem)] overflow-y-auto" : ""}`}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

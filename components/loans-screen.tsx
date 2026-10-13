@@ -185,8 +185,8 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
         {!loading && farmer && (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
-              <ReadField label="ชื่อ" value={farmer.firstName} />
-              <ReadField label="นามสกุล" value={farmer.lastName} />
+              <ReadField label="ชื่อ" value={farmer.firstName || "—"} />
+              <ReadField label="นามสกุล" value={farmer.lastName || "—"} />
               <ReadField label="เบอร์โทร" value={farmer.tel || "—"} />
               <ReadField label="กลุ่ม" value={farmer.groupName || "—"} />
               <ReadField label="ที่อยู่" value={farmer.address || "—"} className="sm:col-span-2" />
