@@ -1,14 +1,16 @@
 /**
- * Client-side shrink for loan uploads (images + PDFs).
- * Output is always a smaller JPEG when possible — Storage bucket `loan-documents`
- * allows image MIME types only (max 8MB).
+ * Prepare loan uploads for Storage (`loan-documents`, max 8MB, image MIME only).
+ * Images under 5MB upload as-is; only larger files get a light shrink.
+ * PDFs are rasterized to JPEG (bucket cannot store application/pdf).
  */
 
 import imageCompression from "browser-image-compression";
 
-const MAX_EDGE = 1400;
-const JPEG_QUALITY = 0.8;
-const TARGET_MAX_MB = 1.2;
+/** Soft target — under Storage 8MB with headroom. Compress only when over this. */
+const COMPRESS_OVER_BYTES = 5 * 1024 * 1024;
+const TARGET_MAX_MB = 5;
+const MAX_EDGE = 2000;
+const JPEG_QUALITY = 0.88;
 
 function canvasToJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -27,15 +29,9 @@ function baseName(file: File) {
   return file.name.replace(/\.[^.]+$/, "") || "loan-document";
 }
 
-function pickSmaller(original: File, candidate: File): File {
-  return candidate.size > 0 && candidate.size < original.size ? candidate : original;
-}
+async function shrinkIfOver(file: File): Promise<File> {
+  if (file.size <= COMPRESS_OVER_BYTES) return file;
 
-async function asJpegFile(blob: Blob, name: string): Promise<File> {
-  const file = new File([blob], `${name}.jpg`, {
-    type: "image/jpeg",
-    lastModified: Date.now(),
-  });
   const compressed = await imageCompression(file, {
     maxSizeMB: TARGET_MAX_MB,
     maxWidthOrHeight: MAX_EDGE,
@@ -43,29 +39,18 @@ async function asJpegFile(blob: Blob, name: string): Promise<File> {
     initialQuality: JPEG_QUALITY,
     useWebWorker: true,
   });
-  return new File([compressed], `${name}.jpg`, {
+  return new File([compressed], `${baseName(file)}.jpg`, {
     type: "image/jpeg",
     lastModified: Date.now(),
   });
 }
 
-async function compressImage(file: File): Promise<File> {
-  const compressed = await imageCompression(file, {
-    maxSizeMB: TARGET_MAX_MB,
-    maxWidthOrHeight: MAX_EDGE,
-    fileType: "image/jpeg",
-    initialQuality: JPEG_QUALITY,
-    useWebWorker: true,
-  });
-  const out = new File([compressed], `${baseName(file)}.jpg`, {
-    type: "image/jpeg",
-    lastModified: Date.now(),
-  });
-  return pickSmaller(file, out);
+async function prepareImage(file: File): Promise<File> {
+  return shrinkIfOver(file);
 }
 
-/** Render PDF pages to one JPEG (stacked) so we can store in the avatars bucket. */
-async function compressPdfToJpeg(file: File): Promise<File> {
+/** Render PDF pages to one JPEG (stacked) — required for Storage MIME rules. */
+async function pdfToJpeg(file: File): Promise<File> {
   const pdfjs = await import("pdfjs-dist");
 
   if (!pdfjs.GlobalWorkerOptions.workerSrc) {
@@ -85,7 +70,7 @@ async function compressPdfToJpeg(file: File): Promise<File> {
     const page = await source.getPage(i);
     const base = page.getViewport({ scale: 1 });
     const longest = Math.max(base.width, base.height);
-    const scale = Math.min(2, MAX_EDGE / longest);
+    const scale = Math.min(1.5, MAX_EDGE / longest);
     const viewport = page.getViewport({ scale });
 
     const canvas = document.createElement("canvas");
@@ -123,20 +108,24 @@ async function compressPdfToJpeg(file: File): Promise<File> {
   }
 
   const blob = await canvasToJpeg(merged, JPEG_QUALITY);
-  const out = await asJpegFile(blob, baseName(file));
-  // PDF → JPEG almost always smaller; still guard against tiny originals.
-  return out.size > 0 ? out : file;
+  if (blob.size <= 0) return file;
+
+  const jpeg = new File([blob], `${baseName(file)}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+  return shrinkIfOver(jpeg);
 }
 
-/** Shrink any loan document. PDFs become JPEG for Storage compatibility. */
+/** Prepare any loan document. PDFs become JPEG for Storage compatibility. */
 export async function compressLoanDocument(file: File): Promise<File> {
   try {
-    if (file.type.startsWith("image/")) return await compressImage(file);
+    if (file.type.startsWith("image/")) return await prepareImage(file);
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-      return await compressPdfToJpeg(file);
+      return await pdfToJpeg(file);
     }
   } catch {
-    // Fall through — upload original if compress fails.
+    // Fall through — upload original if prepare fails.
   }
   return file;
 }
