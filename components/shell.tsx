@@ -51,7 +51,10 @@ function isKnownAppPath(pathname: string) {
 type NavChild = { href: string; label: string };
 type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavChild[] };
 
-/** Daily work first → seasonal ops → settings last. */
+/**
+ * Nav order (top → bottom):
+ * 1) คน/กลุ่ม  2) พื้นที่/แผน  3) สินเชื่อ  4) สื่อสาร  5) ข้อมูลหลัก  6) สิทธิ์
+ */
 const NAV: NavItem[] = [
   {
     href: "/farmers",
@@ -83,18 +86,6 @@ const NAV: NavItem[] = [
         },
       ]
     : []),
-  ...(SHOW_ANNOUNCE_NAV
-    ? [
-        {
-          label: "ประกาศ LINE",
-          icon: Megaphone,
-          children: [
-            { href: "/announce", label: "สร้าง" },
-            { href: "/announce/list", label: "รายการ" },
-          ],
-        },
-      ]
-    : []),
   ...(SHOW_LOANS_NAV
     ? [
         {
@@ -108,14 +99,26 @@ const NAV: NavItem[] = [
         },
       ]
     : []),
+  ...(SHOW_ANNOUNCE_NAV
+    ? [
+        {
+          label: "ประกาศ LINE",
+          icon: Megaphone,
+          children: [
+            { href: "/announce", label: "สร้าง" },
+            { href: "/announce/list", label: "รายการ" },
+          ],
+        },
+      ]
+    : []),
   ...(SHOW_MANAGE_NAV
     ? [
         {
-          label: "จัดการ",
+          label: "ข้อมูลหลัก",
           icon: Settings2,
           children: [
-            { href: "/manage/varieties", label: "พันธุ์ข้าว" },
             { href: "/manage/name-prefixes", label: "คำนำหน้า" },
+            { href: "/manage/varieties", label: "พันธุ์ข้าว" },
           ],
         },
       ]
@@ -123,10 +126,10 @@ const NAV: NavItem[] = [
   ...(SHOW_PERMISSIONS_NAV
     ? [
         {
-          label: "จัดการสิทธิ์",
+          label: "สิทธิ์",
           icon: Shield,
           children: [
-            { href: "/permissions", label: "จัดการสิทธิ์" },
+            { href: "/permissions", label: "สิทธิ์ตามบทบาท" },
             { href: "/permissions/people", label: "รายคน" },
           ],
         },
