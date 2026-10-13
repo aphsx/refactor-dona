@@ -52,20 +52,14 @@ type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavC
 /** Daily work first → seasonal ops → settings last. */
 const NAV: NavItem[] = [
   {
+    href: "/farmers",
     label: "เกษตรกร",
     icon: Users,
-    children: [
-      { href: "/farmers", label: "เกษตรกร" },
-      { href: "/farmers/manage", label: "จัดการเกษตรกร" },
-    ],
   },
   {
+    href: "/groups",
     label: "กลุ่ม",
     icon: Layers,
-    children: [
-      { href: "/groups", label: "กลุ่ม" },
-      { href: "/groups/manage", label: "จัดการกลุ่ม" },
-    ],
   },
   {
     label: "แผนที่แปลง",

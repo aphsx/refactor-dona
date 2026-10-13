@@ -1,5 +1,10 @@
-import { GroupsScreen } from "@/components/groups-screen";
+import { Suspense } from "react";
+import { GroupManageScreen } from "@/components/groups-screen";
 
 export default function Page() {
-  return <GroupsScreen />;
+  return (
+    <Suspense fallback={null}>
+      <GroupManageScreen />
+    </Suspense>
+  );
 }

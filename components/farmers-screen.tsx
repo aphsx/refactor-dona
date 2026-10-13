@@ -88,7 +88,7 @@ export function FarmersScreen() {
               {page.rows.map((farmer, index) => (
                 <tr
                   key={farmer.id}
-                  onClick={(event) => openRow(event, () => router.push(`/farmers/manage?farmer=${farmer.id}`))}
+                  onClick={(event) => openRow(event, () => router.push(`/farmers?farmer=${farmer.id}`))}
                   className={rowTone(index)}
                 >
                   <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>

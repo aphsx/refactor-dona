@@ -93,20 +93,20 @@ export function GroupManageScreen() {
   function openGroup(id: string) {
     setSelectedId(id);
     setTab("detail");
-    router.replace(`/groups/manage?group=${id}`);
+    router.replace(`/groups?group=${id}`);
   }
 
   function closeDetail() {
     setSelectedId(null);
     setTab("listing");
-    router.replace("/groups/manage");
+    router.replace("/groups");
   }
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
-      <PageHeader current="จัดการกลุ่ม" />
+      <PageHeader current="กลุ่ม" />
       <div className="flex items-end gap-1">
-        <StatusTab label="กลุ่ม" active={tab === "listing"} onClick={closeDetail} />
+        <StatusTab label="รายการ" active={tab === "listing"} onClick={closeDetail} />
         {tab === "detail" && selected && (
           <StatusTab label="รายละเอียดกลุ่ม" active onClick={() => setTab("detail")} />
         )}
@@ -274,14 +274,14 @@ export function MemberManageScreen() {
     setDetailId(id);
     setPlanPlotId(null);
     setTab("detail");
-    router.replace(`/farmers/manage?farmer=${id}`);
+    router.replace(`/farmers?farmer=${id}`);
   }
 
   function closeDetail() {
     setDetailId(null);
     setPlanPlotId(null);
     setTab("listing");
-    router.replace("/farmers/manage");
+    router.replace("/farmers");
   }
 
   function openPlan(plotId: string | null) {
@@ -291,9 +291,9 @@ export function MemberManageScreen() {
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
-      <PageHeader current="จัดการเกษตรกร" />
+      <PageHeader current="เกษตรกร" />
       <div className="flex items-end gap-1">
-        <StatusTab label="จัดการเกษตรกร" active={tab === "listing"} onClick={closeDetail} />
+        <StatusTab label="รายการ" active={tab === "listing"} onClick={closeDetail} />
         {detail && (
           <>
             <StatusTab label="รายละเอียดเกษตรกร" active={tab === "detail"} onClick={() => setTab("detail")} />
@@ -500,7 +500,7 @@ function GroupDirectory() {
           {page.rows.map((group, index) => (
               <tr
                 key={group.id}
-                onClick={(event) => openRow(event, () => router.push(`/groups/manage?group=${group.id}`))}
+                onClick={(event) => openRow(event, () => router.push(`/groups?group=${group.id}`))}
                 className={rowTone(index)}
               >
                 <td className="px-5 py-3 font-bold">{group.name}</td>
@@ -668,7 +668,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
             return (
               <tr
                 key={farmer.id}
-                onClick={(event) => openRow(event, () => router.push(`/farmers/manage?farmer=${farmer.id}`))}
+                onClick={(event) => openRow(event, () => router.push(`/farmers?farmer=${farmer.id}`))}
                 className={rowTone(index)}
               >
                 <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>

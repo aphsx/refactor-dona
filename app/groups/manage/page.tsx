@@ -1,10 +1,11 @@
-import { Suspense } from "react";
-import { GroupManageScreen } from "@/components/groups-screen";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-  return (
-    <Suspense fallback={null}>
-      <GroupManageScreen />
-    </Suspense>
-  );
+/** Legacy URL — รวมเป็น /groups แล้ว */
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ group?: string }>;
+}) {
+  const { group } = await searchParams;
+  redirect(group ? `/groups?group=${encodeURIComponent(group)}` : "/groups");
 }

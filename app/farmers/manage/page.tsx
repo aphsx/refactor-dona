@@ -1,5 +1,11 @@
-import { MemberManageScreen } from "@/components/groups-screen";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-  return <MemberManageScreen />;
+/** Legacy URL — รวมเป็น /farmers แล้ว */
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ farmer?: string }>;
+}) {
+  const { farmer } = await searchParams;
+  redirect(farmer ? `/farmers?farmer=${encodeURIComponent(farmer)}` : "/farmers");
 }
