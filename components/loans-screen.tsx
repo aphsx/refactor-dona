@@ -97,16 +97,42 @@ function SearchBar({
   );
 }
 
-function DetailFields({ fields }: { fields: { label: string; value: ReactNode; tone?: string }[] }) {
+const detailFieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
+
+function DetailSection({
+  title,
+  children,
+  bare = false,
+}: {
+  title?: string;
+  children: ReactNode;
+  /** Fields directly under main header — no section bar. */
+  bare?: boolean;
+}) {
   return (
-    <dl className="grid gap-0 sm:grid-cols-2">
-      {fields.map((field) => (
-        <div key={field.label} className="border-b border-frame px-6 py-4 sm:odd:border-r">
-          <dt className="text-[12px] text-ink/60">{field.label}</dt>
-          <dd className={`mt-1 text-[14px] font-bold ${field.tone ?? ""}`}>{field.value}</dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      {!bare && title && (
+        <div className="border-t border-frame bg-bar px-6 py-3 text-[14px] font-bold text-white">{title}</div>
+      )}
+      <div className="grid gap-4 px-6 py-5 sm:grid-cols-2">{children}</div>
+    </>
+  );
+}
+
+function ReadField({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <label className={`block text-[14px] font-bold leading-[1.4] ${className}`}>
+      {label}
+      <input value={value} disabled className={detailFieldClass} />
+    </label>
   );
 }
 
@@ -119,6 +145,15 @@ function MapLink({ farmerId }: { farmerId: string | null }) {
     >
       <Glyph icon={Map} />
       แผนที่
+    </Link>
+  );
+}
+
+function FarmerLink({ farmerId, name }: { farmerId: string | null; name: string }) {
+  if (!farmerId) return <span className="font-bold">{name}</span>;
+  return (
+    <Link href={`/farmers?farmer=${farmerId}`} className="font-bold text-link underline">
+      {name}
     </Link>
   );
 }
@@ -552,7 +587,9 @@ export function LoanAccountsScreen() {
         </>
       )}
       {tab === "detail" && (
-        <AccountDetail row={detail} loading={detailLoading} error={error} />
+        <div className="overflow-hidden rounded-b-[8px] rounded-tr-[8px] border border-frame">
+          <AccountDetail row={detail} loading={detailLoading} error={error} onClose={closeDetail} />
+        </div>
       )}
     </div>
   );
@@ -562,44 +599,72 @@ function AccountDetail({
   row,
   loading,
   error,
+  onClose,
 }: {
   row: LoanAccount | null;
   loading: boolean;
   error: string;
+  onClose: () => void;
 }) {
   if (loading) {
-    return <div className="rounded-b-[8px] rounded-tr-[8px] border border-frame px-6 py-8 text-[14px] text-ink/60">กำลังโหลด…</div>;
+    return <div className="px-6 py-8 text-[14px] text-ink/60">กำลังโหลด…</div>;
   }
   if (!row) {
-    return (
-      <div className="rounded-b-[8px] rounded-tr-[8px] border border-frame px-6 py-8 text-[14px] text-danger">
-        {error || "ไม่พบรายการ"}
-      </div>
-    );
+    return <div className="px-6 py-8 text-[14px] text-danger">{error || "ไม่พบรายการ"}</div>;
   }
 
+  const statusName = row.status?.name ?? "—";
+
   return (
-    <div className="overflow-hidden rounded-b-[8px] rounded-tr-[8px] border border-frame">
-      <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">รายละเอียดสินเชื่อ</div>
-      <DetailFields
-        fields={[
-          { label: "ชื่อ", value: row.name },
-          { label: "เบอร์", value: row.tel },
-          { label: "เลขบัตรประชาชน", value: row.nationalId },
-          { label: "วงเงิน", value: formatBaht(row.creditLimit) },
-          { label: "ยอดคงเหลือ", value: formatBaht(row.balance) },
-          { label: "งวด/เดือน", value: String(row.installmentMonths) },
-          { label: "ค้าง (ครั้งถัดไป)", value: formatDate(row.nextDue) },
-          { label: "ค้างล่าสุด", value: formatDate(row.lastDue) },
-          {
-            label: "สถานะ",
-            value: row.status?.name ?? "—",
-            tone: statusTone(row.status?.name ?? ""),
-          },
-          { label: "แปลง", value: <MapLink farmerId={row.farmerId} /> },
-        ]}
-      />
-    </div>
+    <>
+      <div className="flex items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+        รายละเอียดสินเชื่อ
+        <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+          ปิด
+        </button>
+      </div>
+      <DetailSection bare>
+        <div className="block text-[14px] font-bold leading-[1.4]">
+          ชื่อ
+          <div className="mt-2">
+            <FarmerLink farmerId={row.farmerId} name={row.name} />
+          </div>
+        </div>
+        <ReadField label="เบอร์" value={row.tel} />
+        <ReadField label="เลขบัตรประชาชน" value={row.nationalId} />
+        <ReadField label="สถานะ" value={statusName} />
+      </DetailSection>
+      <DetailSection title="วงเงินและงวด">
+        <ReadField label="วงเงิน" value={formatBaht(row.creditLimit)} />
+        <ReadField label="ยอดคงเหลือ" value={formatBaht(row.balance)} />
+        <ReadField label="งวด/เดือน" value={String(row.installmentMonths)} />
+        <ReadField label="ค้าง (ครั้งถัดไป)" value={formatDate(row.nextDue)} />
+        <ReadField label="ค้างล่าสุด" value={formatDate(row.lastDue)} />
+        <div className="block text-[14px] font-bold leading-[1.4]">
+          แปลง
+          <div className="mt-2">
+            <MapLink farmerId={row.farmerId} />
+          </div>
+        </div>
+      </DetailSection>
+      {row.farmerId && (
+        <div className="flex flex-wrap gap-3 border-t border-frame px-6 py-4">
+          <Link
+            href={`/farmers?farmer=${row.farmerId}`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand hover:bg-pick"
+          >
+            ดูเกษตรกร
+          </Link>
+          <Link
+            href={`/map?farmer=${row.farmerId}`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand hover:bg-pick"
+          >
+            <Glyph icon={Map} />
+            แผนที่
+          </Link>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -774,7 +839,11 @@ export function LoanHistoryScreen() {
           </div>
         </>
       )}
-      {tab === "detail" && <HistoryDetail row={detail} loading={detailLoading} error={error} />}
+      {tab === "detail" && (
+        <div className="overflow-hidden rounded-b-[8px] rounded-tr-[8px] border border-frame">
+          <HistoryDetail row={detail} loading={detailLoading} error={error} onClose={closeDetail} />
+        </div>
+      )}
     </div>
   );
 }
@@ -783,42 +852,58 @@ function HistoryDetail({
   row,
   loading,
   error,
+  onClose,
 }: {
   row: LoanHistory | null;
   loading: boolean;
   error: string;
+  onClose: () => void;
 }) {
   if (loading) {
-    return <div className="rounded-b-[8px] rounded-tr-[8px] border border-frame px-6 py-8 text-[14px] text-ink/60">กำลังโหลด…</div>;
+    return <div className="px-6 py-8 text-[14px] text-ink/60">กำลังโหลด…</div>;
   }
   if (!row) {
-    return (
-      <div className="rounded-b-[8px] rounded-tr-[8px] border border-frame px-6 py-8 text-[14px] text-danger">
-        {error || "ไม่พบรายการ"}
-      </div>
-    );
+    return <div className="px-6 py-8 text-[14px] text-danger">{error || "ไม่พบรายการ"}</div>;
   }
 
+  const resultName = row.result?.name ?? "—";
+
   return (
-    <div className="overflow-hidden rounded-b-[8px] rounded-tr-[8px] border border-frame">
-      <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">รายละเอียดประวัติ</div>
-      <DetailFields
-        fields={[
-          { label: "เกษตรกร", value: row.farmerName },
-          { label: "เบอร์", value: row.tel },
-          { label: "เลขบัตร", value: row.nationalId },
-          { label: "วงเงิน", value: formatBaht(row.amount) },
-          { label: "วัตถุประสงค์", value: row.purpose || "—" },
-          { label: "วันที่อนุมัติ", value: formatDate(row.approvedOn) },
-          { label: "วันที่โอน", value: formatDate(row.transferredOn) },
-          {
-            label: "ผลลัพธ์",
-            value: row.result?.name ?? "—",
-            tone: statusTone(row.result?.name ?? ""),
-          },
-          { label: "หมายเหตุ", value: row.note || "—" },
-        ]}
-      />
-    </div>
+    <>
+      <div className="flex items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+        รายละเอียดประวัติ
+        <button type="button" onClick={onClose} className="rounded-full bg-white px-3 py-1 text-[12px] text-bar">
+          ปิด
+        </button>
+      </div>
+      <DetailSection bare>
+        <div className="block text-[14px] font-bold leading-[1.4]">
+          เกษตรกร
+          <div className="mt-2">
+            <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
+          </div>
+        </div>
+        <ReadField label="เบอร์" value={row.tel} />
+        <ReadField label="เลขบัตร" value={row.nationalId} />
+        <ReadField label="ผลลัพธ์" value={resultName} />
+      </DetailSection>
+      <DetailSection title="รายละเอียดสินเชื่อ">
+        <ReadField label="วงเงิน" value={formatBaht(row.amount)} />
+        <ReadField label="วัตถุประสงค์" value={row.purpose || "—"} />
+        <ReadField label="วันที่อนุมัติ" value={formatDate(row.approvedOn)} />
+        <ReadField label="วันที่โอน" value={formatDate(row.transferredOn)} />
+        <ReadField label="หมายเหตุ" value={row.note || "—"} className="sm:col-span-2" />
+      </DetailSection>
+      {row.farmerId && (
+        <div className="flex flex-wrap gap-3 border-t border-frame px-6 py-4">
+          <Link
+            href={`/farmers?farmer=${row.farmerId}`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand hover:bg-pick"
+          >
+            ดูเกษตรกร
+          </Link>
+        </div>
+      )}
+    </>
   );
 }
