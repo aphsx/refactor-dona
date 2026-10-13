@@ -760,6 +760,27 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     if (!dirty) setEditing(false);
   }
 
+  const actionButtons = (
+    <div className="flex flex-wrap gap-3 sm:col-span-2">
+      <CanEdit resource="farmers">
+        {editing ? (
+          <>
+            <PrimaryButton type="submit">
+              <Glyph icon={Save} />
+              บันทึก
+            </PrimaryButton>
+            <DirtyUndoButton onClick={undo} dirty={dirty} />
+          </>
+        ) : (
+          <PrimaryButton type="button" onClick={() => setEditing(true)}>
+            <Glyph icon={Pencil} />
+            แก้ไข
+          </PrimaryButton>
+        )}
+      </CanEdit>
+    </div>
+  );
+
   return (
     <>
       <div className="flex items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
@@ -813,6 +834,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             });
           }}
         >
+          {actionButtons}
           <label className="block text-[14px] font-bold leading-[1.4]">
             คำนำหน้า
             <RequiredMark />
@@ -907,24 +929,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             หัวหน้ากลุ่ม
             <input value={leaderName} disabled className={fieldClass} />
           </label>
-          <div className="flex flex-wrap gap-3 sm:col-span-2">
-            <CanEdit resource="farmers">
-              {editing ? (
-                <>
-                  <DirtyUndoButton onClick={undo} dirty={dirty} />
-                  <PrimaryButton type="submit">
-                    <Glyph icon={Save} />
-                    บันทึก
-                  </PrimaryButton>
-                </>
-              ) : (
-                <SecondaryButton type="button" onClick={() => setEditing(true)}>
-                  <Glyph icon={Pencil} />
-                  แก้ไข
-                </SecondaryButton>
-              )}
-            </CanEdit>
-          </div>
+          {actionButtons}
         </form>
       <NoticeBox notice={notice} onDismiss={() => setNotice(null)} />
     </>
