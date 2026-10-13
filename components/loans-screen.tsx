@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { FileText, Map, RotateCcw, Search, Trash2, Upload } from "lucide-react";
 import {
+  ConfirmAlert,
   Glyph,
   PageHeader,
   Pagination,
@@ -283,6 +284,8 @@ function DocumentPanel({
   busy: boolean;
   onToggle: (appId: string, kindId: number, attached: boolean) => void;
 }) {
+  const [pendingDelete, setPendingDelete] = useState<{ kindId: number; name: string } | null>(null);
+
   return (
     <aside className="w-full shrink-0 overflow-hidden rounded-[8px] border border-frame xl:w-[320px]">
       <div className="bg-bar px-5 py-4 text-[16px] font-bold text-white">เอกสารประกอบ</div>
@@ -305,8 +308,8 @@ function DocumentPanel({
                       <button
                         type="button"
                         disabled={busy}
-                        className="inline-flex items-center gap-1 font-bold text-danger disabled:opacity-50"
-                        onClick={() => onToggle(application.id, doc.kindId, false)}
+                        className="inline-flex cursor-pointer items-center gap-1 font-bold text-danger underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => setPendingDelete({ kindId: doc.kindId, name: doc.name })}
                       >
                         <Glyph icon={Trash2} />
                         ลบไฟล์
@@ -316,7 +319,7 @@ function DocumentPanel({
                     <button
                       type="button"
                       disabled={busy}
-                      className="inline-flex items-center gap-1 font-bold text-link disabled:opacity-50"
+                      className="inline-flex cursor-pointer items-center gap-1 font-bold text-link underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                       onClick={() => onToggle(application.id, doc.kindId, true)}
                     >
                       <Glyph icon={Upload} />
@@ -325,15 +328,32 @@ function DocumentPanel({
                   )}
                 </div>
               </div>
-              <span
-                className={`mt-1 h-4 w-4 shrink-0 rounded-[3px] border ${
-                  doc.attached ? "border-brand bg-brand" : "border-line bg-white"
+              <button
+                type="button"
+                disabled={busy}
+                aria-label={doc.attached ? `ลบ ${doc.name}` : `แนบ ${doc.name}`}
+                className={`mt-1 h-4 w-4 shrink-0 cursor-pointer rounded-[3px] border disabled:cursor-not-allowed disabled:opacity-50 ${
+                  doc.attached ? "border-brand bg-brand" : "border-line bg-white hover:border-brand"
                 }`}
-                aria-hidden
+                onClick={() => {
+                  if (doc.attached) setPendingDelete({ kindId: doc.kindId, name: doc.name });
+                  else onToggle(application.id, doc.kindId, true);
+                }}
               />
             </li>
           ))}
         </ul>
+      )}
+      {pendingDelete && application && (
+        <ConfirmAlert
+          message={`ยืนยันลบไฟล์ ${pendingDelete.name}?`}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            const { kindId } = pendingDelete;
+            setPendingDelete(null);
+            onToggle(application.id, kindId, false);
+          }}
+        />
       )}
     </aside>
   );
