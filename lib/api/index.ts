@@ -384,6 +384,7 @@ export {
   listLoanHistoryPage,
   getLoanHistory,
   setLoanApplicationDocumentAttached,
+  uploadLoanDocument,
 } from "@/lib/api/loans";
 
 /** PostGIS geography (WGS84 spheroid). Falls back to local estimate if API fails. */

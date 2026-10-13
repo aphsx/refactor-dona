@@ -22,6 +22,8 @@ export type LoanApplicationDocument = {
   attached: boolean;
   /** Present when API sends it; otherwise inferred from kind id. */
   required?: boolean;
+  /** Public Supabase URL (or legacy path) when a file was uploaded. */
+  storagePath?: string | null;
 };
 
 /** Wireframe: 4 จำเป็น — บัตร / ทะเบียนบ้าน / โฉนด / บัตรผู้ค้ำ (ทะเบียนสมรสไม่บังคับ) */

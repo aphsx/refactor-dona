@@ -34,6 +34,39 @@ function canvasToJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob>
   });
 }
 
+const LOAN_DOC_MAX_EDGE = 1600;
+const LOAN_DOC_JPEG_QUALITY = 0.85;
+
+/** Loan docs: smaller than original, still clear for ID cards / deeds (not avatar-tiny). */
+export async function compressLoanDocumentImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+
+  const image = await loadImage(file);
+  const longest = Math.max(image.naturalWidth, image.naturalHeight);
+  const scale = longest > LOAN_DOC_MAX_EDGE ? LOAN_DOC_MAX_EDGE / longest : 1;
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+  if (scale === 1 && file.type === "image/jpeg" && file.size <= 1_500_000) {
+    return file;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+  ctx.drawImage(image, 0, 0, width, height);
+
+  let blob = await canvasToJpeg(canvas, LOAN_DOC_JPEG_QUALITY);
+  if (blob.size > 2_000_000) {
+    blob = await canvasToJpeg(canvas, 0.78);
+  }
+
+  const base = file.name.replace(/\.[^.]+$/, "") || "loan-document";
+  return new File([blob], `${base}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+}
+
 /** Resize longest edge to MAX_EDGE and encode JPEG ~0.86 — smaller file, still sharp. */
 export async function compressAnnouncementImage(file: File): Promise<File> {
   if (!file.type.startsWith("image/")) return file;

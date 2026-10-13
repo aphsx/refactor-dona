@@ -1,10 +1,11 @@
-import { apiRequest } from "@/lib/api/client";
+import { apiRequest, getApiToken } from "@/lib/api/client";
 import type {
   LoanAccount,
   LoanApplication,
   LoanApplicationDocument,
   LoanHistory,
 } from "@/lib/domain";
+import { compressLoanDocumentImage } from "@/lib/compress-image";
 
 type LoanPage<T> = {
   items: T[];
@@ -52,4 +53,28 @@ export function setLoanApplicationDocumentAttached(applicationId: string, kindId
     `/loans/applications/${encodeURIComponent(applicationId)}/documents/${kindId}`,
     { method: "PATCH", body: JSON.stringify({ attached }) },
   );
+}
+
+/** Upload PDF/image via Next → Supabase (`loan-documents`), then save public URL. */
+export async function uploadLoanDocument(applicationId: string, kindId: number, file: File) {
+  const token = getApiToken();
+  if (!token) throw new Error("ต้องเข้าสู่ระบบก่อน");
+
+  const prepared = file.type.startsWith("image/") ? await compressLoanDocumentImage(file) : file;
+
+  const form = new FormData();
+  form.set("applicationId", applicationId);
+  form.set("kindId", String(kindId));
+  form.set("file", prepared);
+
+  const response = await fetch("/api/loan-document", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(typeof body?.error === "string" ? body.error : "อัปโหลดเอกสารไม่สำเร็จ");
+  }
+  return body as LoanApplicationDocument;
 }

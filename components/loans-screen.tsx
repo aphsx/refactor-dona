@@ -27,6 +27,7 @@ import {
   listLoanApplicationsPage,
   listLoanHistoryPage,
   setLoanApplicationDocumentAttached,
+  uploadLoanDocument,
   type LoanAccount,
   type LoanApplication,
   type LoanApplicationDocument,
@@ -445,22 +446,39 @@ export function LoanPendingScreen() {
     void refresh();
   }, [refresh]);
 
-  async function toggleDoc(appId: string, kindId: number, attached: boolean) {
+  function patchLocalDoc(appId: string, kindId: number, doc: LoanApplicationDocument) {
+    setRows((current) =>
+      current.map((row) => {
+        if (row.id !== appId) return row;
+        return {
+          ...row,
+          documents: row.documents.map((item) =>
+            item.kindId === kindId ? { ...item, ...doc } : item,
+          ),
+        };
+      }),
+    );
+  }
+
+  async function removeDoc(appId: string, kindId: number) {
     setBusyDoc(true);
     setError("");
     try {
-      const doc = await setLoanApplicationDocumentAttached(appId, kindId, attached);
-      setRows((current) =>
-        current.map((row) => {
-          if (row.id !== appId) return row;
-          return {
-            ...row,
-            documents: row.documents.map((item) =>
-              item.kindId === kindId ? { ...item, attached: doc.attached } : item,
-            ),
-          };
-        }),
-      );
+      const doc = await setLoanApplicationDocumentAttached(appId, kindId, false);
+      patchLocalDoc(appId, kindId, doc);
+    } catch (err) {
+      setError(apiMessage(err));
+    } finally {
+      setBusyDoc(false);
+    }
+  }
+
+  async function attachDoc(appId: string, kindId: number, file: File) {
+    setBusyDoc(true);
+    setError("");
+    try {
+      const doc = await uploadLoanDocument(appId, kindId, file);
+      patchLocalDoc(appId, kindId, doc);
     } catch (err) {
       setError(apiMessage(err));
     } finally {
@@ -562,7 +580,12 @@ export function LoanPendingScreen() {
             }}
           />
         </div>
-        <DocumentPanel application={selected} busy={busyDoc} onToggle={toggleDoc} />
+        <DocumentPanel
+          application={selected}
+          busy={busyDoc}
+          onUpload={attachDoc}
+          onRemove={removeDoc}
+        />
       </div>
     </div>
   );
@@ -571,24 +594,30 @@ export function LoanPendingScreen() {
 function DocumentPanel({
   application,
   busy,
-  onToggle,
+  onUpload,
+  onRemove,
 }: {
   application: LoanApplication | null;
   busy: boolean;
-  onToggle: (appId: string, kindId: number, attached: boolean) => void;
+  onUpload: (appId: string, kindId: number, file: File) => void;
+  onRemove: (appId: string, kindId: number) => void;
 }) {
   const [pendingDelete, setPendingDelete] = useState<{ kindId: number; name: string } | null>(null);
 
   return (
     <aside className="w-full shrink-0 overflow-hidden rounded-[8px] border border-frame xl:w-[320px]">
       <div className="bg-bar px-5 py-4 text-[16px] font-bold text-white">เอกสารประกอบ</div>
-      <div className="border-b border-frame px-5 py-3 text-[13px] text-ink/70">แนบไฟล์ PDF เท่านั้น</div>
+      <div className="border-b border-frame px-5 py-3 text-[13px] text-ink/70">
+        แนบ PDF หรือรูป (บีบให้เล็กลงแต่ยังชัด)
+      </div>
       {!application ? (
         <p className="px-5 py-6 text-[14px] text-ink/60">เลือกรายการเพื่อจัดการเอกสาร</p>
       ) : (
         <ul className="divide-y divide-frame">
           {application.documents.map((doc: LoanApplicationDocument) => {
             const required = isLoanDocumentRequired(doc);
+            const fileUrl =
+              doc.storagePath?.startsWith("http") ? doc.storagePath : null;
             return (
             <li key={doc.kindId} className="flex items-start gap-3 px-5 py-4">
               <span className="mt-0.5 text-ink/50">
@@ -603,6 +632,16 @@ function DocumentPanel({
                   {doc.attached ? (
                     <>
                       <span className="font-bold text-brand">แนบแล้ว</span>
+                      {fileUrl && (
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-link underline-offset-2 hover:underline"
+                        >
+                          ดูไฟล์
+                        </a>
+                      )}
                       <button
                         type="button"
                         disabled={busy}
@@ -614,29 +653,30 @@ function DocumentPanel({
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="inline-flex cursor-pointer items-center gap-1 font-bold text-link underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                      onClick={() => onToggle(application.id, doc.kindId, true)}
-                    >
+                    <label className="inline-flex cursor-pointer items-center gap-1 font-bold text-link underline-offset-2 hover:underline has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
                       <Glyph icon={Upload} />
-                      แนบไฟล์
-                    </button>
+                      {busy ? "กำลังอัป…" : "แนบไฟล์"}
+                      <input
+                        type="file"
+                        accept="application/pdf,image/jpeg,image/png,image/webp"
+                        className="sr-only"
+                        disabled={busy}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (!file) return;
+                          onUpload(application.id, doc.kindId, file);
+                        }}
+                      />
+                    </label>
                   )}
                 </div>
               </div>
-              <button
-                type="button"
-                disabled={busy}
-                aria-label={doc.attached ? `ลบ ${doc.name}` : `แนบ ${doc.name}`}
-                className={`mt-1 h-4 w-4 shrink-0 cursor-pointer rounded-[3px] border disabled:cursor-not-allowed disabled:opacity-50 ${
-                  doc.attached ? "border-brand bg-brand" : "border-line bg-white hover:border-brand"
+              <span
+                aria-hidden
+                className={`mt-1 h-4 w-4 shrink-0 rounded-[3px] border ${
+                  doc.attached ? "border-brand bg-brand" : "border-line bg-white"
                 }`}
-                onClick={() => {
-                  if (doc.attached) setPendingDelete({ kindId: doc.kindId, name: doc.name });
-                  else onToggle(application.id, doc.kindId, true);
-                }}
               />
             </li>
             );
@@ -650,7 +690,7 @@ function DocumentPanel({
           onConfirm={() => {
             const { kindId } = pendingDelete;
             setPendingDelete(null);
-            onToggle(application.id, kindId, false);
+            onRemove(application.id, kindId);
           }}
         />
       )}
