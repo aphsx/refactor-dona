@@ -19,7 +19,6 @@ import {
 import {
   apiMessage,
   getLoanAccount,
-  getLoanApplication,
   getLoanHistory,
   listLoanAccountsPage,
   listLoanApplicationsPage,
@@ -60,7 +59,7 @@ function SearchBar({
   onClear: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-b-[8px] rounded-tr-[8px] border border-frame">
+    <div className="overflow-hidden rounded-[8px] border border-frame">
       <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหา</div>
       <form
         className="flex flex-wrap items-end gap-3 px-6 py-5"
@@ -116,11 +115,8 @@ function MapLink({ farmerId }: { farmerId: string | null }) {
   );
 }
 
-/** รออนุมัติ — รายการ → กดแถวเข้าดูรายละเอียด + เอกสาร */
+/** รออนุมัติ — ตาราง + แผงเอกสาร (ไม่มีหน้ารายละเอียด) */
 export function LoanPendingScreen() {
-  const router = useRouter();
-  const requestedId = useSearchParams().get("id");
-  const [tab, setTab] = useState<"listing" | "detail">(requestedId ? "detail" : "listing");
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -129,19 +125,21 @@ export function LoanPendingScreen() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(requestedId);
-  const [detail, setDetail] = useState<LoanApplication | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busyDoc, setBusyDoc] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (tab === "detail") return;
     setLoading(true);
     setError("");
     try {
       const data = await listLoanApplicationsPage({ q: query, page, pageSize });
-      setRows(data.items ?? []);
+      const items = data.items ?? [];
+      setRows(items);
       setTotal(data.total ?? 0);
+      setSelectedId((current) => {
+        if (current && items.some((item) => item.id === current)) return current;
+        return items[0]?.id ?? null;
+      });
     } catch (err) {
       setError(apiMessage(err));
       setRows([]);
@@ -149,69 +147,28 @@ export function LoanPendingScreen() {
     } finally {
       setLoading(false);
     }
-  }, [query, page, pageSize, tab]);
+  }, [query, page, pageSize]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
-  useEffect(() => {
-    if (!requestedId) {
-      setTab("listing");
-      setSelectedId(null);
-      setDetail(null);
-      return;
-    }
-    setSelectedId(requestedId);
-    setTab("detail");
-    let alive = true;
-    setDetailLoading(true);
-    setError("");
-    void getLoanApplication(requestedId)
-      .then((item) => {
-        if (alive) setDetail(item);
-      })
-      .catch((err) => {
-        if (alive) {
-          setDetail(null);
-          setError(apiMessage(err));
-        }
-      })
-      .finally(() => {
-        if (alive) setDetailLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [requestedId]);
-
-  function openDetail(id: string) {
-    setSelectedId(id);
-    setTab("detail");
-    router.replace(`/loans/pending?id=${id}`);
-  }
-
-  function closeDetail() {
-    setSelectedId(null);
-    setDetail(null);
-    setTab("listing");
-    router.replace("/loans/pending");
-  }
 
   async function toggleDoc(appId: string, kindId: number, attached: boolean) {
     setBusyDoc(true);
     setError("");
     try {
       const doc = await setLoanApplicationDocumentAttached(appId, kindId, attached);
-      setDetail((current) => {
-        if (!current || current.id !== appId) return current;
-        return {
-          ...current,
-          documents: current.documents.map((item) =>
-            item.kindId === kindId ? { ...item, attached: doc.attached } : item,
-          ),
-        };
-      });
+      setRows((current) =>
+        current.map((row) => {
+          if (row.id !== appId) return row;
+          return {
+            ...row,
+            documents: row.documents.map((item) =>
+              item.kindId === kindId ? { ...item, attached: doc.attached } : item,
+            ),
+          };
+        }),
+      );
     } catch (err) {
       setError(apiMessage(err));
     } finally {
@@ -219,163 +176,100 @@ export function LoanPendingScreen() {
     }
   }
 
+  const selected = rows.find((row) => row.id === selectedId) ?? null;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
       <PageHeader current="รออนุมัติ" />
-      <div className="flex items-end gap-1">
-        <StatusTab label="รายการ" active={tab === "listing"} onClick={closeDetail} />
-        {tab === "detail" && (
-          <StatusTab label="รายละเอียด" active onClick={() => setTab("detail")} />
-        )}
+      {error && <p className="mb-4 text-[14px] text-danger">{error}</p>}
+      <div className="mb-6">
+        <SearchBar
+          draft={draft}
+          onDraft={setDraft}
+          onSearch={() => {
+            setPage(1);
+            setQuery(draft.trim());
+          }}
+          onClear={() => {
+            setDraft("");
+            setPage(1);
+            setQuery("");
+          }}
+        />
       </div>
-      {error && tab === "listing" && <p className="mb-4 text-[14px] text-danger">{error}</p>}
-      {tab === "listing" && (
-        <div className="space-y-6">
-          <SearchBar
-            draft={draft}
-            onDraft={setDraft}
-            onSearch={() => {
-              setPage(1);
-              setQuery(draft.trim());
-            }}
-            onClear={() => {
-              setDraft("");
-              setPage(1);
-              setQuery("");
-            }}
-          />
-          <div className="overflow-hidden rounded-[8px] border border-frame">
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
-              รายการยื่นขอสินเชื่อ
-              <span className="text-[14px] font-normal">{loading ? "กำลังโหลด…" : `${total} รายการ`}</span>
-            </div>
-            <TableScroll>
-              <table className={tableClass}>
-                <thead className="bg-table">
+      <div className="flex min-h-0 flex-col gap-6 xl:flex-row">
+        <div className="min-w-0 flex-1 overflow-hidden rounded-[8px] border border-frame">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-bar px-6 py-4 text-[16px] font-bold text-white">
+            รายการยื่นขอสินเชื่อ
+            <span className="text-[14px] font-normal">{loading ? "กำลังโหลด…" : `${total} รายการ`}</span>
+          </div>
+          <TableScroll>
+            <table className={tableClass}>
+              <thead className="bg-table">
+                <tr>
+                  <th className="px-5 py-3 text-left font-bold">เกษตรกร</th>
+                  <th className="px-5 py-3 text-left font-bold">เบอร์</th>
+                  <th className="px-5 py-3 text-left font-bold">เลขบัตร</th>
+                  <th className="px-5 py-3 text-left font-bold">วงเงินที่ขอ</th>
+                  <th className="px-5 py-3 text-left font-bold">วัตถุประสงค์</th>
+                  <th className="px-5 py-3 text-left font-bold">วันที่ยื่น</th>
+                  <th className="px-5 py-3 text-left font-bold">เอกสาร</th>
+                  <th className="px-5 py-3 text-left font-bold">สถานะ</th>
+                  <th className="px-5 py-3 text-left font-bold">แปลง</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!loading && rows.length === 0 && (
                   <tr>
-                    <th className="px-5 py-3 text-left font-bold">เกษตรกร</th>
-                    <th className="px-5 py-3 text-left font-bold">เบอร์</th>
-                    <th className="px-5 py-3 text-left font-bold">เลขบัตร</th>
-                    <th className="px-5 py-3 text-left font-bold">วงเงินที่ขอ</th>
-                    <th className="px-5 py-3 text-left font-bold">วัตถุประสงค์</th>
-                    <th className="px-5 py-3 text-left font-bold">วันที่ยื่น</th>
-                    <th className="px-5 py-3 text-left font-bold">เอกสาร</th>
-                    <th className="px-5 py-3 text-left font-bold">สถานะ</th>
-                    <th className="px-5 py-3 text-left font-bold">แปลง</th>
+                    <td colSpan={9} className="px-5 py-6 text-ink/60">
+                      ยังไม่มีรายการ
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {!loading && rows.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="px-5 py-6 text-ink/60">
-                        ยังไม่มีรายการ
+                )}
+                {rows.map((row, index) => {
+                  const attached = row.documents.filter((doc) => doc.attached).length;
+                  return (
+                    <tr
+                      key={row.id}
+                      onClick={(event) => openRow(event, () => setSelectedId(row.id))}
+                      className={rowTone(index, selectedId === row.id)}
+                    >
+                      <td className="px-5 py-3 font-bold">{row.farmerName}</td>
+                      <td className="px-5 py-3">{row.tel}</td>
+                      <td className="px-5 py-3">{row.nationalId}</td>
+                      <td className="px-5 py-3 tabular-nums">{formatBaht(row.requestedAmount)}</td>
+                      <td className="px-5 py-3">{row.purpose || "—"}</td>
+                      <td className="px-5 py-3">{formatDate(row.submittedOn)}</td>
+                      <td className="px-5 py-3 tabular-nums">
+                        {attached}/{row.documents.length}
+                      </td>
+                      <td className={`px-5 py-3 font-bold ${statusTone(row.status?.name ?? "")}`}>
+                        {row.status?.name ?? "—"}
+                      </td>
+                      <td className="px-5 py-3">
+                        <MapLink farmerId={row.farmerId} />
                       </td>
                     </tr>
-                  )}
-                  {rows.map((row, index) => {
-                    const attached = row.documents.filter((doc) => doc.attached).length;
-                    return (
-                      <tr
-                        key={row.id}
-                        onClick={(event) => openRow(event, () => openDetail(row.id))}
-                        className={rowTone(index, selectedId === row.id)}
-                      >
-                        <td className="px-5 py-3 font-bold">{row.farmerName}</td>
-                        <td className="px-5 py-3">{row.tel}</td>
-                        <td className="px-5 py-3">{row.nationalId}</td>
-                        <td className="px-5 py-3 tabular-nums">{formatBaht(row.requestedAmount)}</td>
-                        <td className="px-5 py-3">{row.purpose || "—"}</td>
-                        <td className="px-5 py-3">{formatDate(row.submittedOn)}</td>
-                        <td className="px-5 py-3 tabular-nums">
-                          {attached}/{row.documents.length}
-                        </td>
-                        <td className={`px-5 py-3 font-bold ${statusTone(row.status?.name ?? "")}`}>
-                          {row.status?.name ?? "—"}
-                        </td>
-                        <td className="px-5 py-3">
-                          <MapLink farmerId={row.farmerId} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </TableScroll>
-            <Pagination
-              page={page}
-              pageCount={pageCount}
-              pageSize={pageSize}
-              total={total}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPage(1);
-                setPageSize(size);
-              }}
-            />
-          </div>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableScroll>
+          <Pagination
+            page={page}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPage(1);
+              setPageSize(size);
+            }}
+          />
         </div>
-      )}
-      {tab === "detail" && (
-        <ApplicationDetail
-          row={detail}
-          loading={detailLoading}
-          error={error}
-          busyDoc={busyDoc}
-          onToggle={toggleDoc}
-        />
-      )}
-    </div>
-  );
-}
-
-function ApplicationDetail({
-  row,
-  loading,
-  error,
-  busyDoc,
-  onToggle,
-}: {
-  row: LoanApplication | null;
-  loading: boolean;
-  error: string;
-  busyDoc: boolean;
-  onToggle: (appId: string, kindId: number, attached: boolean) => void;
-}) {
-  if (loading) {
-    return <div className="rounded-b-[8px] rounded-tr-[8px] border border-frame px-6 py-8 text-[14px] text-ink/60">กำลังโหลด…</div>;
-  }
-  if (!row) {
-    return (
-      <div className="rounded-b-[8px] rounded-tr-[8px] border border-frame px-6 py-8 text-[14px] text-danger">
-        {error || "ไม่พบรายการ"}
+        <DocumentPanel application={selected} busy={busyDoc} onToggle={toggleDoc} />
       </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-6 xl:flex-row">
-      <div className="min-w-0 flex-1 overflow-hidden rounded-b-[8px] rounded-tr-[8px] border border-frame">
-        <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">รายละเอียดคำขอ</div>
-        <DetailFields
-          fields={[
-            { label: "เกษตรกร", value: row.farmerName },
-            { label: "เบอร์", value: row.tel },
-            { label: "เลขบัตร", value: row.nationalId },
-            { label: "วงเงินที่ขอ", value: formatBaht(row.requestedAmount) },
-            { label: "วัตถุประสงค์", value: row.purpose || "—" },
-            { label: "วันที่ยื่น", value: formatDate(row.submittedOn) },
-            {
-              label: "สถานะ",
-              value: row.status?.name ?? "—",
-              tone: statusTone(row.status?.name ?? ""),
-            },
-            { label: "แปลง", value: <MapLink farmerId={row.farmerId} /> },
-          ]}
-        />
-      </div>
-      <DocumentPanel application={row} busy={busyDoc} onToggle={onToggle} />
     </div>
   );
 }
@@ -385,7 +279,7 @@ function DocumentPanel({
   busy,
   onToggle,
 }: {
-  application: LoanApplication;
+  application: LoanApplication | null;
   busy: boolean;
   onToggle: (appId: string, kindId: number, attached: boolean) => void;
 }) {
@@ -393,50 +287,54 @@ function DocumentPanel({
     <aside className="w-full shrink-0 overflow-hidden rounded-[8px] border border-frame xl:w-[320px]">
       <div className="bg-bar px-5 py-4 text-[16px] font-bold text-white">เอกสารประกอบ</div>
       <div className="border-b border-frame px-5 py-3 text-[13px] text-ink/70">แนบไฟล์ PDF เท่านั้น</div>
-      <ul className="divide-y divide-frame">
-        {application.documents.map((doc: LoanApplicationDocument) => (
-          <li key={doc.kindId} className="flex items-start gap-3 px-5 py-4">
-            <span className="mt-0.5 text-ink/50">
-              <Glyph icon={FileText} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-bold leading-snug">{doc.name}</div>
-              <div className="mt-2 flex flex-wrap gap-3 text-[13px]">
-                {doc.attached ? (
-                  <>
-                    <span className="font-bold text-brand">แนบแล้ว</span>
+      {!application ? (
+        <p className="px-5 py-6 text-[14px] text-ink/60">เลือกรายการเพื่อจัดการเอกสาร</p>
+      ) : (
+        <ul className="divide-y divide-frame">
+          {application.documents.map((doc: LoanApplicationDocument) => (
+            <li key={doc.kindId} className="flex items-start gap-3 px-5 py-4">
+              <span className="mt-0.5 text-ink/50">
+                <Glyph icon={FileText} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[14px] font-bold leading-snug">{doc.name}</div>
+                <div className="mt-2 flex flex-wrap gap-3 text-[13px]">
+                  {doc.attached ? (
+                    <>
+                      <span className="font-bold text-brand">แนบแล้ว</span>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 font-bold text-danger disabled:opacity-50"
+                        onClick={() => onToggle(application.id, doc.kindId, false)}
+                      >
+                        <Glyph icon={Trash2} />
+                        ลบไฟล์
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       disabled={busy}
-                      className="inline-flex items-center gap-1 font-bold text-danger disabled:opacity-50"
-                      onClick={() => onToggle(application.id, doc.kindId, false)}
+                      className="inline-flex items-center gap-1 font-bold text-link disabled:opacity-50"
+                      onClick={() => onToggle(application.id, doc.kindId, true)}
                     >
-                      <Glyph icon={Trash2} />
-                      ลบไฟล์
+                      <Glyph icon={Upload} />
+                      แนบไฟล์
                     </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="inline-flex items-center gap-1 font-bold text-link disabled:opacity-50"
-                    onClick={() => onToggle(application.id, doc.kindId, true)}
-                  >
-                    <Glyph icon={Upload} />
-                    แนบไฟล์
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-            <span
-              className={`mt-1 h-4 w-4 shrink-0 rounded-[3px] border ${
-                doc.attached ? "border-brand bg-brand" : "border-line bg-white"
-              }`}
-              aria-hidden
-            />
-          </li>
-        ))}
-      </ul>
+              <span
+                className={`mt-1 h-4 w-4 shrink-0 rounded-[3px] border ${
+                  doc.attached ? "border-brand bg-brand" : "border-line bg-white"
+                }`}
+                aria-hidden
+              />
+            </li>
+          ))}
+        </ul>
+      )}
     </aside>
   );
 }
