@@ -12,7 +12,7 @@ import {
   restoreAuthSession,
   type AuthSession,
 } from "@/lib/api";
-import { daysUntil } from "@/lib/domain";
+import { allowed, daysUntil, type Permission, type PermissionResource } from "@/lib/domain";
 
 /** Flip on when rolling out แผนรอบปลูก (/plan, /plan/members). */
 const SHOW_PLAN_NAV = false;
@@ -24,117 +24,123 @@ const SHOW_PERMISSIONS_NAV = true;
 const SHOW_ANNOUNCE_NAV = true;
 /** Flip on when rolling out สินเชื่อ. */
 const SHOW_LOANS_NAV = true;
-const HOME_PATH = SHOW_PLAN_NAV ? "/plan" : "/farmers";
+const FALLBACK_HOME = SHOW_PLAN_NAV ? "/plan" : "/farmers";
 
 type NavChild = { href: string; label: string };
 type NavItem = { href?: string; label: string; icon: LucideIcon; children?: NavChild[] };
 
-function knownAppPaths(isAdmin: boolean) {
-  return new Set([
-    "/",
-    ...(SHOW_PLAN_NAV ? ["/plan", "/plan/members"] : []),
-    "/map",
-    "/map/manage",
-    "/groups",
-    "/groups/manage",
-    "/farmers",
-    "/farmers/manage",
-    ...(SHOW_MANAGE_NAV
-      ? ["/manage", "/manage/varieties", "/manage/name-prefixes", "/varieties/manage"]
-      : []),
-    ...(SHOW_PERMISSIONS_NAV && isAdmin ? ["/permissions", "/permissions/people"] : []),
-    ...(SHOW_ANNOUNCE_NAV ? ["/announce", "/announce/list"] : []),
-    ...(SHOW_LOANS_NAV ? ["/loans/pending", "/loans", "/loans/history"] : []),
-    "/dashboard",
-  ]);
+/** Admin sees every tab. Org staff see tabs only when role org has canRead. */
+function canSeeTab(isAdmin: boolean, permissions: Permission[], resource: PermissionResource) {
+  return isAdmin || allowed(permissions, "org", resource, "canRead");
 }
 
 /**
  * Nav order (top → bottom):
  * 1) คน/กลุ่ม  2) พื้นที่/แผน  3) สินเชื่อ  4) สื่อสาร  5) ข้อมูลหลัก  6) สิทธิ์ (admin only)
+ * Tabs follow สิทธิ์ตามบทบาท → องค์กร → อ่าน.
  */
-function buildNav(isAdmin: boolean): NavItem[] {
-  return [
-    {
-      href: "/farmers",
-      label: "เกษตรกร",
-      icon: Users,
-    },
-    {
-      href: "/groups",
-      label: "กลุ่ม",
-      icon: Layers,
-    },
-    {
+function buildNav(isAdmin: boolean, permissions: Permission[]): NavItem[] {
+  const can = (resource: PermissionResource) => canSeeTab(isAdmin, permissions, resource);
+  const items: NavItem[] = [];
+
+  if (can("farmers")) {
+    items.push({ href: "/farmers", label: "เกษตรกร", icon: Users });
+  }
+  if (can("groups")) {
+    items.push({ href: "/groups", label: "กลุ่ม", icon: Layers });
+  }
+  if (can("plots")) {
+    items.push({
       label: "แผนที่แปลง",
       icon: Map,
       children: [
         { href: "/map", label: "แผนที่แปลง" },
         { href: "/map/manage", label: "จัดการแปลง" },
       ],
-    },
-    ...(SHOW_PLAN_NAV
-      ? [
-          {
-            label: "แผนรอบปลูก",
-            icon: Sprout,
-            children: [
-              { href: "/plan", label: "แผนรวม" },
-              { href: "/plan/members", label: "แผนรายเกษตรกร" },
-            ],
-          },
-        ]
-      : []),
-    ...(SHOW_LOANS_NAV
-      ? [
-          {
-            label: "สินเชื่อ",
-            icon: CircleDollarSign,
-            children: [
-              { href: "/loans/pending", label: "รออนุมัติ" },
-              { href: "/loans", label: "สินเชื่อ" },
-              { href: "/loans/history", label: "ประวัติ" },
-            ],
-          },
-        ]
-      : []),
-    ...(SHOW_ANNOUNCE_NAV
-      ? [
-          {
-            label: "ประกาศ LINE",
-            icon: Megaphone,
-            children: [
-              { href: "/announce", label: "สร้าง" },
-              { href: "/announce/list", label: "รายการ" },
-            ],
-          },
-        ]
-      : []),
-    ...(SHOW_MANAGE_NAV
-      ? [
-          {
-            label: "ข้อมูลหลัก",
-            icon: Settings2,
-            children: [
-              { href: "/manage/name-prefixes", label: "คำนำหน้า" },
-              { href: "/manage/varieties", label: "พันธุ์ข้าว" },
-            ],
-          },
-        ]
-      : []),
-    ...(SHOW_PERMISSIONS_NAV && isAdmin
-      ? [
-          {
-            label: "สิทธิ์",
-            icon: Shield,
-            children: [
-              { href: "/permissions", label: "สิทธิ์ตามบทบาท" },
-              { href: "/permissions/people", label: "รายคน" },
-            ],
-          },
-        ]
-      : []),
-  ];
+    });
+  }
+  if (SHOW_PLAN_NAV && can("plantings")) {
+    items.push({
+      label: "แผนรอบปลูก",
+      icon: Sprout,
+      children: [
+        { href: "/plan", label: "แผนรวม" },
+        { href: "/plan/members", label: "แผนรายเกษตรกร" },
+      ],
+    });
+  }
+  // Loans has no row in สิทธิ์ตามบทบาท yet — keep rollout flag only.
+  if (SHOW_LOANS_NAV) {
+    items.push({
+      label: "สินเชื่อ",
+      icon: CircleDollarSign,
+      children: [
+        { href: "/loans/pending", label: "รออนุมัติ" },
+        { href: "/loans", label: "สินเชื่อ" },
+        { href: "/loans/history", label: "ประวัติ" },
+      ],
+    });
+  }
+  if (SHOW_ANNOUNCE_NAV && can("announcements")) {
+    items.push({
+      label: "ประกาศ LINE",
+      icon: Megaphone,
+      children: [
+        { href: "/announce", label: "สร้าง" },
+        { href: "/announce/list", label: "รายการ" },
+      ],
+    });
+  }
+  if (SHOW_MANAGE_NAV) {
+    const manageChildren: NavChild[] = [];
+    if (can("namePrefixes")) manageChildren.push({ href: "/manage/name-prefixes", label: "คำนำหน้า" });
+    if (can("varieties")) manageChildren.push({ href: "/manage/varieties", label: "พันธุ์ข้าว" });
+    if (manageChildren.length) {
+      items.push({ label: "ข้อมูลหลัก", icon: Settings2, children: manageChildren });
+    }
+  }
+  if (SHOW_PERMISSIONS_NAV && isAdmin) {
+    items.push({
+      label: "สิทธิ์",
+      icon: Shield,
+      children: [
+        { href: "/permissions", label: "สิทธิ์ตามบทบาท" },
+        { href: "/permissions/people", label: "รายคน" },
+      ],
+    });
+  }
+  return items;
+}
+
+function navHrefs(nav: NavItem[]) {
+  const hrefs: string[] = [];
+  for (const item of nav) {
+    if (item.href) hrefs.push(item.href);
+    for (const child of item.children ?? []) hrefs.push(child.href);
+  }
+  return hrefs;
+}
+
+function homePath(nav: NavItem[]) {
+  return navHrefs(nav)[0] ?? FALLBACK_HOME;
+}
+
+function pathAllowed(pathname: string, nav: NavItem[], isAdmin: boolean) {
+  if (pathname === "/" || pathname === "/dashboard") return false;
+  // Manage / farmers detail paths under a visible section.
+  const allowedRoots = new Set(navHrefs(nav));
+  if (allowedRoots.has(pathname)) return true;
+  if (pathname.startsWith("/farmers") && allowedRoots.has("/farmers")) return true;
+  if (pathname.startsWith("/groups") && allowedRoots.has("/groups")) return true;
+  if ((pathname.startsWith("/map") || pathname.startsWith("/plots")) && allowedRoots.has("/map")) return true;
+  if (pathname.startsWith("/manage") || pathname.startsWith("/varieties")) {
+    return [...allowedRoots].some((href) => href.startsWith("/manage"));
+  }
+  if (pathname.startsWith("/announce") && [...allowedRoots].some((href) => href.startsWith("/announce"))) return true;
+  if (pathname.startsWith("/loans") && [...allowedRoots].some((href) => href.startsWith("/loans"))) return true;
+  if (pathname.startsWith("/plan") && [...allowedRoots].some((href) => href.startsWith("/plan"))) return true;
+  if (pathname.startsWith("/permissions") && isAdmin) return true;
+  return false;
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -153,16 +159,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setBoot(true);
   }, []);
 
-  useEffect(() => {
-    if (!boot || !session) return;
-    // Logged-in users on unknown/legacy URLs land on home.
-    // Non-admins hitting /permissions* also land on home.
-    const known = knownAppPaths(Boolean(session.isAdmin));
-    if (!known.has(pathname) || pathname === "/" || pathname === "/dashboard") {
-      router.replace(HOME_PATH);
-    }
-  }, [boot, session, pathname, router]);
-
   if (!boot) {
     return <div className="flex h-full items-center justify-center bg-white text-[14px] text-ink/60">กำลังโหลด…</div>;
   }
@@ -172,8 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <LoginScreen
         onSuccess={(next) => {
           setSession(next);
-          // Always open the real home after login — never stay on a dead URL.
-          router.replace(HOME_PATH);
+          router.replace(FALLBACK_HOME);
         }}
       />
     );
@@ -211,7 +206,8 @@ function ShellFrame({
   onLogout: () => void;
 }) {
   const pathname = usePathname();
-  const { ready, loadError, reload, revision } = useOrg();
+  const router = useRouter();
+  const { ready, loadError, reload, revision, permissions } = useOrg();
   const [duePlots, setDuePlots] = useState<{ id: string; name: string; harvestOn: string }[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
@@ -222,12 +218,23 @@ function ShellFrame({
   const initials = displayName.slice(0, 2);
   const isAdmin = Boolean(session.isAdmin);
   const roleLabel = isAdmin ? "ผู้ดูแลระบบ" : "เจ้าหน้าที่";
-  const nav = buildNav(isAdmin);
+  const nav = buildNav(isAdmin, permissions);
+  const home = homePath(nav);
 
   useEffect(() => {
-    const parent = buildNav(isAdmin).find((item) => item.children?.some((child) => pathname === child.href));
+    const parent = buildNav(isAdmin, permissions).find((item) =>
+      item.children?.some((child) => pathname === child.href),
+    );
     if (parent) setOpenMenu(parent.label);
-  }, [pathname, isAdmin]);
+  }, [pathname, isAdmin, permissions]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const nextNav = buildNav(isAdmin, permissions);
+    if (!pathAllowed(pathname, nextNav, isAdmin)) {
+      router.replace(homePath(nextNav));
+    }
+  }, [ready, pathname, isAdmin, permissions, router]);
 
   useEffect(() => {
     if (!ready) return;
@@ -307,7 +314,7 @@ function ShellFrame({
                     {duePlots.map((plot) => (
                       <li key={plot.id} className="border-b border-table last:border-b-0">
                         <Link
-                          href={HOME_PATH}
+                          href={home}
                           onClick={() => setBellOpen(false)}
                           className="block px-5 py-3 hover:bg-sub"
                         >
