@@ -187,3 +187,82 @@ create index announcements_status_id_idx on public.announcements (status_id);
 create index announcements_due_idx
   on public.announcements (scheduled_at)
   where status_id = 502;
+
+-- Loans (canonical migration: refactor-dona-api/migrations/000005_loans.up.sql)
+create table public.loan_account_statuses (
+  id smallint primary key,
+  code text not null unique,
+  name text not null
+);
+
+create table public.loan_application_statuses (
+  id smallint primary key,
+  code text not null unique,
+  name text not null
+);
+
+create table public.loan_history_results (
+  id smallint primary key,
+  code text not null unique,
+  name text not null
+);
+
+create table public.loan_document_kinds (
+  id smallint primary key,
+  code text not null unique,
+  name text not null
+);
+
+create table public.loan_accounts (
+  id uuid primary key default gen_random_uuid(),
+  farmer_id uuid references public.farmers (id) on delete restrict,
+  name text not null,
+  tel text not null,
+  national_id text not null,
+  credit_limit numeric(14, 2) not null,
+  balance numeric(14, 2) not null,
+  installment_months int not null,
+  next_due date,
+  last_due date,
+  status_id smallint not null references public.loan_account_statuses (id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.loan_applications (
+  id uuid primary key default gen_random_uuid(),
+  farmer_id uuid references public.farmers (id) on delete restrict,
+  farmer_name text not null,
+  tel text not null,
+  national_id text not null,
+  requested_amount numeric(14, 2) not null,
+  purpose text not null default '',
+  submitted_on date not null,
+  status_id smallint not null references public.loan_application_statuses (id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.loan_application_documents (
+  application_id uuid not null references public.loan_applications (id) on delete cascade,
+  kind_id smallint not null references public.loan_document_kinds (id),
+  attached boolean not null default false,
+  storage_path text,
+  primary key (application_id, kind_id)
+);
+
+create table public.loan_history (
+  id uuid primary key default gen_random_uuid(),
+  farmer_id uuid references public.farmers (id) on delete restrict,
+  farmer_name text not null,
+  tel text not null,
+  national_id text not null,
+  amount numeric(14, 2) not null,
+  purpose text not null default '',
+  approved_on date,
+  transferred_on date,
+  result_id smallint not null references public.loan_history_results (id),
+  note text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);

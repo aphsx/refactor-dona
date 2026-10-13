@@ -12,6 +12,8 @@
 | `SHOW_PLAN_NAV` | `false` | แผนรอบปลูก (แผนรวม / แผนรายเกษตรกร) | `/plan`, `/plan/members` |
 | `SHOW_MANAGE_NAV` | `false` | จัดการ (พันธุ์ข้าว) | `/manage/varieties` |
 | `SHOW_PERMISSIONS_NAV` | `true` | จัดการสิทธิ์ | `/permissions`, `/permissions/people` |
+| `SHOW_ANNOUNCE_NAV` | `true` | ประกาศ LINE OA | `/announce`, `/announce/list` |
+| `SHOW_LOANS_NAV` | `true` | สินเชื่อ (รออนุมัติ / สินเชื่อ / ประวัติ) | `/loans/pending`, `/loans`, `/loans/history` |
 
 เมื่อ flag เป็น `false`:
 
@@ -36,6 +38,9 @@
 1. เกษตรกร / จัดการเกษตรกร  
 2. กลุ่ม / จัดการกลุ่ม  
 3. แผนที่แปลง / จัดการแปลง  
+4. ประกาศ LINE (สร้าง / รายการ)  
+5. สินเชื่อ (รออนุมัติ / สินเชื่อ / ประวัติ) — ดึงจาก API/Supabase (ตารางว่างได้)  
+6. จัดการสิทธิ์  
 
 ในจัดการเกษตรกร: รายการ + รายละเอียด + แปลง (ยังไม่มีแผนปลูก)
 

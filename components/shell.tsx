@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, ChevronDown, Layers, Map, Megaphone, Menu, Settings2, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
+import { Bell, ChevronDown, CircleDollarSign, Layers, Map, Megaphone, Menu, Settings2, Shield, Sprout, Users, type LucideIcon } from "lucide-react";
 import { LoginScreen } from "@/components/login-screen";
 import { StoreProvider, useOrg } from "@/components/store";
 import {
@@ -22,6 +22,8 @@ const SHOW_MANAGE_NAV = false;
 const SHOW_PERMISSIONS_NAV = true;
 /** Flip on when rolling out ประกาศ LINE OA. */
 const SHOW_ANNOUNCE_NAV = true;
+/** Flip on when rolling out สินเชื่อ. */
+const SHOW_LOANS_NAV = true;
 const HOME_PATH = SHOW_PLAN_NAV ? "/plan" : "/farmers";
 
 const KNOWN_APP_PATHS = new Set([
@@ -36,6 +38,7 @@ const KNOWN_APP_PATHS = new Set([
   ...(SHOW_MANAGE_NAV ? ["/manage", "/manage/varieties", "/varieties/manage"] : []),
   ...(SHOW_PERMISSIONS_NAV ? ["/permissions", "/permissions/people"] : []),
   ...(SHOW_ANNOUNCE_NAV ? ["/announce", "/announce/list"] : []),
+  ...(SHOW_LOANS_NAV ? ["/loans/pending", "/loans", "/loans/history"] : []),
   "/dashboard",
 ]);
 
@@ -92,6 +95,19 @@ const NAV: NavItem[] = [
           children: [
             { href: "/announce", label: "สร้าง" },
             { href: "/announce/list", label: "รายการ" },
+          ],
+        },
+      ]
+    : []),
+  ...(SHOW_LOANS_NAV
+    ? [
+        {
+          label: "สินเชื่อ",
+          icon: CircleDollarSign,
+          children: [
+            { href: "/loans/pending", label: "รออนุมัติ" },
+            { href: "/loans", label: "สินเชื่อ" },
+            { href: "/loans/history", label: "ประวัติ" },
           ],
         },
       ]

@@ -14,5 +14,9 @@ Mirror of the API doc. Canonical source of truth:
 | 501–599 | `announcement_statuses` |
 | 601–699 | reserved |
 | 701–799 | reserved |
+| 801–899 | `loan_account_statuses` |
+| 901–999 | `loan_application_statuses` |
+| 1001–1099 | `loan_history_results` |
+| 1101–1199 | `loan_document_kinds` |
 
 Portal FE constants for announcements: `lib/api/index.ts` (`ANNOUNCEMENT_STATUS`).
