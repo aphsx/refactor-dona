@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { FileText, Map, RotateCcw, Search, Trash2, Upload } from "lucide-react";
 import {
   ConfirmAlert,
+  Dialog,
   Glyph,
   PageHeader,
   Pagination,
@@ -18,6 +19,7 @@ import {
   tableClass,
 } from "@/components/ui";
 import {
+  api,
   apiMessage,
   getLoanAccount,
   getLoanHistory,
@@ -30,7 +32,17 @@ import {
   type LoanApplicationDocument,
   type LoanHistory,
 } from "@/lib/api";
-import { formatThaiDate, isLoanDocumentRequired, loanRequiredDocumentProgress } from "@/lib/domain";
+import {
+  farmerColor,
+  farmerName,
+  formatThaiDate,
+  isLoanDocumentRequired,
+  loanRequiredDocumentProgress,
+  type Farmer,
+} from "@/lib/domain";
+import { placeLabel } from "@/lib/thai-place";
+
+const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
 function statusTone(status: string) {
   if (status === "อนุมัติ" || status === "คำขอปกติ") return "text-brand";
@@ -136,25 +148,196 @@ function ReadField({
   );
 }
 
-function MapLink({ farmerId }: { farmerId: string | null }) {
+function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: () => void }) {
+  const [farmer, setFarmer] = useState<Farmer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [mapOpen, setMapOpen] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError("");
+    void api
+      .getFarmer(farmerId)
+      .then((row) => {
+        if (!alive) return;
+        setFarmer(row);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setError(apiMessage(err));
+        setFarmer(null);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [farmerId]);
+
   return (
-    <Link
-      href={farmerId ? `/map?farmer=${farmerId}` : "/map"}
-      className="inline-flex items-center gap-1 font-bold text-link underline"
-      onClick={(event) => event.stopPropagation()}
-    >
-      <Glyph icon={Map} />
-      แผนที่
-    </Link>
+    <>
+      <Dialog title="รายละเอียดเกษตรกร" wide onClose={onClose}>
+        {loading && <p className="text-[14px] text-ink/60">กำลังโหลด…</p>}
+        {!loading && error && <p className="text-[14px] text-danger">{error}</p>}
+        {!loading && farmer && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ReadField label="ชื่อ" value={farmer.firstName} />
+              <ReadField label="นามสกุล" value={farmer.lastName} />
+              <ReadField label="เบอร์โทร" value={farmer.tel || "—"} />
+              <ReadField label="กลุ่ม" value={farmer.groupName || "—"} />
+              <ReadField label="ที่อยู่" value={farmer.address || "—"} className="sm:col-span-2" />
+              <ReadField label="ตำบล / อำเภอ / จังหวัด" value={placeLabel(farmer)} className="sm:col-span-2" />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <PrimaryButton type="button" className="h-9" onClick={() => setMapOpen(true)}>
+                <Glyph icon={Map} />
+                แผนที่แปลง
+              </PrimaryButton>
+            </div>
+          </>
+        )}
+      </Dialog>
+      {mapOpen && <MapPeekDialog farmerId={farmerId} onClose={() => setMapOpen(false)} />}
+    </>
   );
 }
 
-function FarmerLink({ farmerId, name }: { farmerId: string | null; name: string }) {
-  if (!farmerId) return <span className="font-bold">{name}</span>;
+function MapPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: () => void }) {
+  const [titleName, setTitleName] = useState("");
+  const [plots, setPlots] = useState<
+    { id: string; name: string; color: string; muted: boolean; polygon: [number, number][] }[]
+  >([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError("");
+    void Promise.all([api.getFarmer(farmerId), api.listPlotBoundaries({ farmerId })])
+      .then(([farmer, boundaries]) => {
+        if (!alive) return;
+        setTitleName(farmerName(farmer));
+        const color = farmerColor(farmerId);
+        const next = boundaries.map((item) => ({
+          id: item.id,
+          name: item.name,
+          color,
+          muted: false,
+          polygon: item.polygon,
+        }));
+        setPlots(next);
+        setSelectedId(next[0]?.id ?? null);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setError(apiMessage(err));
+        setPlots([]);
+        setSelectedId(null);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [farmerId]);
+
+  const selected = plots.find((plot) => plot.id === selectedId) ?? null;
+
   return (
-    <Link href={`/farmers?farmer=${farmerId}`} className="font-bold text-link underline">
-      {name}
-    </Link>
+    <Dialog title={titleName ? `แผนที่แปลง · ${titleName}` : "แผนที่แปลง"} wide onClose={onClose}>
+      {loading && <p className="text-[14px] text-ink/60">กำลังโหลด…</p>}
+      {!loading && error && <p className="text-[14px] text-danger">{error}</p>}
+      {!loading && !error && plots.length === 0 && (
+        <p className="text-[14px] text-ink/60">ยังไม่มีรูปแปลงของเกษตรกรรายนี้</p>
+      )}
+      {!loading && !error && plots.length > 0 && (
+        <div className="flex h-[min(720px,calc(100vh-10rem))] flex-col">
+          <p className="mb-3 shrink-0 text-[14px]">
+            {selected ? `${selected.name} · เลือกจาก ${plots.length} แปลง` : `${plots.length} แปลงที่มีขอบเขต`}
+          </p>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <FieldMap
+              plots={plots}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              bottomInset={48}
+            />
+          </div>
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+function MapLink({
+  farmerId,
+  className,
+  children,
+}: {
+  farmerId: string | null;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!farmerId) {
+    return <span className="text-ink/40">{children ?? "แผนที่"}</span>;
+  }
+  return (
+    <>
+      <button
+        type="button"
+        className={className ?? "inline-flex items-center gap-1 font-bold text-link underline"}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        {children ?? (
+          <>
+            <Glyph icon={Map} />
+            แผนที่
+          </>
+        )}
+      </button>
+      {open && <MapPeekDialog farmerId={farmerId} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function FarmerLink({
+  farmerId,
+  name,
+  className,
+  children,
+}: {
+  farmerId: string | null;
+  name: string;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!farmerId) return <span className="font-bold">{children ?? name}</span>;
+  return (
+    <>
+      <button
+        type="button"
+        className={className ?? "font-bold text-link underline"}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        {children ?? name}
+      </button>
+      {open && <FarmerPeekDialog farmerId={farmerId} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
@@ -278,7 +461,9 @@ export function LoanPendingScreen() {
                       onClick={(event) => openRow(event, () => setSelectedId(row.id))}
                       className={rowTone(index, selectedId === row.id)}
                     >
-                      <td className="px-5 py-3 font-bold">{row.farmerName}</td>
+                      <td className="px-5 py-3">
+                        <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
+                      </td>
                       <td className="px-5 py-3">{row.tel}</td>
                       <td className="px-5 py-3">{row.nationalId}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.requestedAmount)}</td>
@@ -553,7 +738,9 @@ export function LoanAccountsScreen() {
                       onClick={(event) => openRow(event, () => openDetail(row.id))}
                       className={rowTone(index, selectedId === row.id)}
                     >
-                      <td className="px-5 py-3 font-bold">{row.name}</td>
+                      <td className="px-5 py-3">
+                        <FarmerLink farmerId={row.farmerId} name={row.name} />
+                      </td>
                       <td className="px-5 py-3">{row.tel}</td>
                       <td className="px-5 py-3">{row.nationalId}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.creditLimit)}</td>
@@ -649,19 +836,20 @@ function AccountDetail({
       </DetailSection>
       {row.farmerId && (
         <div className="flex flex-wrap gap-3 border-t border-frame px-6 py-4">
-          <Link
-            href={`/farmers?farmer=${row.farmerId}`}
+          <FarmerLink
+            farmerId={row.farmerId}
+            name={row.name}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand hover:bg-pick"
           >
             ดูเกษตรกร
-          </Link>
-          <Link
-            href={`/map?farmer=${row.farmerId}`}
+          </FarmerLink>
+          <MapLink
+            farmerId={row.farmerId}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand hover:bg-pick"
           >
             <Glyph icon={Map} />
             แผนที่
-          </Link>
+          </MapLink>
         </div>
       )}
     </>
@@ -811,7 +999,9 @@ export function LoanHistoryScreen() {
                       onClick={(event) => openRow(event, () => openDetail(row.id))}
                       className={rowTone(index, selectedId === row.id)}
                     >
-                      <td className="px-5 py-3 font-bold">{row.farmerName}</td>
+                      <td className="px-5 py-3">
+                        <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
+                      </td>
                       <td className="px-5 py-3">{row.tel}</td>
                       <td className="px-5 py-3">{row.nationalId}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.amount)}</td>
@@ -896,12 +1086,20 @@ function HistoryDetail({
       </DetailSection>
       {row.farmerId && (
         <div className="flex flex-wrap gap-3 border-t border-frame px-6 py-4">
-          <Link
-            href={`/farmers?farmer=${row.farmerId}`}
+          <FarmerLink
+            farmerId={row.farmerId}
+            name={row.farmerName}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand hover:bg-pick"
           >
             ดูเกษตรกร
-          </Link>
+          </FarmerLink>
+          <MapLink
+            farmerId={row.farmerId}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand hover:bg-pick"
+          >
+            <Glyph icon={Map} />
+            แผนที่
+          </MapLink>
         </div>
       )}
     </>
