@@ -29,6 +29,9 @@ export type LoanApplicationDocument = {
 /** Wireframe: 4 จำเป็น — บัตร / ทะเบียนบ้าน / โฉนด / บัตรผู้ค้ำ (ทะเบียนสมรสไม่บังคับ) */
 export const LOAN_REQUIRED_DOCUMENT_KIND_IDS = new Set([1101, 1102, 1104, 1105]);
 
+/** Application under review — shown on รออนุมัติ. */
+export const LOAN_APPLICATION_STATUS_REVIEWING_ID = 902;
+
 export function isLoanDocumentRequired(doc: Pick<LoanApplicationDocument, "kindId" | "required">) {
   if (typeof doc.required === "boolean") return doc.required;
   return LOAN_REQUIRED_DOCUMENT_KIND_IDS.has(doc.kindId);

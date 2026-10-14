@@ -21,6 +21,7 @@ import {
 import {
   api,
   apiMessage,
+  decideLoanApplication,
   getLoanAccount,
   getLoanHistory,
   listLoanAccountsPage,
@@ -39,6 +40,7 @@ import {
   formatNationalId,
   formatThaiDate,
   isLoanDocumentRequired,
+  LOAN_APPLICATION_STATUS_REVIEWING_ID,
   loanRequiredDocumentProgress,
   nationalIdDigits,
   type Farmer,
@@ -50,7 +52,9 @@ const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mo
 function statusTone(status: string) {
   if (status === "อนุมัติ" || status === "คำขอปกติ") return "text-brand";
   if (status === "ปฏิเสธ" || status === "NPL" || status === "ยกเลิก") return "text-danger";
-  if (status === "ค้างชำระ" || status === "รอเอกสาร") return "text-amber-700";
+  if (status === "ค้างชำระ" || status === "รอการตรวจสอบ" || status === "กำลังตรวจสอบ") {
+    return "text-amber-700";
+  }
   return "text-ink";
 }
 
@@ -430,7 +434,7 @@ function FarmerLink({
   );
 }
 
-/** รออนุมัติ — ตาราง + แผงเอกสาร (ไม่มีหน้ารายละเอียด) */
+/** รออนุมัติ — ตารางคำขอที่รอการตรวจสอบ + แผงเอกสาร + อนุมัติ/ปฏิเสธ */
 export function LoanPendingScreen() {
   const [draftName, setDraftName] = useState("");
   const [draftNationalId, setDraftNationalId] = useState("");
@@ -444,24 +448,32 @@ export function LoanPendingScreen() {
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busyKindId, setBusyKindId] = useState<number | null>(null);
+  const [decideBusy, setDecideBusy] = useState(false);
+  const [pendingDecision, setPendingDecision] = useState<"approve" | "reject" | null>(null);
   const query = searchQuery(name, nationalId);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await listLoanApplicationsPage({ q: query, page, pageSize });
+      const data = await listLoanApplicationsPage({
+        q: query,
+        page,
+        pageSize,
+        statusId: LOAN_APPLICATION_STATUS_REVIEWING_ID,
+      });
       const items = data.items ?? [];
       setRows(items);
       setTotal(data.total ?? 0);
-      setSelectedId((current) => {
-        if (current && items.some((item) => item.id === current)) return current;
-        return items[0]?.id ?? null;
-      });
+      // Keep selection only if it still exists on this page — never auto-pick a row.
+      setSelectedId((current) =>
+        current && items.some((item) => item.id === current) ? current : null,
+      );
     } catch (err) {
       setError(apiMessage(err));
       setRows([]);
       setTotal(0);
+      setSelectedId(null);
     } finally {
       setLoading(false);
     }
@@ -511,8 +523,25 @@ export function LoanPendingScreen() {
     }
   }
 
+  async function confirmDecide() {
+    if (!selectedId || !pendingDecision) return;
+    setDecideBusy(true);
+    setError("");
+    try {
+      await decideLoanApplication(selectedId, pendingDecision);
+      setPendingDecision(null);
+      await refresh();
+    } catch (err) {
+      setError(apiMessage(err));
+      setPendingDecision(null);
+    } finally {
+      setDecideBusy(false);
+    }
+  }
+
   const selected = rows.find((row) => row.id === selectedId) ?? null;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const canDecide = Boolean(selected) && !decideBusy && busyKindId == null;
 
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
@@ -548,6 +577,7 @@ export function LoanPendingScreen() {
             <table className={tableClass}>
               <thead className="bg-table">
                 <tr>
+                  <th className="w-14 px-4 py-3 text-center font-bold">เลือก</th>
                   <th className="px-5 py-3 text-left font-bold">เกษตรกร</th>
                   <th className="px-5 py-3 text-left font-bold">เลขบัตรประชาชน</th>
                   <th className="px-5 py-3 text-left font-bold">วงเงินที่ขอ</th>
@@ -561,19 +591,33 @@ export function LoanPendingScreen() {
               <tbody>
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-5 py-6 text-ink/60">
+                    <td colSpan={9} className="px-5 py-6 text-ink/60">
                       ยังไม่มีรายการ
                     </td>
                   </tr>
                 )}
                 {rows.map((row, index) => {
                   const docs = loanRequiredDocumentProgress(row.documents);
+                  const checked = selectedId === row.id;
+                  function toggleSelect() {
+                    setSelectedId((current) => (current === row.id ? null : row.id));
+                  }
                   return (
                     <tr
                       key={row.id}
-                      onClick={(event) => openRow(event, () => setSelectedId(row.id))}
-                      className={rowTone(index, selectedId === row.id)}
+                      onClick={(event) => openRow(event, toggleSelect)}
+                      className={rowTone(index, checked)}
                     >
+                      <td className="px-4 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={toggleSelect}
+                          onClick={(event) => event.stopPropagation()}
+                          aria-label={`เลือก ${row.farmerName}`}
+                          className="h-4 w-4 cursor-pointer accent-brand"
+                        />
+                      </td>
                       <td className="px-5 py-3">
                         <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
                       </td>
@@ -607,6 +651,25 @@ export function LoanPendingScreen() {
               setPageSize(size);
             }}
           />
+          <div className="flex flex-wrap gap-3 border-t border-frame px-6 py-4">
+            <PrimaryButton
+              type="button"
+              disabled={!canDecide}
+              onClick={() => setPendingDecision("approve")}
+            >
+              อนุมัติ
+            </PrimaryButton>
+            <PrimaryButton
+              type="button"
+              disabled={!canDecide}
+              onClick={() => setPendingDecision("reject")}
+            >
+              ปฏิเสธ
+            </PrimaryButton>
+            {!selected && (
+              <span className="self-center text-[13px] text-ink/50">เลือกรายการก่อนอนุมัติหรือปฏิเสธ</span>
+            )}
+          </div>
         </div>
         <DocumentPanel
           application={selected}
@@ -615,6 +678,19 @@ export function LoanPendingScreen() {
           onRemove={removeDoc}
         />
       </div>
+      {pendingDecision && selected && (
+        <ConfirmAlert
+          message={
+            pendingDecision === "approve"
+              ? `ยืนยันอนุมัติคำขอของ ${selected.farmerName}?`
+              : `ยืนยันปฏิเสธคำขอของ ${selected.farmerName}?`
+          }
+          onCancel={() => {
+            if (!decideBusy) setPendingDecision(null);
+          }}
+          onConfirm={() => confirmDecide()}
+        />
+      )}
     </div>
   );
 }

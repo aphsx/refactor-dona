@@ -32,8 +32,26 @@ export function getLoanAccount(id: string) {
   return apiRequest<LoanAccount>(`/loans/accounts/${encodeURIComponent(id)}`);
 }
 
-export function listLoanApplicationsPage(query: { q?: string; page?: number; pageSize?: number } = {}) {
-  return apiRequest<LoanPage<LoanApplication>>(`/loans/applications?${loanListParams(query)}`);
+export function listLoanApplicationsPage(
+  query: { q?: string; page?: number; pageSize?: number; statusId?: number } = {},
+) {
+  const params = loanListParams(query);
+  if (query.statusId != null && query.statusId > 0) {
+    params.set("statusId", String(query.statusId));
+  }
+  return apiRequest<LoanPage<LoanApplication>>(`/loans/applications?${params}`);
+}
+
+/** Mill staff: approve or reject a reviewing application. */
+export function decideLoanApplication(
+  id: string,
+  decision: "approve" | "reject",
+  note = "",
+) {
+  return apiRequest<LoanApplication>(`/loans/applications/${encodeURIComponent(id)}/decide`, {
+    method: "POST",
+    body: JSON.stringify({ decision, note }),
+  });
 }
 
 export function getLoanApplication(id: string) {

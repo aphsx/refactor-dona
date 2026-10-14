@@ -394,6 +394,7 @@ export {
   getLoanAccount,
   listLoanApplicationsPage,
   getLoanApplication,
+  decideLoanApplication,
   listLoanHistoryPage,
   getLoanHistory,
   setLoanApplicationDocumentAttached,
