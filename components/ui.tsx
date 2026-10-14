@@ -780,68 +780,79 @@ export function DateField({
       {open &&
         box &&
         createPortal(
-          <div
-            data-date-field
-            style={{ position: "fixed", top: box.top, left: box.left, width: 288, zIndex: 80 }}
-            className="rounded-[8px] border border-line bg-white p-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <button
-                type="button"
-                aria-label="เดือนก่อน"
-                onClick={() => setCursor(new Date(year, month - 1, 1))}
-                className="flex h-8 w-8 items-center justify-center rounded-[4px] hover:bg-pick"
-              >
-                <ChevronLeft size={16} strokeWidth={1.75} />
-              </button>
-              <div className="text-[14px] font-bold">{formatThaiMonth(isoDate(new Date(year, month, 1)))}</div>
-              <button
-                type="button"
-                aria-label="เดือนถัดไป"
-                onClick={() => setCursor(new Date(year, month + 1, 1))}
-                className="flex h-8 w-8 items-center justify-center rounded-[4px] hover:bg-pick"
-              >
-                <ChevronRight size={16} strokeWidth={1.75} />
-              </button>
+          <>
+            {/* Covers the page (and parent <label>) so outside clicks dismiss instead of re-toggling the trigger. */}
+            <div
+              aria-hidden
+              style={{ position: "fixed", inset: 0, zIndex: 79 }}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                setOpen(false);
+              }}
+            />
+            <div
+              data-date-field
+              style={{ position: "fixed", top: box.top, left: box.left, width: 288, zIndex: 80 }}
+              className="rounded-[8px] border border-line bg-white p-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  aria-label="เดือนก่อน"
+                  onClick={() => setCursor(new Date(year, month - 1, 1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-[4px] hover:bg-pick"
+                >
+                  <ChevronLeft size={16} strokeWidth={1.75} />
+                </button>
+                <div className="text-[14px] font-bold">{formatThaiMonth(isoDate(new Date(year, month, 1)))}</div>
+                <button
+                  type="button"
+                  aria-label="เดือนถัดไป"
+                  onClick={() => setCursor(new Date(year, month + 1, 1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-[4px] hover:bg-pick"
+                >
+                  <ChevronRight size={16} strokeWidth={1.75} />
+                </button>
+              </div>
+              <div className="grid grid-cols-7 text-center text-[12px] font-bold text-ink/50">
+                {WEEKDAYS.map((day) => (
+                  <div key={day} className="py-1">
+                    {day}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7">
+                {days.map((day, index) => {
+                  if (!day) return <div key={`pad-${index}`} />;
+                  const iso = isoDate(day);
+                  const blocked = (min != null && min !== "" && iso < min) || (max != null && max !== "" && iso > max);
+                  const picked = iso === value;
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      disabled={blocked}
+                      onClick={() => {
+                        onChange(iso);
+                        setOpen(false);
+                      }}
+                      className={`mx-auto flex h-8 w-8 items-center justify-center rounded-[4px] text-[14px] ${
+                        picked
+                          ? "bg-bar font-bold text-white"
+                          : blocked
+                            ? "cursor-not-allowed text-ink/20"
+                            : iso === today
+                              ? "font-bold text-brand hover:bg-pick"
+                              : "hover:bg-pick"
+                      }`}
+                    >
+                      {day.getDate()}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="grid grid-cols-7 text-center text-[12px] font-bold text-ink/50">
-              {WEEKDAYS.map((day) => (
-                <div key={day} className="py-1">
-                  {day}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7">
-              {days.map((day, index) => {
-                if (!day) return <div key={`pad-${index}`} />;
-                const iso = isoDate(day);
-                const blocked = (min != null && min !== "" && iso < min) || (max != null && max !== "" && iso > max);
-                const picked = iso === value;
-                return (
-                  <button
-                    key={iso}
-                    type="button"
-                    disabled={blocked}
-                    onClick={() => {
-                      onChange(iso);
-                      setOpen(false);
-                    }}
-                    className={`mx-auto flex h-8 w-8 items-center justify-center rounded-[4px] text-[14px] ${
-                      picked
-                        ? "bg-bar font-bold text-white"
-                        : blocked
-                          ? "cursor-not-allowed text-ink/20"
-                          : iso === today
-                            ? "font-bold text-brand hover:bg-pick"
-                            : "hover:bg-pick"
-                    }`}
-                  >
-                    {day.getDate()}
-                  </button>
-                );
-              })}
-            </div>
-          </div>,
+          </>,
           document.body,
         )}
     </div>

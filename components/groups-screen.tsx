@@ -900,12 +900,12 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
           <label className="block text-[14px] font-bold leading-[1.4]">
             วันเดือนปีเกิด
             <RequiredMark />
-            <input
-              type="date"
+            <DateField
+              label="วันเดือนปีเกิด"
+              className="mt-1"
               value={dateOfBirth}
               disabled={!editing}
-              onChange={(event) => setDateOfBirth(event.target.value)}
-              className={fieldClass}
+              onChange={setDateOfBirth}
             />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1841,12 +1841,7 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
         <label className="block text-[14px] font-bold leading-[1.4]">
           วันเดือนปีเกิด
           <RequiredMark />
-          <input
-            type="date"
-            value={dateOfBirth}
-            onChange={(event) => setDateOfBirth(event.target.value)}
-            className={`${inputClass} mt-1`}
-          />
+          <DateField label="วันเดือนปีเกิด" className="mt-1" value={dateOfBirth} onChange={setDateOfBirth} />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           ที่อยู่
