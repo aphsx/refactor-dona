@@ -13,6 +13,9 @@ export type LoanAccount = {
   lastDue: string | null;
   statusId: number;
   status: LoanLookup;
+  /** From latest approved history — filled on account detail. */
+  actedBy?: string;
+  actedAt?: string | null;
 };
 
 export type LoanApplicationDocument = {
@@ -56,6 +59,9 @@ export type LoanApplication = {
   submittedOn: string;
   statusId: number;
   status: LoanLookup;
+  /** Mill username (approve/reject) or farmer label (cancel). */
+  actedBy?: string;
+  actedAt?: string | null;
   documents: LoanApplicationDocument[];
 };
 
@@ -72,4 +78,7 @@ export type LoanHistory = {
   resultId: number;
   result: LoanLookup;
   note: string;
+  /** Who approved / rejected / cancelled (username for now). */
+  actedBy?: string;
+  actedAt?: string | null;
 };

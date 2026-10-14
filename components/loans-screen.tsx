@@ -38,14 +38,16 @@ import {
   farmerColor,
   farmerName,
   formatNationalId,
+  formatPhone,
   formatThaiDate,
+  formatThaiDateTime,
   isLoanDocumentRequired,
   LOAN_APPLICATION_STATUS_REVIEWING_ID,
   loanRequiredDocumentProgress,
   nationalIdDigits,
   type Farmer,
 } from "@/lib/domain";
-import { placeLabel } from "@/lib/thai-place";
+import { districtName, provinceName, subdistrictName } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
 
@@ -177,6 +179,7 @@ function ReadField({
 
 function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: () => void }) {
   const [farmer, setFarmer] = useState<Farmer | null>(null);
+  const [leaderName, setLeaderName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mapOpen, setMapOpen] = useState(false);
@@ -187,11 +190,20 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
     let alive = true;
     setLoading(true);
     setError("");
+    setLeaderName("");
     void api
       .getFarmer(farmerId)
-      .then((row) => {
+      .then(async (row) => {
         if (!alive) return;
         setFarmer(row);
+        if (row.groupId) {
+          try {
+            const group = await api.getGroup(row.groupId);
+            if (alive) setLeaderName(group.leaderName?.trim() || "");
+          } catch {
+            if (alive) setLeaderName("");
+          }
+        }
       })
       .catch((err) => {
         if (!alive) return;
@@ -206,6 +218,9 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
     };
   }, [farmerId]);
 
+  const phoneRaw = farmer?.tel?.trim() || "";
+  const phoneDisplay = phoneRaw ? formatPhone(phoneRaw) || phoneRaw : "—";
+
   return (
     <>
       <Dialog title="รายละเอียดเกษตรกร" wide onClose={onClose}>
@@ -214,12 +229,27 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
         {!loading && farmer && (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
+              <ReadField label="คำนำหน้า" value={farmer.prefixName?.trim() || "—"} />
+              <ReadField label="เลขเกษตรกร" value={farmer.farmerNumber?.trim() || "—"} />
               <ReadField label="ชื่อ" value={farmer.firstName || "—"} />
               <ReadField label="นามสกุล" value={farmer.lastName || "—"} />
+              <ReadField label="ชื่อ-นามสกุล" value={farmerName(farmer) || "—"} className="sm:col-span-2" />
               <ReadField label="เลขบัตรประชาชน" value={formatNationalId(farmer.nationalId) || "—"} />
+              <ReadField
+                label="วันเดือนปีเกิด"
+                value={farmer.dateOfBirth ? formatThaiDate(farmer.dateOfBirth.slice(0, 10)) : "—"}
+              />
+              <ReadField label="เบอร์โทร" value={phoneDisplay} />
               <ReadField label="กลุ่ม" value={farmer.groupName || "—"} />
+              <ReadField label="หัวหน้ากลุ่ม" value={leaderName || "—"} />
+              <ReadField
+                label="จำนวนแปลง"
+                value={typeof farmer.plotCount === "number" ? String(farmer.plotCount) : "—"}
+              />
               <ReadField label="ที่อยู่" value={farmer.address || "—"} className="sm:col-span-2" />
-              <ReadField label="ตำบล / อำเภอ / จังหวัด" value={placeLabel(farmer)} className="sm:col-span-2" />
+              <ReadField label="ตำบล" value={subdistrictName(farmer.subdistrictId)} />
+              <ReadField label="อำเภอ" value={districtName(farmer.districtId)} />
+              <ReadField label="จังหวัด" value={provinceName(farmer.provinceId)} className="sm:col-span-2" />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <PrimaryButton
@@ -232,6 +262,12 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
                 <Glyph icon={Map} />
                 แผนที่แปลง
               </PrimaryButton>
+              <a
+                href={`/farmers?farmer=${encodeURIComponent(farmerId)}`}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand hover:bg-pick"
+              >
+                เปิดหน้าเกษตรกร
+              </a>
             </div>
           </>
         )}
@@ -462,7 +498,10 @@ export function LoanPendingScreen() {
         pageSize,
         statusId: LOAN_APPLICATION_STATUS_REVIEWING_ID,
       });
-      const items = data.items ?? [];
+      // Only open (ยังไม่อนุมัติ) rows — API also clamps to reviewing.
+      const items = (data.items ?? []).filter(
+        (item) => item.statusId === LOAN_APPLICATION_STATUS_REVIEWING_ID,
+      );
       setRows(items);
       setTotal(data.total ?? 0);
       // Keep selection only if it still exists on this page — never auto-pick a row.
@@ -1036,6 +1075,8 @@ function AccountDetail({
         </div>
         <ReadField label="เลขบัตรประชาชน" value={formatNationalId(row.nationalId) || "—"} />
         <ReadField label="สถานะ" value={statusName} />
+        <ReadField label="อนุมัติโดย" value={row.actedBy?.trim() || "—"} />
+        <ReadField label="วันเวลาที่อนุมัติ" value={formatThaiDateTime(row.actedAt)} />
       </DetailSection>
       <DetailSection title="วงเงินและงวด">
         <ReadField label="วงเงิน" value={formatBaht(row.creditLimit)} />
@@ -1297,6 +1338,8 @@ function HistoryDetail({
         </div>
         <ReadField label="เลขบัตรประชาชน" value={formatNationalId(row.nationalId) || "—"} />
         <ReadField label="ผลลัพธ์" value={resultName} />
+        <ReadField label="ดำเนินการโดย" value={row.actedBy?.trim() || "—"} />
+        <ReadField label="วันเวลาที่ดำเนินการ" value={formatThaiDateTime(row.actedAt)} />
       </DetailSection>
       <DetailSection title="รายละเอียดสินเชื่อ">
         <ReadField label="วงเงิน" value={formatBaht(row.amount)} />

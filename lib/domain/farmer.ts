@@ -9,7 +9,6 @@ export type Farmer = {
   nationalId: string;
   dateOfBirth: string;
   farmerNumber?: string;
-  /** Legacy; omitted on create/update. */
   tel?: string;
   address: string;
   provinceId: number;
@@ -35,6 +34,7 @@ export type FarmerInput = {
   nationalId: string;
   dateOfBirth: string;
   farmerNumber?: string;
+  tel?: string;
   address: string;
   provinceId: number;
   districtId: number;
@@ -76,11 +76,27 @@ export function validateFarmerInput(input: FarmerInput): string | null {
   if (!canonicalNationalId(input.nationalId)) return "เลขบัตรประชาชนต้องมี 13 หลัก";
   if (!input.dateOfBirth.trim()) return "กรอกวันเดือนปีเกิด";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dateOfBirth.trim())) return "วันเดือนปีเกิดไม่ถูกต้อง";
+  const tel = phoneDigits(input.tel ?? "");
+  if (tel && !/^0[689]\d{8}$/.test(tel)) return "เบอร์โทรไม่ถูกต้อง";
   if (!input.address.trim()) return "กรอกที่อยู่";
   if (input.provinceId <= 0 || input.districtId <= 0 || input.subdistrictId <= 0) {
     return "เลือกตำบล อำเภอ และจังหวัด";
   }
   return null;
+}
+
+/** Digits only for Thai mobile (max 10). */
+export function phoneDigits(value: string) {
+  return value.replace(/\D/g, "").slice(0, 10);
+}
+
+/** Format Thai mobile for display/input: 0XX-XXX-XXXX. */
+export function formatPhone(value: string) {
+  const digits = phoneDigits(value);
+  if (!digits) return "";
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
 /** Display / input form X-XXXX-XXXXX-XX-X (progressive while typing). */

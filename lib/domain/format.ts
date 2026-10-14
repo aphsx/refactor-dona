@@ -15,6 +15,22 @@ export function formatThaiDate(iso: string) {
   }).format(new Date(year, month - 1, day));
 }
 
+/** Date + time for action timestamps (ISO / RFC3339). */
+export function formatThaiDateTime(value: string | null | undefined) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Bangkok",
+  }).format(date);
+}
+
 export function formatThaiMonth(iso: string) {
   const [year, month] = iso.split("-").map(Number);
   return new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));

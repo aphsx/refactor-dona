@@ -12,7 +12,7 @@ import { DateField, Dialog, DirtyUndoButton, FarmerSelect, Glyph, PageHeader, Pa
 import { api, collectPages, measureRingAreaRai } from "@/lib/api";
 import { useServerPage } from "@/components/server-page";
 import type { FieldMapHandle } from "@/components/field-map";
-import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultNamePrefixId, defaultVarietyId, farmerFullName, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatNationalId, formatRai, formatThaiDate, isClosedRing, nationalIdDigits, openPlanting, openRing, plantingAreaSummary, plantingsOf, validateFarmerInput, varietyName, type Farmer, type Planting, type Plot, type PlotActivity, type SupplierGroup, type Variety } from "@/lib/domain";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultNamePrefixId, defaultVarietyId, farmerFullName, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatNationalId, formatPhone, formatRai, formatThaiDate, isClosedRing, nationalIdDigits, openPlanting, openRing, plantingAreaSummary, plantingsOf, validateFarmerInput, varietyName, type Farmer, type Planting, type Plot, type PlotActivity, type SupplierGroup, type Variety } from "@/lib/domain";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -708,6 +708,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
   const [nationalId, setNationalId] = useState(() => formatNationalId(farmer.nationalId));
   const [dateOfBirth, setDateOfBirth] = useState(farmer.dateOfBirth);
   const [farmerNumber, setFarmerNumber] = useState(farmer.farmerNumber ?? "");
+  const [tel, setTel] = useState(() => formatPhone(farmer.tel ?? ""));
   const [address, setAddress] = useState(farmer.address);
   const [subdistrictId, setSubdistrictId] = useState(farmer.subdistrictId);
   const [districtId, setDistrictId] = useState(farmer.districtId);
@@ -727,6 +728,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     setNationalId(formatNationalId(farmer.nationalId));
     setDateOfBirth(farmer.dateOfBirth);
     setFarmerNumber(farmer.farmerNumber ?? "");
+    setTel(formatPhone(farmer.tel ?? ""));
     setAddress(farmer.address);
     setSubdistrictId(farmer.subdistrictId);
     setDistrictId(farmer.districtId);
@@ -740,6 +742,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     farmer.nationalId,
     farmer.dateOfBirth,
     farmer.farmerNumber,
+    farmer.tel,
     farmer.address,
     farmer.subdistrictId,
     farmer.districtId,
@@ -755,6 +758,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     nationalIdDigits(nationalId) !== nationalIdDigits(farmer.nationalId) ||
     dateOfBirth !== farmer.dateOfBirth ||
     farmerNumber !== (farmer.farmerNumber ?? "") ||
+    tel !== formatPhone(farmer.tel ?? "") ||
     address !== farmer.address ||
     subdistrictId !== farmer.subdistrictId ||
     districtId !== farmer.districtId ||
@@ -768,6 +772,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     setNationalId(formatNationalId(farmer.nationalId));
     setDateOfBirth(farmer.dateOfBirth);
     setFarmerNumber(farmer.farmerNumber ?? "");
+    setTel(formatPhone(farmer.tel ?? ""));
     setAddress(farmer.address);
     setSubdistrictId(farmer.subdistrictId);
     setDistrictId(farmer.districtId);
@@ -818,6 +823,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
               nationalId,
               dateOfBirth,
               farmerNumber: farmerNumber || undefined,
+              tel: tel || undefined,
               address,
               provinceId,
               districtId,
@@ -906,6 +912,17 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
               value={dateOfBirth}
               disabled={!editing}
               onChange={setDateOfBirth}
+            />
+          </label>
+          <label className="block text-[14px] font-bold leading-[1.4]">
+            เบอร์โทร
+            <input
+              value={tel}
+              inputMode="tel"
+              placeholder="08X-XXX-XXXX"
+              disabled={!editing}
+              onChange={(event) => setTel(formatPhone(event.target.value))}
+              className={fieldClass}
             />
           </label>
           <label className="block text-[14px] font-bold leading-[1.4]">
@@ -1757,6 +1774,7 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
   const [nationalId, setNationalId] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [farmerNumber, setFarmerNumber] = useState("");
+  const [tel, setTel] = useState("");
   const [address, setAddress] = useState("");
   const [provinceId, setProvinceId] = useState(0);
   const [districtId, setDistrictId] = useState(0);
@@ -1778,6 +1796,7 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
               nationalId,
               dateOfBirth,
               farmerNumber: farmerNumber || undefined,
+              tel: tel || undefined,
               address,
               provinceId,
               districtId,
@@ -1842,6 +1861,16 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
           วันเดือนปีเกิด
           <RequiredMark />
           <DateField label="วันเดือนปีเกิด" className="mt-1" value={dateOfBirth} onChange={setDateOfBirth} />
+        </label>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          เบอร์โทร
+          <input
+            value={tel}
+            inputMode="tel"
+            placeholder="08X-XXX-XXXX"
+            onChange={(event) => setTel(formatPhone(event.target.value))}
+            className={`${inputClass} mt-1`}
+          />
         </label>
         <label className="block text-[14px] font-bold leading-[1.4]">
           ที่อยู่

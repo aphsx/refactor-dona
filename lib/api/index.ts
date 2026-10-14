@@ -184,6 +184,8 @@ export const api = {
   updateGroup: (id: string, name: string, leaderId: string) =>
     apiRequest<SupplierGroup>(`/groups/${id}`, { method: "PUT", body: JSON.stringify({ name, leaderId }) }),
 
+  getGroup: (id: string) => apiRequest<SupplierGroup>(`/groups/${encodeURIComponent(id)}`),
+
   createVariety: (name: string) =>
     apiRequest<VarietyItem>("/varieties", { method: "POST", body: JSON.stringify({ name }) }),
 

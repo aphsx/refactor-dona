@@ -93,8 +93,13 @@ function asFarmerInput(input: FarmerInput): FarmerInput {
     nationalId: canonicalNationalId(input.nationalId) ?? input.nationalId.trim(),
     dateOfBirth: input.dateOfBirth.trim(),
     farmerNumber: input.farmerNumber?.trim() || undefined,
+    tel: input.tel?.trim() || undefined,
     address: input.address.trim(),
   };
+}
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -115,16 +120,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [actingRole]);
 
   async function reload() {
-    try {
-      const next = await loadOrgSnapshot();
-      dataRef.current = next;
-      setData(next);
-      setRevision((value) => value + 1);
-      setLoadError("");
-    } catch (error) {
-      setLoadError(apiMessage(error));
-      throw error;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const next = await loadOrgSnapshot();
+        dataRef.current = next;
+        setData(next);
+        setRevision((value) => value + 1);
+        setLoadError("");
+        return;
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) await sleep(350 * (attempt + 1));
+      }
     }
+    setLoadError(apiMessage(lastError));
+    throw lastError;
   }
 
   useEffect(() => {
@@ -147,11 +158,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   async function mutate(run: () => Promise<unknown>) {
     try {
       await run();
-      await reload();
-      return null;
     } catch (error) {
       return apiMessage(error);
     }
+    // Save already succeeded — don't brick the shell if reload flakes (DB pool).
+    try {
+      await reload();
+    } catch {
+      setLoadError("");
+    }
+    return null;
   }
 
   function patchPlots(updater: (plots: Plot[]) => Plot[]) {
