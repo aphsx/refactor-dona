@@ -89,7 +89,7 @@ export function FarmersScreen() {
                   className={rowTone(index)}
                 >
                   <td className="px-5 py-3 font-bold">{farmerFullName(farmer)}</td>
-                  <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
+                  <td className="px-5 py-3">{formatNationalId(farmer.nationalId) || "—"}</td>
                   <td className="px-5 py-3">{farmer.farmerNumber || "—"}</td>
                   <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "—"}</td>
                 </tr>

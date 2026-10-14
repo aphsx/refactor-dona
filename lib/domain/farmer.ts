@@ -56,9 +56,14 @@ export function farmerFullName(farmer: Pick<Farmer, "firstName" | "lastName"> & 
   return `${farmer.firstName} ${farmer.lastName}`.trim();
 }
 
-/** Normalize to 13 digits, or null if invalid. */
+/** Digits only (max 13). */
+export function nationalIdDigits(value: string) {
+  return value.replace(/\D/g, "").slice(0, 13);
+}
+
+/** Normalize to 13 digits, or null if invalid. Persist / API payload form. */
 export function canonicalNationalId(value: string) {
-  const digits = value.replace(/\D/g, "");
+  const digits = nationalIdDigits(value);
   if (!/^\d{13}$/.test(digits)) return null;
   return digits;
 }
@@ -78,15 +83,22 @@ export function validateFarmerInput(input: FarmerInput): string | null {
   return null;
 }
 
-/** Display form X-XXXX-XXXXX-XX-X, or null if invalid. */
+/** Display / input form X-XXXX-XXXXX-XX-X (progressive while typing). */
 export function formatNationalId(value: string) {
-  const digits = canonicalNationalId(value);
-  if (!digits) return null;
+  const digits = nationalIdDigits(value);
+  if (digits.length <= 1) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 1)}-${digits.slice(1)}`;
+  if (digits.length <= 10) {
+    return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5)}`;
+  }
+  if (digits.length <= 12) {
+    return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10)}`;
+  }
   return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits.slice(12)}`;
 }
 
 export function farmerHandle(farmer: Farmer) {
-  const id = formatNationalId(farmer.nationalId) ?? farmer.nationalId;
+  const id = formatNationalId(farmer.nationalId) || farmer.nationalId;
   return `${farmerName(farmer)} · ${id}`;
 }
 

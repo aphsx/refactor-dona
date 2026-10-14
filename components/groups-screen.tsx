@@ -12,7 +12,7 @@ import { DateField, Dialog, DirtyUndoButton, FarmerSelect, Glyph, PageHeader, Pa
 import { api, collectPages, measureRingAreaRai } from "@/lib/api";
 import { useServerPage } from "@/components/server-page";
 import type { FieldMapHandle } from "@/components/field-map";
-import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultNamePrefixId, defaultVarietyId, farmerFullName, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatNationalId, formatRai, formatThaiDate, isClosedRing, openPlanting, openRing, plantingAreaSummary, plantingsOf, validateFarmerInput, varietyName, type Farmer, type Planting, type Plot, type PlotActivity, type SupplierGroup, type Variety } from "@/lib/domain";
+import { centroid, closeRing, currentActivityStage, currentPlanting, daysUntil, defaultNamePrefixId, defaultVarietyId, farmerFullName, farmerHandle, farmerName, farmerVarieties, formatCoord, formatKg, formatNationalId, formatRai, formatThaiDate, isClosedRing, nationalIdDigits, openPlanting, openRing, plantingAreaSummary, plantingsOf, validateFarmerInput, varietyName, type Farmer, type Planting, type Plot, type PlotActivity, type SupplierGroup, type Variety } from "@/lib/domain";
 import { districtOptions, isCompletePlace, placeAt, placeCenter, placeLabel, provinceOptions, subdistrictOptions, type PlaceIds } from "@/lib/thai-place";
 
 const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mod.FieldMap), { ssr: false });
@@ -239,7 +239,7 @@ export function MemberManageScreen() {
   const [detailPlots, setDetailPlots] = useState<Plot[]>([]);
   const detail = detailFarmer;
   const assignGroupId = draftGroup && draftGroup !== "none" ? draftGroup : (groups[0]?.id ?? "");
-  const searchQ = [name, nationalId].filter((part) => part.trim()).join(" ");
+  const searchQ = [name.trim(), nationalIdDigits(nationalId)].filter(Boolean).join(" ");
   const listingSort = useTableSort(`${name}:${nationalId}:${groupId}`);
   const page = useServerPage(
     `${name}:${nationalId}:${groupId}:${revision}`,
@@ -330,8 +330,8 @@ export function MemberManageScreen() {
               <input
                 value={draftNationalId}
                 inputMode="numeric"
-                placeholder="13 หลัก"
-                onChange={(event) => setDraftNationalId(event.target.value)}
+                placeholder="1-2345-67890-12-3"
+                onChange={(event) => setDraftNationalId(formatNationalId(event.target.value))}
                 className={`${inputClass} mt-1`}
               />
             </label>
@@ -414,7 +414,7 @@ export function MemberManageScreen() {
                 {page.rows.map((farmer, index) => (
                     <tr key={farmer.id} onClick={(event) => openRow(event, () => openMember(farmer.id))} className={rowTone(index)}>
                       <td className="px-5 py-3 font-bold">{farmerFullName(farmer)}</td>
-                      <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
+                      <td className="px-5 py-3">{formatNationalId(farmer.nationalId) || "—"}</td>
                       <td className="px-5 py-3">{farmer.farmerNumber || "—"}</td>
                       <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "ไม่มีกลุ่ม"}</td>
                     </tr>
@@ -669,7 +669,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
                     <span className="ml-2 text-[12px] font-bold text-ink/50">หัวหน้ากลุ่ม</span>
                   ) : null}
                 </td>
-                <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
+                <td className="px-5 py-3">{formatNationalId(farmer.nationalId) || "—"}</td>
                 <td className="px-5 py-3">{farmer.farmerNumber || "—"}</td>
                 <td className="px-5 py-3">{farmerVarieties(plots, plantings, farmer.id)}</td>
               </tr>
@@ -705,7 +705,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
   const [prefixId, setPrefixId] = useState(farmer.prefixId ?? defaultNamePrefixId(namePrefixes));
   const [firstName, setFirstName] = useState(farmer.firstName);
   const [lastName, setLastName] = useState(farmer.lastName);
-  const [nationalId, setNationalId] = useState(farmer.nationalId);
+  const [nationalId, setNationalId] = useState(() => formatNationalId(farmer.nationalId));
   const [dateOfBirth, setDateOfBirth] = useState(farmer.dateOfBirth);
   const [farmerNumber, setFarmerNumber] = useState(farmer.farmerNumber ?? "");
   const [address, setAddress] = useState(farmer.address);
@@ -724,7 +724,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     setPrefixId(farmer.prefixId ?? defaultNamePrefixId(namePrefixes));
     setFirstName(farmer.firstName);
     setLastName(farmer.lastName);
-    setNationalId(farmer.nationalId);
+    setNationalId(formatNationalId(farmer.nationalId));
     setDateOfBirth(farmer.dateOfBirth);
     setFarmerNumber(farmer.farmerNumber ?? "");
     setAddress(farmer.address);
@@ -752,7 +752,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     prefixId !== (farmer.prefixId ?? defaultNamePrefixId(namePrefixes)) ||
     firstName !== farmer.firstName ||
     lastName !== farmer.lastName ||
-    nationalId !== farmer.nationalId ||
+    nationalIdDigits(nationalId) !== nationalIdDigits(farmer.nationalId) ||
     dateOfBirth !== farmer.dateOfBirth ||
     farmerNumber !== (farmer.farmerNumber ?? "") ||
     address !== farmer.address ||
@@ -765,7 +765,7 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
     setPrefixId(farmer.prefixId ?? defaultNamePrefixId(namePrefixes));
     setFirstName(farmer.firstName);
     setLastName(farmer.lastName);
-    setNationalId(farmer.nationalId);
+    setNationalId(formatNationalId(farmer.nationalId));
     setDateOfBirth(farmer.dateOfBirth);
     setFarmerNumber(farmer.farmerNumber ?? "");
     setAddress(farmer.address);
@@ -891,9 +891,9 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
             <input
               value={nationalId}
               inputMode="numeric"
-              placeholder="13 หลัก"
+              placeholder="1-2345-67890-12-3"
               disabled={!editing}
-              onChange={(event) => setNationalId(event.target.value)}
+              onChange={(event) => setNationalId(formatNationalId(event.target.value))}
               className={fieldClass}
             />
           </label>
@@ -1833,8 +1833,8 @@ export function AddFarmer({ onClose }: { onClose: () => void }) {
           <input
             value={nationalId}
             inputMode="numeric"
-            placeholder="13 หลัก"
-            onChange={(event) => setNationalId(event.target.value)}
+            placeholder="1-2345-67890-12-3"
+            onChange={(event) => setNationalId(formatNationalId(event.target.value))}
             className={`${inputClass} mt-1`}
           />
         </label>

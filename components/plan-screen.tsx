@@ -36,8 +36,10 @@ import {
   daysUntil,
   farmerName,
   formatKg,
+  formatNationalId,
   formatRai,
   formatThaiDate,
+  nationalIdDigits,
   openPlanting,
   plantingAreaSummary,
   varietyName,
@@ -246,7 +248,7 @@ export function MemberSeasonScreen() {
   const planFilter = applied.variety !== "all" || applied.harvestFrom !== "" || applied.harvestTo !== "";
   const server = useServerPage(`${searched}:${planFilter}:${applied.name}:${applied.nationalId}:${applied.groupId}:${revision}`, (pageNo, pageSize) => {
     if (!searched || planFilter) return Promise.resolve({ items: [] as Farmer[], total: 0 });
-    const q = [applied.name, applied.nationalId].filter((part) => part.trim()).join(" ");
+    const q = [applied.name.trim(), nationalIdDigits(applied.nationalId)].filter(Boolean).join(" ");
     return api.listFarmersPage({
       q,
       groupId: applied.groupId === "all" ? undefined : applied.groupId,
@@ -275,7 +277,7 @@ export function MemberSeasonScreen() {
             if (!isWildcard(applied.name) && !matchesQuery(applied.name, farmerName(farmer))) return false;
             if (
               !isWildcard(applied.nationalId) &&
-              !(farmer.nationalId ?? "").replace(/\D/g, "").includes(applied.nationalId.replace(/\D/g, ""))
+              !nationalIdDigits(farmer.nationalId ?? "").includes(nationalIdDigits(applied.nationalId))
             ) {
               return false;
             }
@@ -333,8 +335,8 @@ export function MemberSeasonScreen() {
             <input
               value={draft.nationalId}
               inputMode="numeric"
-              onChange={(event) => setDraft({ ...draft, nationalId: event.target.value })}
-              placeholder="13 หลัก"
+              onChange={(event) => setDraft({ ...draft, nationalId: formatNationalId(event.target.value) })}
+              placeholder="1-2345-67890-12-3"
               className={`${inputClass} mt-1`}
             />
           </label>
@@ -423,7 +425,7 @@ export function MemberSeasonScreen() {
                       className={rowTone(index)}
                     >
                       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
-                      <td className="px-5 py-3">{farmer.nationalId || "—"}</td>
+                      <td className="px-5 py-3">{formatNationalId(farmer.nationalId) || "—"}</td>
                       <td className="px-5 py-3">{farmer.groupName || groups.find((group) => group.id === farmer.groupId)?.name || "—"}</td>
                       <td className="px-5 py-3 font-bold">{planFilter ? (farmer.plotCount ?? 0) : "—"}</td>
                       <td className="px-5 py-3">{farmer.plotCount ?? "—"}</td>

@@ -149,7 +149,7 @@ function PersonRow({
   return (
     <tr className={stripe ? "bg-table" : "bg-white"}>
       <td className="px-5 py-3 font-bold">{farmerName(farmer)}</td>
-      <td className="px-5 py-3">{(formatNationalId(farmer.nationalId) ?? farmer.nationalId) || "—"}</td>
+      <td className="px-5 py-3">{formatNationalId(farmer.nationalId) || "—"}</td>
       <td className="px-5 py-3">{farmer.groupName || group?.name || "—"}</td>
       <td className="px-5 py-3">{roleTitle(current)}</td>
       <td className="px-5 py-3">{scopeLabel(current, groups, farmer.id)}</td>

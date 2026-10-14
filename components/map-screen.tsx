@@ -18,8 +18,10 @@ import {
   farmerName,
   formatCoord,
   formatKg,
+  formatNationalId,
   formatRai,
   formatThaiDate,
+  nationalIdDigits,
   varietyName,
   isClosedRing,
   openRing,
@@ -182,7 +184,9 @@ export function MapScreen() {
 
   const scoped = useMemo(() => {
     // Group is already applied by GET /plots/boundaries?groupId=…
-    return rows.filter((row) => matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${row.farmer.nationalId}`));
+    return rows.filter((row) =>
+      matchesQuery(query, `${row.plot.name} ${farmerName(row.farmer)} ${nationalIdDigits(row.farmer.nationalId)}`),
+    );
   }, [rows, query]);
 
   useEffect(() => {
@@ -393,7 +397,7 @@ export function MapScreen() {
                       <span className="text-[14px] font-bold">{row.plot.name}</span>
                       <span className="text-[12px] text-ink/60">
                         {farmerName(row.farmer)}
-                        {row.farmer.nationalId ? ` · ${row.farmer.nationalId}` : ""}
+                        {row.farmer.nationalId ? ` · ${formatNationalId(row.farmer.nationalId) || row.farmer.nationalId}` : ""}
                       </span>
                     </button>
                   </li>

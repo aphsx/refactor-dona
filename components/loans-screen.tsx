@@ -36,9 +36,11 @@ import {
 import {
   farmerColor,
   farmerName,
+  formatNationalId,
   formatThaiDate,
   isLoanDocumentRequired,
   loanRequiredDocumentProgress,
+  nationalIdDigits,
   type Farmer,
 } from "@/lib/domain";
 import { placeLabel } from "@/lib/thai-place";
@@ -106,8 +108,8 @@ function SearchBar({
           <input
             value={draftNationalId}
             inputMode="numeric"
-            placeholder="13 หลัก"
-            onChange={(event) => onDraftNationalId(event.target.value)}
+            placeholder="1-2345-67890-12-3"
+            onChange={(event) => onDraftNationalId(formatNationalId(event.target.value))}
             className={`${inputClass} mt-1 font-normal`}
           />
         </label>
@@ -127,7 +129,7 @@ function SearchBar({
 }
 
 function searchQuery(name: string, nationalId: string) {
-  return [name, nationalId].filter((part) => part.trim()).join(" ");
+  return [name.trim(), nationalIdDigits(nationalId)].filter(Boolean).join(" ");
 }
 
 const detailFieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
@@ -210,7 +212,7 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
             <div className="grid gap-4 sm:grid-cols-2">
               <ReadField label="ชื่อ" value={farmer.firstName || "—"} />
               <ReadField label="นามสกุล" value={farmer.lastName || "—"} />
-              <ReadField label="เลขบัตรประชาชน" value={farmer.nationalId || "—"} />
+              <ReadField label="เลขบัตรประชาชน" value={formatNationalId(farmer.nationalId) || "—"} />
               <ReadField label="กลุ่ม" value={farmer.groupName || "—"} />
               <ReadField label="ที่อยู่" value={farmer.address || "—"} className="sm:col-span-2" />
               <ReadField label="ตำบล / อำเภอ / จังหวัด" value={placeLabel(farmer)} className="sm:col-span-2" />
@@ -575,7 +577,7 @@ export function LoanPendingScreen() {
                       <td className="px-5 py-3">
                         <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
                       </td>
-                      <td className="px-5 py-3">{row.nationalId}</td>
+                      <td className="px-5 py-3">{formatNationalId(row.nationalId) || "—"}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.requestedAmount)}</td>
                       <td className="px-5 py-3">{row.purpose || "—"}</td>
                       <td className="px-5 py-3">{formatDate(row.submittedOn)}</td>
@@ -882,7 +884,7 @@ export function LoanAccountsScreen() {
                       <td className="px-5 py-3">
                         <FarmerLink farmerId={row.farmerId} name={row.name} />
                       </td>
-                      <td className="px-5 py-3">{row.nationalId}</td>
+                      <td className="px-5 py-3">{formatNationalId(row.nationalId) || "—"}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.creditLimit)}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.balance)}</td>
                       <td className="px-5 py-3 tabular-nums">{row.installmentMonths}</td>
@@ -957,7 +959,7 @@ function AccountDetail({
             <FarmerLink farmerId={row.farmerId} name={row.name} />
           </div>
         </div>
-        <ReadField label="เลขบัตรประชาชน" value={row.nationalId} />
+        <ReadField label="เลขบัตรประชาชน" value={formatNationalId(row.nationalId) || "—"} />
         <ReadField label="สถานะ" value={statusName} />
       </DetailSection>
       <DetailSection title="วงเงินและงวด">
@@ -1148,7 +1150,7 @@ export function LoanHistoryScreen() {
                       <td className="px-5 py-3">
                         <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
                       </td>
-                      <td className="px-5 py-3">{row.nationalId}</td>
+                      <td className="px-5 py-3">{formatNationalId(row.nationalId) || "—"}</td>
                       <td className="px-5 py-3 tabular-nums">{formatBaht(row.amount)}</td>
                       <td className="px-5 py-3">{formatDate(row.approvedOn)}</td>
                       <td className="px-5 py-3">{formatDate(row.transferredOn)}</td>
@@ -1218,7 +1220,7 @@ function HistoryDetail({
             <FarmerLink farmerId={row.farmerId} name={row.farmerName} />
           </div>
         </div>
-        <ReadField label="เลขบัตรประชาชน" value={row.nationalId} />
+        <ReadField label="เลขบัตรประชาชน" value={formatNationalId(row.nationalId) || "—"} />
         <ReadField label="ผลลัพธ์" value={resultName} />
       </DetailSection>
       <DetailSection title="รายละเอียดสินเชื่อ">
