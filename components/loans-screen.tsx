@@ -11,6 +11,7 @@ import {
   PageHeader,
   Pagination,
   PrimaryButton,
+  SecondaryButton,
   StatusTab,
   TableScroll,
   inputClass,
@@ -54,7 +55,12 @@ const FieldMap = dynamic(() => import("@/components/field-map").then((mod) => mo
 function statusTone(status: string) {
   if (status === "อนุมัติ" || status === "คำขอปกติ") return "text-brand";
   if (status === "ปฏิเสธ" || status === "NPL" || status === "ยกเลิก") return "text-danger";
-  if (status === "ค้างชำระ" || status === "รอการตรวจสอบ" || status === "กำลังตรวจสอบ") {
+  if (
+    status === "ค้างชำระ" ||
+    status === "รอการตรวจสอบ" ||
+    status === "กำลังตรวจสอบ" ||
+    status === "ตีกลับเอกสาร"
+  ) {
     return "text-amber-700";
   }
   return "text-ink";
@@ -485,7 +491,10 @@ export function LoanPendingScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busyKindId, setBusyKindId] = useState<number | null>(null);
   const [decideBusy, setDecideBusy] = useState(false);
-  const [pendingDecision, setPendingDecision] = useState<"approve" | "reject" | null>(null);
+  const [pendingDecision, setPendingDecision] = useState<"approve" | "reject" | "return_docs" | null>(
+    null,
+  );
+  const [returnRemark, setReturnRemark] = useState("");
   const query = searchQuery(name, nationalId);
 
   const refresh = useCallback(async () => {
@@ -562,17 +571,21 @@ export function LoanPendingScreen() {
     }
   }
 
-  async function confirmDecide() {
+  async function confirmDecide(note = "") {
     if (!selectedId || !pendingDecision) return;
     setDecideBusy(true);
     setError("");
     try {
-      await decideLoanApplication(selectedId, pendingDecision);
+      await decideLoanApplication(selectedId, pendingDecision, note);
       setPendingDecision(null);
+      setReturnRemark("");
       await refresh();
     } catch (err) {
       setError(apiMessage(err));
-      setPendingDecision(null);
+      // Keep return-docs dialog open so staff can fix the remark; clear approve/reject confirm.
+      if (pendingDecision !== "return_docs") {
+        setPendingDecision(null);
+      }
     } finally {
       setDecideBusy(false);
     }
@@ -702,13 +715,26 @@ export function LoanPendingScreen() {
             <PrimaryButton
               type="button"
               disabled={!canDecide}
+              className="!bg-amber-600 hover:!bg-amber-700 disabled:!bg-[#D0D0D0]"
+              onClick={() => {
+                setReturnRemark("");
+                setPendingDecision("return_docs");
+              }}
+            >
+              ตีกลับเอกสาร
+            </PrimaryButton>
+            <PrimaryButton
+              type="button"
+              disabled={!canDecide}
               className="!bg-danger hover:!bg-danger/90 disabled:!bg-[#D0D0D0]"
               onClick={() => setPendingDecision("reject")}
             >
               ปฏิเสธ
             </PrimaryButton>
             {!selected && (
-              <span className="self-center text-[13px] text-ink/50">เลือกรายการก่อนอนุมัติหรือปฏิเสธ</span>
+              <span className="self-center text-[13px] text-ink/50">
+                เลือกรายการก่อนอนุมัติ ตีกลับ หรือปฏิเสธ
+              </span>
             )}
           </div>
         </div>
@@ -719,7 +745,61 @@ export function LoanPendingScreen() {
           onRemove={removeDoc}
         />
       </div>
-      {pendingDecision && selected && (
+      {pendingDecision === "return_docs" && selected && (
+        <Dialog
+          title="ตีกลับเอกสาร"
+          onClose={() => {
+            if (!decideBusy) {
+              setPendingDecision(null);
+              setReturnRemark("");
+            }
+          }}
+        >
+          <p className="text-[14px] text-ink/70">
+            ระบุสิ่งที่เกษตรกรต้องแก้ไข แล้วส่งคำขอกลับให้เขาอัปโหลดเอกสารใหม่
+          </p>
+          <p className="mt-2 text-[14px] font-semibold text-ink">
+            {selected.farmerName} · {formatBaht(selected.requestedAmount)} บาท
+          </p>
+          <label className="mt-4 block">
+            <span className="text-[13px] font-bold text-ink/80">
+              หมายเหตุถึงเกษตรกร <span className="text-danger">*</span>
+            </span>
+            <textarea
+              className={`${inputClass} mt-1.5 min-h-[120px] py-3`}
+              value={returnRemark}
+              disabled={decideBusy}
+              placeholder="เช่น ภาพบัตรประชาชนไม่ชัด / ขาดโฉนดที่ดิน / ชื่อไม่ตรง"
+              onChange={(event) => setReturnRemark(event.target.value)}
+            />
+          </label>
+          {decideBusy && <p className="mt-2 text-[14px] text-ink/60">กำลังบันทึก…</p>}
+          <div className="mt-5 flex justify-end gap-3">
+            <SecondaryButton
+              type="button"
+              disabled={decideBusy}
+              className="!bg-[#E8E8E8] !text-ink hover:!bg-[#DCDCDC]"
+              onClick={() => {
+                if (!decideBusy) {
+                  setPendingDecision(null);
+                  setReturnRemark("");
+                }
+              }}
+            >
+              ยกเลิก
+            </SecondaryButton>
+            <PrimaryButton
+              type="button"
+              disabled={decideBusy || !returnRemark.trim()}
+              className="!bg-amber-600 hover:!bg-amber-700 disabled:!bg-[#D0D0D0]"
+              onClick={() => void confirmDecide(returnRemark.trim())}
+            >
+              ยืนยันตีกลับ
+            </PrimaryButton>
+          </div>
+        </Dialog>
+      )}
+      {(pendingDecision === "approve" || pendingDecision === "reject") && selected && (
         <ConfirmAlert
           message={
             pendingDecision === "approve"

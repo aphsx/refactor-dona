@@ -42,10 +42,10 @@ export function listLoanApplicationsPage(
   return apiRequest<LoanPage<LoanApplication>>(`/loans/applications?${params}`);
 }
 
-/** Mill staff: approve or reject a reviewing application. */
+/** Mill staff: approve, reject, or return docs on a reviewing application. */
 export function decideLoanApplication(
   id: string,
-  decision: "approve" | "reject",
+  decision: "approve" | "reject" | "return_docs",
   note = "",
 ) {
   return apiRequest<LoanApplication>(`/loans/applications/${encodeURIComponent(id)}/decide`, {
