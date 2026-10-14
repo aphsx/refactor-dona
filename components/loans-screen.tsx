@@ -62,14 +62,18 @@ function formatDate(value: string | null | undefined) {
 }
 
 function SearchBar({
-  draft,
-  onDraft,
+  draftName,
+  draftNationalId,
+  onDraftName,
+  onDraftNationalId,
   onSearch,
   onClear,
   underTab = false,
 }: {
-  draft: string;
-  onDraft: (value: string) => void;
+  draftName: string;
+  draftNationalId: string;
+  onDraftName: (value: string) => void;
+  onDraftNationalId: (value: string) => void;
   onSearch: () => void;
   onClear: () => void;
   /** Under StatusTab — no top-left radius so it joins the tab. */
@@ -83,31 +87,47 @@ function SearchBar({
     >
       <div className="bg-bar px-6 py-4 text-[16px] font-bold text-white">ค้นหา</div>
       <form
-        className="flex flex-wrap items-end gap-3 px-6 py-5"
+        className="grid gap-4 px-6 py-5 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
           onSearch();
         }}
       >
-        <label className="block min-w-[240px] flex-1 text-[14px] font-bold">
-          ชื่อหรือเลขบัตรประชาชน
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          ชื่อ
           <input
-            value={draft}
-            onChange={(event) => onDraft(event.target.value)}
+            value={draftName}
+            onChange={(event) => onDraftName(event.target.value)}
             className={`${inputClass} mt-1 font-normal`}
           />
         </label>
-        <PrimaryButton type="submit">
-          <Glyph icon={Search} />
-          ค้นหา
-        </PrimaryButton>
-        <PrimaryButton type="button" onClick={onClear}>
-          <Glyph icon={RotateCcw} />
-          ล้าง
-        </PrimaryButton>
+        <label className="block text-[14px] font-bold leading-[1.4]">
+          เลขบัตรประชาชน
+          <input
+            value={draftNationalId}
+            inputMode="numeric"
+            placeholder="13 หลัก"
+            onChange={(event) => onDraftNationalId(event.target.value)}
+            className={`${inputClass} mt-1 font-normal`}
+          />
+        </label>
+        <div className="flex flex-wrap gap-3 sm:col-span-2">
+          <PrimaryButton type="submit">
+            <Glyph icon={Search} />
+            ค้นหา
+          </PrimaryButton>
+          <PrimaryButton type="button" onClick={onClear}>
+            <Glyph icon={RotateCcw} />
+            ล้าง
+          </PrimaryButton>
+        </div>
       </form>
     </div>
   );
+}
+
+function searchQuery(name: string, nationalId: string) {
+  return [name, nationalId].filter((part) => part.trim()).join(" ");
 }
 
 const detailFieldClass = `${inputClass} mt-1 disabled:bg-[#E7E7E7]`;
@@ -410,8 +430,10 @@ function FarmerLink({
 
 /** รออนุมัติ — ตาราง + แผงเอกสาร (ไม่มีหน้ารายละเอียด) */
 export function LoanPendingScreen() {
-  const [draft, setDraft] = useState("");
-  const [query, setQuery] = useState("");
+  const [draftName, setDraftName] = useState("");
+  const [draftNationalId, setDraftNationalId] = useState("");
+  const [name, setName] = useState("");
+  const [nationalId, setNationalId] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [rows, setRows] = useState<LoanApplication[]>([]);
@@ -420,6 +442,7 @@ export function LoanPendingScreen() {
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busyKindId, setBusyKindId] = useState<number | null>(null);
+  const query = searchQuery(name, nationalId);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -495,16 +518,21 @@ export function LoanPendingScreen() {
       {error && <p className="mb-4 text-[14px] text-danger">{error}</p>}
       <div className="mb-6">
         <SearchBar
-          draft={draft}
-          onDraft={setDraft}
+          draftName={draftName}
+          draftNationalId={draftNationalId}
+          onDraftName={setDraftName}
+          onDraftNationalId={setDraftNationalId}
           onSearch={() => {
             setPage(1);
-            setQuery(draft.trim());
+            setName(draftName);
+            setNationalId(draftNationalId);
           }}
           onClear={() => {
-            setDraft("");
+            setDraftName("");
+            setDraftNationalId("");
             setPage(1);
-            setQuery("");
+            setName("");
+            setNationalId("");
           }}
         />
       </div>
@@ -703,8 +731,10 @@ export function LoanAccountsScreen() {
   const router = useRouter();
   const requestedId = useSearchParams().get("id");
   const [tab, setTab] = useState<"listing" | "detail">(requestedId ? "detail" : "listing");
-  const [draft, setDraft] = useState("");
-  const [query, setQuery] = useState("");
+  const [draftName, setDraftName] = useState("");
+  const [draftNationalId, setDraftNationalId] = useState("");
+  const [name, setName] = useState("");
+  const [nationalId, setNationalId] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [rows, setRows] = useState<LoanAccount[]>([]);
@@ -714,6 +744,7 @@ export function LoanAccountsScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(requestedId);
   const [detail, setDetail] = useState<LoanAccount | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const query = searchQuery(name, nationalId);
 
   const refresh = useCallback(async () => {
     if (tab === "detail") return;
@@ -796,16 +827,21 @@ export function LoanAccountsScreen() {
           <div className="mb-6">
             <SearchBar
               underTab
-              draft={draft}
-              onDraft={setDraft}
+              draftName={draftName}
+              draftNationalId={draftNationalId}
+              onDraftName={setDraftName}
+              onDraftNationalId={setDraftNationalId}
               onSearch={() => {
                 setPage(1);
-                setQuery(draft.trim());
+                setName(draftName);
+                setNationalId(draftNationalId);
               }}
               onClear={() => {
-                setDraft("");
+                setDraftName("");
+                setDraftNationalId("");
                 setPage(1);
-                setQuery("");
+                setName("");
+                setNationalId("");
               }}
             />
           </div>
@@ -964,8 +1000,10 @@ export function LoanHistoryScreen() {
   const router = useRouter();
   const requestedId = useSearchParams().get("id");
   const [tab, setTab] = useState<"listing" | "detail">(requestedId ? "detail" : "listing");
-  const [draft, setDraft] = useState("");
-  const [query, setQuery] = useState("");
+  const [draftName, setDraftName] = useState("");
+  const [draftNationalId, setDraftNationalId] = useState("");
+  const [name, setName] = useState("");
+  const [nationalId, setNationalId] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [rows, setRows] = useState<LoanHistory[]>([]);
@@ -975,6 +1013,7 @@ export function LoanHistoryScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(requestedId);
   const [detail, setDetail] = useState<LoanHistory | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const query = searchQuery(name, nationalId);
 
   const refresh = useCallback(async () => {
     if (tab === "detail") return;
@@ -1057,16 +1096,21 @@ export function LoanHistoryScreen() {
           <div className="mb-6">
             <SearchBar
               underTab
-              draft={draft}
-              onDraft={setDraft}
+              draftName={draftName}
+              draftNationalId={draftNationalId}
+              onDraftName={setDraftName}
+              onDraftNationalId={setDraftNationalId}
               onSearch={() => {
                 setPage(1);
-                setQuery(draft.trim());
+                setName(draftName);
+                setNationalId(draftNationalId);
               }}
               onClear={() => {
-                setDraft("");
+                setDraftName("");
+                setDraftNationalId("");
                 setPage(1);
-                setQuery("");
+                setName("");
+                setNationalId("");
               }}
             />
           </div>
