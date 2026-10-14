@@ -131,19 +131,16 @@ export function DirtyUndoButton({
   );
 }
 
+/** Same visual style as PrimaryButton — kept as a separate name for call-site clarity. */
 export function SecondaryButton({
   children,
   className = "",
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button
-      type="button"
-      {...props}
-      className={`inline-flex h-10 cursor-pointer select-none items-center justify-center gap-2 rounded-[6px] border-2 border-brand bg-white px-4 text-[14px] font-bold text-brand transition-colors hover:bg-pick active:bg-table disabled:pointer-events-none disabled:border-[#D0D0D0] disabled:text-[#B0B0B0] ${className}`}
-    >
+    <PrimaryButton className={className} {...props}>
       {children}
-    </button>
+    </PrimaryButton>
   );
 }
 
