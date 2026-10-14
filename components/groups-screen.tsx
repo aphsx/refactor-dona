@@ -225,8 +225,10 @@ export function MemberManageScreen() {
   const requested = requestedId;
   const [tab, setTab] = useState<"listing" | "detail" | "plots" | "plan">(requested ? "detail" : "listing");
   const [draftName, setDraftName] = useState("");
+  const [draftNationalId, setDraftNationalId] = useState("");
   const [draftGroup, setDraftGroup] = useState("");
   const [name, setName] = useState("");
+  const [nationalId, setNationalId] = useState("");
   const [groupId, setGroupId] = useState("");
   const [detailId, setDetailId] = useState<string | null>(requested);
   const [planPlotId, setPlanPlotId] = useState<string | null>(null);
@@ -237,17 +239,18 @@ export function MemberManageScreen() {
   const [detailPlots, setDetailPlots] = useState<Plot[]>([]);
   const detail = detailFarmer;
   const assignGroupId = draftGroup && draftGroup !== "none" ? draftGroup : (groups[0]?.id ?? "");
-  const listingSort = useTableSort(`${name}:${groupId}`);
+  const searchQ = [name, nationalId].filter((part) => part.trim()).join(" ");
+  const listingSort = useTableSort(`${name}:${nationalId}:${groupId}`);
   const page = useServerPage(
-    `${name}:${groupId}:${revision}`,
+    `${name}:${nationalId}:${groupId}:${revision}`,
     (pageNo, pageSize) =>
       api.listFarmersPage({
-        q: name,
+        q: searchQ,
         groupId: groupId || undefined,
         page: pageNo,
         pageSize,
       }),
-    name === "" && groupId === "" ? farmerPage : null,
+    name === "" && nationalId === "" && groupId === "" ? farmerPage : null,
   );
 
   useEffect(() => {
@@ -314,12 +317,23 @@ export function MemberManageScreen() {
             onSubmit={(event) => {
               event.preventDefault();
               setName(draftName);
+              setNationalId(draftNationalId);
               setGroupId(draftGroup);
             }}
           >
             <label className="block text-[14px] font-bold leading-[1.4]">
-              ชื่อหรือเลขบัตรประชาชน
+              ชื่อ
               <input value={draftName} onChange={(event) => setDraftName(event.target.value)} className={`${inputClass} mt-1`} />
+            </label>
+            <label className="block text-[14px] font-bold leading-[1.4]">
+              เลขบัตรประชาชน
+              <input
+                value={draftNationalId}
+                inputMode="numeric"
+                placeholder="13 หลัก"
+                onChange={(event) => setDraftNationalId(event.target.value)}
+                className={`${inputClass} mt-1`}
+              />
             </label>
             <label className="block text-[14px] font-bold leading-[1.4]">
               กลุ่ม
@@ -346,8 +360,10 @@ export function MemberManageScreen() {
                 type="button"
                 onClick={() => {
                   setDraftName("");
+                  setDraftNationalId("");
                   setDraftGroup("");
                   setName("");
+                  setNationalId("");
                   setGroupId("");
                 }}
               >
