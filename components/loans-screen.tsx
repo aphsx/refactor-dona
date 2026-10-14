@@ -419,7 +419,7 @@ export function LoanPendingScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [busyDoc, setBusyDoc] = useState(false);
+  const [busyKindId, setBusyKindId] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -461,7 +461,7 @@ export function LoanPendingScreen() {
   }
 
   async function removeDoc(appId: string, kindId: number) {
-    setBusyDoc(true);
+    setBusyKindId(kindId);
     setError("");
     try {
       const doc = await setLoanApplicationDocumentAttached(appId, kindId, false);
@@ -469,12 +469,12 @@ export function LoanPendingScreen() {
     } catch (err) {
       setError(apiMessage(err));
     } finally {
-      setBusyDoc(false);
+      setBusyKindId(null);
     }
   }
 
   async function attachDoc(appId: string, kindId: number, file: File) {
-    setBusyDoc(true);
+    setBusyKindId(kindId);
     setError("");
     try {
       const doc = await uploadLoanDocument(appId, kindId, file);
@@ -482,7 +482,7 @@ export function LoanPendingScreen() {
     } catch (err) {
       setError(apiMessage(err));
     } finally {
-      setBusyDoc(false);
+      setBusyKindId(null);
     }
   }
 
@@ -580,7 +580,7 @@ export function LoanPendingScreen() {
         </div>
         <DocumentPanel
           application={selected}
-          busy={busyDoc}
+          busyKindId={busyKindId}
           onUpload={attachDoc}
           onRemove={removeDoc}
         />
@@ -591,16 +591,17 @@ export function LoanPendingScreen() {
 
 function DocumentPanel({
   application,
-  busy,
+  busyKindId,
   onUpload,
   onRemove,
 }: {
   application: LoanApplication | null;
-  busy: boolean;
+  busyKindId: number | null;
   onUpload: (appId: string, kindId: number, file: File) => void;
   onRemove: (appId: string, kindId: number) => void;
 }) {
   const [pendingDelete, setPendingDelete] = useState<{ kindId: number; name: string } | null>(null);
+  const anyBusy = busyKindId != null;
 
   return (
     <aside className="w-full shrink-0 overflow-hidden rounded-[8px] border border-frame xl:w-[320px]">
@@ -616,6 +617,7 @@ function DocumentPanel({
             const required = isLoanDocumentRequired(doc);
             const fileUrl =
               doc.storagePath?.startsWith("http") ? doc.storagePath : null;
+            const rowBusy = busyKindId === doc.kindId;
             return (
             <li key={doc.kindId} className="flex items-start gap-3 px-5 py-4">
               <span className="mt-0.5 text-ink/50">
@@ -642,23 +644,23 @@ function DocumentPanel({
                       )}
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={anyBusy}
                         className="inline-flex cursor-pointer items-center gap-1 font-bold text-danger underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => setPendingDelete({ kindId: doc.kindId, name: doc.name })}
                       >
                         <Glyph icon={Trash2} />
-                        ลบไฟล์
+                        {rowBusy ? "กำลังลบ…" : "ลบไฟล์"}
                       </button>
                     </>
                   ) : (
                     <label className="inline-flex cursor-pointer items-center gap-1 font-bold text-link underline-offset-2 hover:underline has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
                       <Glyph icon={Upload} />
-                      {busy ? "กำลังอัป…" : "แนบไฟล์"}
+                      {rowBusy ? "กำลังอัป…" : "แนบไฟล์"}
                       <input
                         type="file"
                         accept="application/pdf,image/jpeg,image/png,image/webp"
                         className="sr-only"
-                        disabled={busy}
+                        disabled={anyBusy}
                         onChange={(event) => {
                           const file = event.target.files?.[0];
                           event.target.value = "";
