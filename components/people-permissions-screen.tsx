@@ -162,10 +162,10 @@ function PersonRow({
             onChange={(value) => setNext((value || "member") as PermissionRole)}
             options={ROLE_OPTIONS}
           />
-          <SecondaryButton className="h-9" onClick={move}>
+          <SecondaryButton compact onClick={move}>
             ย้ายสิทธิ์
           </SecondaryButton>
-          <SecondaryButton className="h-9" disabled={!grantedMill} onClick={revoke}>
+          <SecondaryButton compact disabled={!grantedMill} onClick={revoke}>
             ยกเลิกสิทธิ์
           </SecondaryButton>
         </div>

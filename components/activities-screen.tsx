@@ -129,7 +129,7 @@ export function PlantingActivityPanel({
             {TIMELINE_ACTIVITY_TYPES.map((item) => (
               <SecondaryButton
                 key={item.id}
-                className="h-9"
+                compact
                 onClick={() => setEditor({ mode: "create", type: item.id })}
               >
                 <Glyph icon={Plus} />
@@ -169,14 +169,14 @@ export function PlantingActivityPanel({
                 <td className="px-5 py-3 text-right">
                   <div className="flex justify-end gap-2">
                     <CanEdit resource="activities">
-                      <SecondaryButton className="h-9" onClick={() => setEditor({ mode: "edit", activity: row })}>
+                      <SecondaryButton compact onClick={() => setEditor({ mode: "edit", activity: row })}>
                         <Glyph icon={Pencil} />
                         แก้ไข
                       </SecondaryButton>
                     </CanEdit>
                     <CanDelete resource="activities">
                       <SecondaryButton
-                        className="h-9"
+                        compact
                         onClick={() =>
                           setNotice({
                             tone: "confirm",

@@ -202,16 +202,16 @@ export function VarietiesManageScreen() {
                               </PrimaryButton>
                             </>
                           ) : (
-                            <SecondaryButton type="button" className="h-9" onClick={() => startEdit(item)}>
+                            <PrimaryButton type="button" compact onClick={() => startEdit(item)}>
                               <Glyph icon={Pencil} />
                               แก้ไข
-                            </SecondaryButton>
+                            </PrimaryButton>
                           )}
                         </CanEdit>
                         <CanDelete resource="varieties">
-                          <SecondaryButton
+                          <PrimaryButton
                             type="button"
-                            className="h-9"
+                            compact
                             onClick={() =>
                               setNotice({
                                 tone: "confirm",
@@ -227,7 +227,7 @@ export function VarietiesManageScreen() {
                           >
                             <Glyph icon={Trash2} />
                             ลบ
-                          </SecondaryButton>
+                          </PrimaryButton>
                         </CanDelete>
                       </div>
                     </td>
@@ -451,16 +451,16 @@ export function NamePrefixesManageScreen() {
                               </PrimaryButton>
                             </>
                           ) : (
-                            <SecondaryButton type="button" className="h-9" onClick={() => startEdit(item)}>
+                            <PrimaryButton type="button" compact onClick={() => startEdit(item)}>
                               <Glyph icon={Pencil} />
                               แก้ไข
-                            </SecondaryButton>
+                            </PrimaryButton>
                           )}
                         </CanEdit>
                         <CanDelete resource="namePrefixes">
-                          <SecondaryButton
+                          <PrimaryButton
                             type="button"
-                            className="h-9"
+                            compact
                             onClick={() =>
                               setNotice({
                                 tone: "confirm",
@@ -476,7 +476,7 @@ export function NamePrefixesManageScreen() {
                           >
                             <Glyph icon={Trash2} />
                             ลบ
-                          </SecondaryButton>
+                          </PrimaryButton>
                         </CanDelete>
                       </div>
                     </td>

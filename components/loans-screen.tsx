@@ -220,7 +220,7 @@ function FarmerPeekDialog({ farmerId, onClose }: { farmerId: string; onClose: ()
             <div className="mt-4 flex flex-wrap gap-2">
               <PrimaryButton
                 type="button"
-                className="h-9"
+                compact
                 disabled={mapDisabled}
                 title={mapDisabled && plotsReady ? "ยังไม่มีแปลง" : undefined}
                 onClick={() => setMapOpen(true)}

@@ -135,10 +135,11 @@ export function DirtyUndoButton({
 export function SecondaryButton({
   children,
   className = "",
+  compact = false,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { compact?: boolean }) {
   return (
-    <PrimaryButton className={className} {...props}>
+    <PrimaryButton compact={compact} className={className} {...props}>
       {children}
     </PrimaryButton>
   );

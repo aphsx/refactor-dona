@@ -515,7 +515,7 @@ function GroupDirectory() {
       />
       <div className="flex flex-wrap gap-5 px-6 py-4">
         <CanAdd resource="groups">
-          <SecondaryButton className="h-9" onClick={() => setCreatingGroup(true)}>
+          <SecondaryButton compact onClick={() => setCreatingGroup(true)}>
             <Glyph icon={Plus} />
             เพิ่มกลุ่ม
           </SecondaryButton>
@@ -687,7 +687,7 @@ function GroupDetail({ group, onClose }: { group: SupplierGroup; onClose: () => 
       />
       <div className="flex flex-wrap gap-5 px-6 py-4">
         <CanEdit resource="farmers">
-          <SecondaryButton className="h-9" onClick={() => setMoving(true)}>
+          <SecondaryButton compact onClick={() => setMoving(true)}>
             <Glyph icon={UserPlus} />
             จัดเข้ากลุ่ม
           </SecondaryButton>
@@ -1007,7 +1007,7 @@ function MemberPlots({
       />
       <div className="flex flex-wrap gap-5 px-6 py-4">
         <CanAdd resource="plots">
-          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+          <SecondaryButton compact onClick={() => setAdding(true)}>
             <Glyph icon={Plus} />
             เพิ่มแปลง
           </SecondaryButton>
@@ -1147,14 +1147,14 @@ function PlotTable({
                     {showPlan &&
                       (round ? (
                         onOpenPlan && (
-                          <SecondaryButton className="h-9" onClick={() => onOpenPlan(plot.id)}>
+                          <SecondaryButton compact onClick={() => onOpenPlan(plot.id)}>
                             แผนการปลูก
                           </SecondaryButton>
                         )
                       ) : (
                         onAddRound && (
                           <CanAdd resource="plantings">
-                            <SecondaryButton className="h-9" onClick={() => onAddRound(plot.id)}>
+                            <SecondaryButton compact onClick={() => onAddRound(plot.id)}>
                               <Glyph icon={Plus} />
                               เพิ่มรอบ
                             </SecondaryButton>
@@ -1162,13 +1162,13 @@ function PlotTable({
                         )
                       ))}
                     <CanEdit resource="plots">
-                      <SecondaryButton className="h-9" onClick={() => onEdit(plot)}>
+                      <SecondaryButton compact onClick={() => onEdit(plot)}>
                         <Glyph icon={Pencil} />
                         แก้ไข
                       </SecondaryButton>
                     </CanEdit>
                     <CanDelete resource="plots">
-                      <SecondaryButton className="h-9" onClick={() => onRemove(plot)}>
+                      <SecondaryButton compact onClick={() => onRemove(plot)}>
                         <Glyph icon={Trash2} />
                         ลบแปลง
                       </SecondaryButton>
@@ -1397,7 +1397,7 @@ export function MemberPlan({
       />
       <div className="flex flex-wrap gap-5 px-6 py-4">
         <CanAdd resource="plantings">
-          <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+          <SecondaryButton compact onClick={() => setAdding(true)}>
             <Glyph icon={Plus} />
             เพิ่มแผน
           </SecondaryButton>
@@ -2333,12 +2333,12 @@ export function PlotMapDialog({
             </div>
             <div className="relative z-20 mt-4 flex shrink-0 flex-wrap gap-2">
               <CanEdit resource="plots">
-                <PrimaryButton type="button" className="h-9" onClick={beginEdit}>
+                <PrimaryButton type="button" compact onClick={beginEdit}>
                   <Glyph icon={Pencil} />
                   แก้ไขขอบเขต
                 </PrimaryButton>
               </CanEdit>
-              <SecondaryButton type="button" className="h-9" onClick={onClose}>
+              <SecondaryButton type="button" compact onClick={onClose}>
                 ปิด
               </SecondaryButton>
             </div>
@@ -2348,12 +2348,12 @@ export function PlotMapDialog({
             <p className="text-[14px] text-ink/60">ยังไม่มีรูปแปลง</p>
             <div className="relative z-20 mt-4 flex flex-wrap gap-2">
               <CanEdit resource="plots">
-                <PrimaryButton type="button" className="h-9" onClick={beginEdit}>
+                <PrimaryButton type="button" compact onClick={beginEdit}>
                   <Glyph icon={Pencil} />
                   วาดขอบเขต
                 </PrimaryButton>
               </CanEdit>
-              <SecondaryButton type="button" className="h-9" onClick={onClose}>
+              <SecondaryButton type="button" compact onClick={onClose}>
                 ปิด
               </SecondaryButton>
             </div>
@@ -2502,11 +2502,11 @@ export function DrawBoundary({
           {!closed && (
             <>
               <span className="text-[14px]">{openRing(draft).length} จุด</span>
-              <SecondaryButton className="h-9" onClick={() => onDraft(openRing(draft).slice(0, -1))} disabled={openRing(draft).length === 0}>
+              <SecondaryButton compact onClick={() => onDraft(openRing(draft).slice(0, -1))} disabled={openRing(draft).length === 0}>
                 ลบจุด
               </SecondaryButton>
               <SecondaryButton
-                className="h-9"
+                compact
                 disabled={openRing(draft).length < 3}
                 onClick={() => {
                   const shape = closeRing(openRing(draft));
@@ -2524,7 +2524,7 @@ export function DrawBoundary({
               </span>
               <PrimaryButton
                 type="button"
-                className="h-9"
+                compact
                 disabled={measuring || measured == null || capturing}
                 onClick={() => {
                   void (async () => {
@@ -2540,12 +2540,12 @@ export function DrawBoundary({
               >
                 ใช้พื้นที่นี้
               </PrimaryButton>
-              <SecondaryButton className="h-9" onClick={() => onDraft([])}>
+              <SecondaryButton compact onClick={() => onDraft([])}>
                 วาดใหม่
               </SecondaryButton>
             </>
           )}
-          <SecondaryButton className="h-9" onClick={onClose}>
+          <SecondaryButton compact onClick={onClose}>
             ยกเลิก
           </SecondaryButton>
         </div>

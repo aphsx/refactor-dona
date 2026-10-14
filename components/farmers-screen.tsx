@@ -107,7 +107,7 @@ export function FarmersScreen() {
         />
         <div className="flex flex-wrap gap-5 px-6 py-4">
           <CanAdd resource="farmers">
-            <SecondaryButton className="h-9" onClick={() => setAdding(true)}>
+            <SecondaryButton compact onClick={() => setAdding(true)}>
               <Glyph icon={Plus} />
               เพิ่มเกษตรกร
             </SecondaryButton>
