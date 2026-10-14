@@ -765,11 +765,11 @@ function MemberDetail({ farmer, onClose }: { farmer: Farmer; onClose: () => void
       <CanEdit resource="farmers">
         {editing ? (
           <>
+            <DirtyUndoButton onClick={undo} dirty={dirty} />
             <PrimaryButton type="submit">
               <Glyph icon={Save} />
               บันทึก
             </PrimaryButton>
-            <DirtyUndoButton onClick={undo} dirty={dirty} />
           </>
         ) : (
           <PrimaryButton type="button" onClick={() => setEditing(true)}>
