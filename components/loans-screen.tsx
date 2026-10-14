@@ -655,6 +655,7 @@ export function LoanPendingScreen() {
             <PrimaryButton
               type="button"
               disabled={!canDecide}
+              className="!bg-ok hover:!bg-ok/90 disabled:!bg-[#D0D0D0]"
               onClick={() => setPendingDecision("approve")}
             >
               อนุมัติ
@@ -662,6 +663,7 @@ export function LoanPendingScreen() {
             <PrimaryButton
               type="button"
               disabled={!canDecide}
+              className="!bg-danger hover:!bg-danger/90 disabled:!bg-[#D0D0D0]"
               onClick={() => setPendingDecision("reject")}
             >
               ปฏิเสธ
@@ -682,8 +684,8 @@ export function LoanPendingScreen() {
         <ConfirmAlert
           message={
             pendingDecision === "approve"
-              ? `ยืนยันอนุมัติคำขอของ ${selected.farmerName}?`
-              : `ยืนยันปฏิเสธคำขอของ ${selected.farmerName}?`
+              ? `ยืนยันอนุมัติคำขอสินเชื่อของ ${selected.farmerName} จำนวน ${formatBaht(selected.requestedAmount)} บาท หรือไม่?`
+              : `ยืนยันปฏิเสธคำขอสินเชื่อของ ${selected.farmerName} จำนวน ${formatBaht(selected.requestedAmount)} บาท หรือไม่?`
           }
           onCancel={() => {
             if (!decideBusy) setPendingDecision(null);
