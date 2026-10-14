@@ -36,7 +36,6 @@ export function PermissionsScreen() {
   return (
     <div className="h-full overflow-y-auto px-7 py-6">
       <PageHeader current="จัดการสิทธิ์" />
-      <p className="mb-4 text-[13px] text-ink/60">เฉพาะผู้ดูแลระบบ (admin) เท่านั้นที่ตั้งค่าได้ — กำหนดว่าแต่ละบทบาทเห็นแท็บ/ทำอะไรได้บ้าง</p>
       <div className="flex flex-col gap-6">
         {ROLES.map((role) => (
           <RolePermissionTable
