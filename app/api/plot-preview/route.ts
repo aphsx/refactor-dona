@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
   const previewUrl = `${supabase.url}/storage/v1/object/public/${BUCKET}/${path}`;
   const apiOrigin = getApiOrigin();
-  const save = await fetch(`${apiOrigin}/api/v1/plots/${encodeURIComponent(plotId)}/preview`, {
+  const save = await fetch(`${apiOrigin}/api/v1/platform/plots/${encodeURIComponent(plotId)}/preview`, {
     method: "PUT",
     headers: {
       Authorization: auth,

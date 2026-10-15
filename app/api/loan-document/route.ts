@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
   const storagePath = `${supabase.url}/storage/v1/object/public/${BUCKET}/${path}`;
   const apiOrigin = getApiOrigin();
   const save = await fetch(
-    `${apiOrigin}/api/v1/loans/applications/${encodeURIComponent(applicationId)}/documents/${kindId}`,
+    `${apiOrigin}/api/v1/platform/loans/applications/${encodeURIComponent(applicationId)}/documents/${kindId}`,
     {
       method: "POST",
       headers: {

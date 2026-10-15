@@ -18,9 +18,18 @@ type Page<T> = {
   hasMore: boolean;
 };
 
-const BASE = "/api/v1";
+const API_ROOT = "/api/v1";
+const SURFACE = "/platform";
 const TOKEN_KEY = "dona.token";
 const SESSION_KEY = "dona.session";
+
+/** Auth + public catalog stay at /api/v1; everything else is /api/v1/platform. */
+function resolvePath(path: string): string {
+  if (path.startsWith("/auth") || path === "/name-prefixes" || path.startsWith("/name-prefixes?")) {
+    return `${API_ROOT}${path}`;
+  }
+  return `${API_ROOT}${SURFACE}${path}`;
+}
 
 type Actor = {
   role: PermissionRole;
@@ -104,7 +113,7 @@ function requestHeaders(): HeadersInit {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, {
+  const response = await fetch(resolvePath(path), {
     ...init,
     headers: {
       ...requestHeaders(),
