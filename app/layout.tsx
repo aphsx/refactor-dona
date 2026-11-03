@@ -20,6 +20,13 @@ const thai = Noto_Sans_Thai({
 export const metadata: Metadata = {
   title: "dona",
   description: "ระบบจัดการองค์กร",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/dona-logo.png", type: "image/png", sizes: "500x500" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
