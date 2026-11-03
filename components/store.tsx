@@ -251,10 +251,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           try {
             const updated = await api.uploadPlotPreview(created.id, input.preview);
             patchPlots((plots) => plots.map((item) => (item.id === updated.id ? updated : item)));
-          } catch {
+          } catch (error) {
             // Plot is already saved; still refresh lists so the ring shows.
             setRevision((value) => value + 1);
-            return "บันทึกแปลงแล้ว แต่บันทึกรูปตัวอย่างไม่สำเร็จ";
+            return `บันทึกแปลงแล้ว แต่บันทึกรูปตัวอย่างไม่สำเร็จ — ${apiMessage(error)}`;
           }
         }
         // Refresh farmer/group plot tables (they listen to revision, not org.plots).
@@ -298,9 +298,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           try {
             const updated = await api.uploadPlotPreview(plotId, preview);
             patchPlots((plots) => plots.map((item) => (item.id === updated.id ? updated : item)));
-          } catch {
+          } catch (error) {
             setRevision((value) => value + 1);
-            return "บันทึกขอบเขตแล้ว แต่บันทึกรูปตัวอย่างไม่สำเร็จ";
+            return `บันทึกขอบเขตแล้ว แต่บันทึกรูปตัวอย่างไม่สำเร็จ — ${apiMessage(error)}`;
           }
         }
         setRevision((value) => value + 1);

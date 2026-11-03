@@ -294,10 +294,19 @@ export const api = {
   uploadPlotPreview: async (plotId: string, file: Blob) => {
     const token = getApiToken();
     if (!token) throw new ApiError("ต้องเข้าสู่ระบบก่อน", 401);
+    // Canvas toBlob() sometimes yields an empty MIME on Safari — force one before upload.
+    const mime =
+      file.type === "image/jpeg" || file.type === "image/png" || file.type === "image/webp"
+        ? file.type
+        : "image/webp";
+    const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : "webp";
+    const named =
+      file instanceof File && file.type === mime
+        ? file
+        : new File([file], `preview.${ext}`, { type: mime });
     const form = new FormData();
     form.append("plotId", plotId);
-    const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/png" ? "png" : "webp";
-    form.append("file", file, `preview.${ext}`);
+    form.append("file", named);
     let response: Response;
     try {
       response = await fetch("/api/plot-preview", {

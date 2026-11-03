@@ -353,9 +353,16 @@ export const FieldMap = forwardRef<
 
       ctx.drawImage(source, sx, sy, side, side, 0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
       // WebP can return null on some browsers — fall back to JPEG.
-      const blob = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/webp", 0.72));
-      if (blob) return blob;
-      return new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/jpeg", 0.85));
+      // Always re-wrap so MIME is set (Safari toBlob sometimes leaves type empty).
+      const webp = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/webp", 0.72));
+      if (webp && webp.size > 0) {
+        return new File([webp], "preview.webp", { type: "image/webp" });
+      }
+      const jpeg = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/jpeg", 0.85));
+      if (jpeg && jpeg.size > 0) {
+        return new File([jpeg], "preview.jpg", { type: "image/jpeg" });
+      }
+      return null;
     },
   }));
 
